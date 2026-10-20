@@ -2,7 +2,7 @@
 
 Status: accepted.
 Date: 2026-10-20.
-Revision: 2. Answers to the build questions are folded in (sections 3 to 7, 9 and 10).
+Revision: 3. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4).
 
 The command is `<cli> barred`.
 
@@ -44,7 +44,7 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 - One entry per line. LF, CRLF and a lone CR each end a line. A CR is never part of an entry.
 - A line that is blank, or whose first character that is not whitespace is `#`, is ignored. So an indented `#` line is a comment.
 - An entry ends at the line's first tab. The text after that tab, up to the next tab or the end of the line, is the **flag field**. If the flag field is exactly `word`, in any case, the entry matches only as a whole word (section 4). Anything else after the first tab is a note. A note is never matched and never printed.
-- An entry is trimmed of leading and trailing whitespace, then folded as in section 4. An entry that is empty after that cannot be used (section 7, case 3). This covers an entry made only of spaces, and an entry made only of characters that folding removes, such as a lone zero-width space.
+- An entry is prepared as section 4 says (folded, whitespace runs collapsed, trimmed). An entry that is empty after that cannot be used (section 7, case 3). This covers an entry made only of spaces, and an entry made only of characters that folding removes, such as a lone zero-width space.
 - Entries are numbered from 1 in file order, counting only lines that are entries. Output names an entry only by this number.
 - **The canary.** Entry 1 is a canary when, folded, it is `barred-strings-canary-` followed by at least 8 characters, each `a` to `z` or `0` to `9`, and nothing else. A canary is recognised but not required. It is entry 1 and is matched against input files like any other entry. A canary that carries the `word` flag cannot be used (section 7, case 3). A later entry that happens to start with the same prefix is an ordinary entry.
 
@@ -64,12 +64,12 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 ### 3.3 The control
 
 - `--control TEXT` names a control string. It may be given more than once. A file passes its control when it contains any one of them.
-- A control is folded as in section 4 and matched as a substring of the file's joined form, never with the `word` rule.
+- A control is prepared as section 4 says (folded, whitespace runs collapsed, trimmed) and matched as a substring of the file's joined form, never with the `word` rule. A control that is empty after that is not a control: if no usable control remains, the run cannot go ahead (section 7, case 2).
 - With no `--control`, the run cannot go ahead (section 7, case 2). Control strings the user always wants can live in a config that the user's own wrapper passes in.
 
 ## 4. Folding and matching
 
-**Folding** a text means, in order: Unicode NFKC normalisation, which folds ligatures such as "fi" into two letters and a no-break space into a space; full Unicode case folding, so that `ß` folds to `ss`; NFKC again; and removal of every format character (Unicode category Cf). That category includes the soft hyphen, the zero-width space, joiner and non-joiner, the word joiner, the byte-order mark and the direction marks. Entries, controls and file names are folded in the same way as text.
+**Folding** a text means, in order: Unicode NFKC normalisation, which folds ligatures such as "fi" into two letters and a no-break space into a space; full Unicode case folding, so that `ß` folds to `ss`; NFKC again; and removal of every format character (Unicode category Cf). That category includes the soft hyphen, the zero-width space, joiner and non-joiner, the word joiner, the byte-order mark and the direction marks. Entries, controls and file names are folded in the same way as text. Each is then **prepared**: every run of whitespace inside it becomes one space, and leading and trailing whitespace is removed. So an entry written with a double space matches text with a single space or a line break, as the CI scanner does.
 
 Each file's text is compared in two forms:
 1. **Joined:** the folded text, with every run of whitespace, line breaks included, turned into one space. Nothing is trimmed from its ends.
@@ -106,7 +106,7 @@ Exit status: `0` when every file is OK; `1` when at least one file FAILs and non
 
 The run exits `2` and says why, on one line, without printing any entry or the list's path, when:
 1. No input file is named.
-2. No control is given.
+2. No usable control is given (none, or each one empty after preparing).
 3. The list cannot be used: no list is named (no `--list` and no `BARRED_STRINGS_PATH`); the file is missing or unreadable; it is not valid UTF-8; it holds no entries once comments and blank lines are removed; an entry is empty after trimming and folding (the message gives its number); or entry 1 is a canary carrying the `word` flag. An empty list cannot prove anything clean.
 
 A single file is DEAD, while the other files are still checked, when:
@@ -257,6 +257,8 @@ A PDF whose text holds `// turnkey synergy` FAILs with `--strip-comments`: strip
 - `--list` given twice, `--min-chars -1`, `--min-chars x`, and an unknown option: each exits 2 before any file is read.
 - A list whose only entry line is three spaces, a tab and a note: exit 2. A list whose only entry is a zero-width space: exit 2.
 - L2 with the flag field `word` added to the canary's line: exit 2.
+- A list whose only entry is `turnkey  synergy`, with two spaces, matches `plain.txt` and `wrap.txt` once each. Exit 1.
+- `--control "Example  Corp"`, with two spaces, passes `clean.txt`. `--control "   "` as the only control exits 2.
 - A PDF with `pdftotext` absent from `PATH`: DEAD. Exit 2.
 - A PDF whose text has a form feed between pages: a match on the first line after the form feed reports the line number counted by line breaks alone.
 
@@ -286,4 +288,4 @@ L1 written with CRLF line endings, with a byte-order mark before its first line,
 
 ### 10.8 Nothing barred is ever printed
 
-Every run in 10.1 to 10.7 is captured. For each L1 and L2 entry, and for each fixture name that contains an entry, a search of the captured output finds nothing. The same search on the list files finds each entry, which shows the search works.
+Every run in 10.1 to 10.7 is captured. For each L1 and L2 entry, and for each fixture name that contains an entry, a search of the captured output finds nothing. The search uses section 4's matching rules, so an entry with the `word` flag is searched as a whole word: `prefix-notes.txt` in an OK line is not a hit for `fix`. The same search on the list files finds each entry, which shows the search works.
