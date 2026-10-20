@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+build/
+dist/
+*.egg-info/
+
+# Local agent tooling (per-machine, never shared)
+.claude/settings.local.json
+.claude/skills/
+.codex/
+
+# macOS
+.DS_Store
