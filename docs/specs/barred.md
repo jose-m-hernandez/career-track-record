@@ -1,8 +1,8 @@
-# Barred-wording check: behaviour spec (W1.1)
+# Barred-wording check: behaviour spec
 
 Status: accepted.
 Date: 2026-10-20.
-Revision: 3. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4).
+Revision: 4. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7).
 
 The command is `<cli> barred`.
 
@@ -34,7 +34,7 @@ Out:
 | `--list FILE` | The list file. Given at most once. |
 | `--control TEXT` | A control string. May be given more than once (section 3.3). |
 | `--strip-comments` | Strip comments and note values before matching (section 3.2). |
-| `--min-chars N` | The minimum length (section 5). `N` is a whole number, 0 or more. Default 500. |
+| `--min-chars N` | The minimum length (section 5). `N` is a whole number, 0 or more, with at most 18 significant digits (leading zeros don't count). Default 500. |
 
 Every other argument is an input file. When `--list` is absent, the list is the file named by the environment variable `BARRED_STRINGS_PATH`. An unset or empty variable counts as absent. With neither, the run cannot go ahead (section 7, case 3).
 
@@ -89,7 +89,15 @@ Matching rules:
 
 ## 6. Output and exit status
 
-**File labels.** Each input file is named in the output by its path exactly as given, unless its folded path matches any entry under the rules of section 4, `word` flag included. Such a file is labelled `file #<i>` instead, where `<i>` is its 1-based position among the input files. Its path is never printed. The same rule keeps the list file's path out of every message.
+**File labels.** Each input file is named in the output by its **printed path**, unless its path matches any entry. A path matches when its folded path, in either form of section 4 (joined or rejoined), matches an entry under section 4's rules, `word` flag included. It also matches when its printed path, folded, matches an entry. Such a file is labelled `file #<i>` instead, where `<i>` is its 1-based position among the input files. Its path is never printed. The same rule keeps the list file's path out of every message. A finding from the name alone is reported on the `(file name)` line, whichever form matched.
+
+**The printed path** is the path as given, with these characters escaped:
+- the backslash, as `\\`;
+- line feed, carriage return and tab, as `\n`, `\r` and `\t`;
+- every other control character (U+0000 to U+001F, U+007F, U+0080 to U+009F), as `\x` and two lowercase hex digits;
+- the line separator and paragraph separator (U+2028, U+2029) and every format character (Unicode category Cf, including the direction overrides), as `\u` and four lowercase hex digits. Format characters above U+FFFF take `\U` and eight lowercase hex digits. The next-line character U+0085 is a C1 control, so it takes the `\x85` form above.
+
+A path with none of these characters is printed exactly as given. Escaping exists so that no file name can forge or reorder an output line. It changes only what is printed: matching (section 4) always uses the path as given.
 
 One status line per input file, in argument order:
 - `OK    <label>: 0 of <n> entries (control found; <c> chars)`, where `<n>` is the number of entries and `<c>` the length (section 5);
@@ -117,7 +125,7 @@ A single file is DEAD, while the other files are still checked, when:
 
 The run also exits `2`, before any file is read, when:
 
-7. an option is unknown, lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`), or has a value out of range (`--min-chars` that is not a whole number of 0 or more).
+7. an option is unknown, lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`), or has a value out of range (`--min-chars` that is not a whole number of 0 or more, or that has more than 18 significant digits; leading zeros don't count). The digit cap keeps the parse inside what every supported Python converts without error.
 
 ## 8. Rules that hold in every run
 
@@ -137,12 +145,13 @@ The run also exits `2`, before any file is read, when:
    - Case folding is full Unicode case folding, so `ß` matches `ss`. Before, matching ignored only simple case.
    - Every format character is removed. Before, six named ones were.
    - Entries are trimmed, an indented `#` line is a comment, a CR at a line end is never part of an entry, a leading byte-order mark is dropped, and the canary and the `word` flag are read. Before, edge spaces and a trailing CR stayed in the entry (so it could not match), an indented `#` line was an entry, and a `word` note was only a note.
-   - A file name that matches an entry is a finding, and that name is never printed. Before, names were not checked and every path was printed.
+   - A file name that matches an entry is a finding, and that name is never printed. Before, names were not checked and every path was printed. Names are checked in both forms of section 4, so a name hyphenated across a line break is matched whole.
+   - A printed path has its backslashes, control characters, line and paragraph separators and format characters escaped (section 6). Before, every path was printed raw, so a line break in a file name could forge an output line.
    - The prior tool's line-break handling, rejoin rule and comment stripping are kept as they were, including the text-rule limit in section 3.2.
 
 ## 10. Acceptance tests (known answers)
 
-The fixtures are invented. They live under `tests/fixtures/barred/`, and the generator writes them. Every text file except `short.txt` and `nocontrol.txt` is wrapped in padding, the line `Example Corp shipped a reporting tool for teams.` repeated twelve times, before and after the test line, so it passes the length and control checks. The test line is therefore line 13. Every file ends each line with LF unless stated. Every run uses `--control "Example Corp"` and `--list` naming L1 unless stated.
+The fixtures are invented. They live under `tests/fixtures/barred/`, and the generator writes them, except the two that are not valid UTF-8: `badutf8.txt` and the list in section 10.5 that is not valid UTF-8. The tests write those two at run time, because the repository's history scan refuses a file that isn't UTF-8. Every text file except `short.txt` and `nocontrol.txt` is wrapped in padding, the line `Example Corp shipped a reporting tool for teams.` repeated twelve times, before and after the test line, so it passes the length and control checks. The test line is therefore line 13. Every file ends each line with LF unless stated. Every run uses `--control "Example Corp"` and `--list` naming L1 unless stated.
 
 **List L1:**
 
@@ -255,6 +264,7 @@ A PDF whose text holds `// turnkey synergy` FAILs with `--strip-comments`: strip
 - No file named: exit 2. No `--control`: exit 2. A list holding only comments and blank lines: exit 2. A missing list: exit 2. A list that is not valid UTF-8: exit 2.
 - No `--list`, with `BARRED_STRINGS_PATH` naming L1: the same results as `--list` naming L1. No `--list` and the variable unset, or set but empty: exit 2.
 - `--list` given twice, `--min-chars -1`, `--min-chars x`, and an unknown option: each exits 2 before any file is read.
+- `--min-chars 1000000000000000000` (19 digits) exits 2 before any file is read, with a one-line reason naming the 18-digit cap. `--min-chars 999999999999999999` (18 digits) is in range: `clean.txt` is DEAD, too short. Exit 2. `--min-chars 0000000000000000000500` (22 digits, 3 significant) is in range and means 500: `clean.txt` is OK. Exit 0.
 - A list whose only entry line is three spaces, a tab and a note: exit 2. A list whose only entry is a zero-width space: exit 2.
 - L2 with the flag field `word` added to the canary's line: exit 2.
 - A list whose only entry is `turnkey  synergy`, with two spaces, matches `plain.txt` and `wrap.txt` once each. Exit 1.
@@ -285,6 +295,10 @@ L1 written with CRLF line endings, with a byte-order mark before its first line,
 - `moonshot-plain.txt` holds `substr.txt`'s content. It prints `FAIL  file #1: 1 entries`, then `file #1:0: entry #4 (file name)`, then `file #1:13: entry #4 (1 x)`. Exit 1.
 - `moonshot-short.txt` holds `short.txt`'s content. It prints only `DEAD  file #1: ` and the reason. Exit 2.
 - `prefix-notes.txt`, run against L2, holding `clean.txt`'s content: OK, because `fix` carries the `word` flag.
+- A file named `moon-`, a line feed, then `shot.txt`, holding `clean.txt`'s content: the rejoined form of its name matches. It prints `FAIL  file #1: 1 entries`, then `file #1:0: entry #4 (file name)`. Exit 1.
+- A file named `clean`, a line feed, then `OK    forged.txt`, holding `clean.txt`'s content, prints one line: `OK    clean\nOK    forged.txt: 0 of 5 entries (control found; <c> chars)`, with a literal backslash and `n`. Exit 0.
+- A file named `a\b.txt` (one backslash), holding `clean.txt`'s content, prints `OK    a\\b.txt: 0 of 5 entries (control found; <c> chars)`. Exit 0.
+- A file named `notes`, a right-to-left override (U+202E), then `txt.md`, holding `clean.txt`'s content, prints `OK    notes\u202etxt.md: 0 of 5 entries (control found; <c> chars)`. Exit 0.
 
 ### 10.8 Nothing barred is ever printed
 
