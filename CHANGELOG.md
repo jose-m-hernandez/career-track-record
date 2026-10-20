@@ -14,6 +14,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The first two decision records: the CLAUDE.md bridge and this changelog's format.
 - A CI scan that fails a push or pull request if any entry from a private list appears in its history, author or committer names and emails, or branch name. It never prints the match.
 - Package metadata in setup.cfg, and a test that the package builds offline on Python 3.9.
+- CI installs setuptools from a hash-pinned requirement on both test legs, and the offline build test fails in CI instead of skipping when setuptools is missing.
 - A placeholder commercial-licence notice.
 - A decision record of the one read of career-ops's source and how its findings reached this project.
 - `track-record keywords`: a keyword scan of saved job postings, with three modes (`demand`, `coverage`, `report`), that shows which terms the postings ask for and your own copy never uses.

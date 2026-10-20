@@ -23,10 +23,26 @@ def read_version():
     raise AssertionError("no __version__ in src/career_track_record/__init__.py")
 
 
+def setuptools_gate(found, environ):
+    if found:
+        return "run"
+    if environ.get("GITHUB_ACTIONS") == "true":
+        return "fail"
+    return "skip"
+
+
 class PackagingCase(unittest.TestCase):
     def test_offline_wheel_has_right_name_and_version(self):
-        if importlib.util.find_spec("setuptools") is None:
+        gate = setuptools_gate(
+            importlib.util.find_spec("setuptools") is not None, os.environ
+        )
+        if gate == "skip":
             self.skipTest("setuptools is not installed")
+        if gate == "fail":
+            self.fail(
+                "setuptools is not installed in CI; "
+                "install ci/requirements-build.txt so the wheel test runs"
+            )
         version = read_version()
         with tempfile.TemporaryDirectory() as tmp:
             copy_dir = os.path.join(tmp, "tree")
@@ -57,6 +73,24 @@ class PackagingCase(unittest.TestCase):
             for module in ("keywords", "posting_file", "cli"):
                 self.assertIn("career_track_record/%s.py" % module, held, held)
             self.assertIn("track-record = career_track_record.cli:main", entry_points)
+
+
+class SetuptoolsGateCase(unittest.TestCase):
+    def test_runs_when_setuptools_is_found(self):
+        for environ in ({}, {"GITHUB_ACTIONS": "true"}, {"GITHUB_ACTIONS": "false"}):
+            self.assertEqual(setuptools_gate(True, environ), "run", environ)
+
+    def test_skips_outside_ci_without_setuptools(self):
+        for environ in (
+            {},
+            {"GITHUB_ACTIONS": "false"},
+            {"GITHUB_ACTIONS": "1"},
+            {"GITHUB_ACTIONS": "TRUE"},
+        ):
+            self.assertEqual(setuptools_gate(False, environ), "skip", environ)
+
+    def test_fails_in_ci_without_setuptools(self):
+        self.assertEqual(setuptools_gate(False, {"GITHUB_ACTIONS": "true"}), "fail")
 
 
 if __name__ == "__main__":
