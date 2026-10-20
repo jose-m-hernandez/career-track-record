@@ -79,7 +79,7 @@ When a file named `<posting>.txt.meta.json` sits beside `<posting>.txt`, the sid
 - `bytes` is an integer;
 - `sha256` is a string.
 
-The whole posting file, encoded as UTF-8, must have exactly `bytes` bytes and that SHA-256. Its text must contain a character that is not whitespace. The whole file is the body.
+The whole posting file must have exactly `bytes` bytes and that SHA-256, both computed over the file's bytes exactly as stored, with no line-ending translation, so `wc -c` and `shasum -a 256` on the file reproduce them. Its text must contain a character that is not whitespace. The whole file is the body.
 
 ### 4.4 Term table
 
