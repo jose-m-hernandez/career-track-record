@@ -5,4 +5,4 @@ Please report a security problem privately, through GitHub's
 open a public issue for it.
 
 Include what you found, how to reproduce it, and which version or commit you
-tested. You will get a reply on that private report.
+tested. I will do my best to reply on that private report.

@@ -15,3 +15,4 @@ open an issue to report a bug or suggest a change.
   file, named `YYYY-MM-DD-<slug>.md`.
 - Commit messages read `<area>: <what changed>`, in the imperative.
 - Nothing is committed straight to `main`; changes land through a pull request.
+- Every change is reviewed independently before it lands.
