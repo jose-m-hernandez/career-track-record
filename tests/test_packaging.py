@@ -50,7 +50,13 @@ class PackagingCase(unittest.TestCase):
             self.assertFalse([n for n in names if "UNKNOWN" in n], names)
             with zipfile.ZipFile(os.path.join(out_dir, wheels[0])) as wheel:
                 held = wheel.namelist()
+                entry_names = [n for n in held if n.endswith("entry_points.txt")]
+                self.assertEqual(len(entry_names), 1, held)
+                entry_points = wheel.read(entry_names[0]).decode("utf-8")
             self.assertIn("career_track_record/__init__.py", held, held)
+            for module in ("keywords", "posting_file", "cli"):
+                self.assertIn("career_track_record/%s.py" % module, held, held)
+            self.assertIn("track-record = career_track_record.cli:main", entry_points)
 
 
 if __name__ == "__main__":

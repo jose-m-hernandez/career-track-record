@@ -1,0 +1,9 @@
+source_url: https://example.com/jobs/example-a
+api_endpoint: https://example.com/api/jobs/example-a
+fetched_at: 2026-01-15T09:00:00Z
+http_status: 200
+sha256: 7d2961bb63a0934815529950556722eac09f95910c6c0cf6e0391a6948adac7d
+bytes: 114
+Senior Engineer, Example A
+You will build agents and evals in Python.
+Experience with a knowledge graph is a plus.

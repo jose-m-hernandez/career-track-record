@@ -1,0 +1,9 @@
+source_url: https://example.com/jobs/example-c
+api_endpoint: https://example.com/api/jobs/example-c
+fetched_at: 2026-01-15T09:00:00Z
+http_status: 200
+sha256: 28aeb6c63edb4732c5d8628d5bb3d4e1db2bef270f34c2721cd5c6c2bd29a457
+bytes: 98
+Lead Engineer, Example C
+Build evals for our agents.
+Field notes from customers guide the roadmap.
