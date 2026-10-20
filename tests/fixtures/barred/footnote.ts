@@ -1,0 +1,25 @@
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+x = { footnote: "moonshot" };
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.
+Example Corp shipped a reporting tool for teams.

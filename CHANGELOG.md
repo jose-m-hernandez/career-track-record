@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `track-record barred`: reports where a file's text or name uses wording from your own barred list, by entry number only, and refuses to call a file clean when it could not read it in full.
+- The barred-wording check's behaviour spec, `docs/specs/barred.md`.
+- The no-network test now excuses one module, by exact problem, to run `pdftotext`.
+
 ## [0.1.0] - 2026-10-20
 
 ### Added
