@@ -1,0 +1,8 @@
+source_url: https://example.com/jobs/edge-09
+api_endpoint: https://example.com/api/jobs/edge-09
+fetched_at: 2026-01-15T09:00:00Z
+http_status: 200
+sha256: 4ce41694d19069cfe04e84bfa27f559ea429d37d4a0bca811cba6d4e6ce87180
+bytes: 51
+Engineer 9, Example Edge
+We build agents. Go helps.

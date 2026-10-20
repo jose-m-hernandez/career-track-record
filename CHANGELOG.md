@@ -16,6 +16,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Package metadata in setup.cfg, and a test that the package builds offline on Python 3.9.
 - A placeholder commercial-licence notice.
 - A decision record of the one read of career-ops's source and how its findings reached this project.
+- `track-record keywords`: a keyword scan of saved job postings, with three modes (`demand`, `coverage`, `report`), that shows which terms the postings ask for and your own copy never uses.
+- A reader and writer for the saved-posting file format, which checks each posting against its recorded SHA-256 and refuses one that does not match.
+- The keyword scan's behaviour spec, `docs/specs/keyword-scan.md`.
+- A test that no tool module imports a network or mail capability.
 
 ### Changed
 

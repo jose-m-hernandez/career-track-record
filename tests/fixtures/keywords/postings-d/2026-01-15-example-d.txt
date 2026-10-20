@@ -1,0 +1,8 @@
+source_url: https://example.com/jobs/example-d
+api_endpoint: https://example.com/api/jobs/example-d
+fetched_at: 2026-01-15T09:00:00Z
+http_status: 200
+sha256: 337d7eb8f5f54df98cfadf8a79465afa956bbb852827c5a2b124cd68fa99d88f
+bytes: 42
+Data Engineer, Example D
+Python and evals.

@@ -1,0 +1,8 @@
+source_url: https://example.com/jobs/edge-01
+api_endpoint: https://example.com/api/jobs/edge-01
+fetched_at: 2026-01-15T09:00:00Z
+http_status: 200
+sha256: f53a9954a5e435e7214740bbc5a511eb9cf07cb7a02f6c0e57d83ab5e760fc39
+bytes: 55
+Engineer 1, Example Edge
+We build agents. Python helps.
