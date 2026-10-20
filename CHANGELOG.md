@@ -11,6 +11,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `track-record barred`: reports where a file's text or name uses wording from your own barred list, by entry number only, and refuses to call a file clean when it could not read it in full.
 - The barred-wording check's behaviour spec, `docs/specs/barred.md`.
 - The no-network test now excuses one module, by exact problem, to run `pdftotext`.
+- METHOD.md: the six rules these tools are built to.
+
+### Changed
+
+- AGENTS.md now says which tools ship, and that the repository serves anyone managing their own career, not only a job search.
 
 ## [0.1.0] - 2026-10-20
 
