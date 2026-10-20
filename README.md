@@ -3,6 +3,7 @@
 Early development. This repository is private and not yet published, and
 nothing here is ready to use yet.
 
+- The rules these tools are being built to: [METHOD.md](METHOD.md)
 - What changes, and when: [CHANGELOG.md](CHANGELOG.md)
 - How changes are made: [CONTRIBUTING.md](CONTRIBUTING.md)
 
