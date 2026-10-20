@@ -1,0 +1,6 @@
+# a second invented list, in the CI format
+barred-strings-canary-example0001
+grossweg
+   padded phrase   	note: trimmed
+fix	WORD
+café
