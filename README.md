@@ -1,10 +1,26 @@
 # career-track-record
 
-Tools for people managing their own career. Three ship today: the barred-wording check, which finds wording you've barred in files you're about to send; the keyword scan, which shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says; and the tone check, which flags hype, hedges and filler in that copy.
+Tools for people managing their own career. Three ship:
+
+- **The barred-wording check** finds wording you've barred in files you're about to send.
+- **The keyword scan** shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says.
+- **The tone check** flags hype, hedges and filler in that copy.
 
 These tools are safe to leave running. They import no network or mail library: a [test](tests/test_no_network.py) fails if any of them does, and the only outside program a tool starts is `pdftotext`. So they can't apply for a job, publish a post, or send a message for you. That holds for these tools only, not for what your AI agent does on its own or what you share with your AI provider.
 
-The rules these tools are being built to are in [METHOD.md](METHOD.md).
+The method behind them, and which parts are built so far, is in [METHOD.md](METHOD.md).
+
+## Install
+
+Python 3.9 or later, with no other dependencies. Reading a PDF also needs `pdftotext` (from Poppler) on your `PATH`.
+
+    git clone https://github.com/jose-m-hernandez/career-track-record.git
+    cd career-track-record
+    python3 -m pip install .
+
+This installs the `track-record` command. If your shell can't find it, run `python3 -m career_track_record` instead. To check it works:
+
+    track-record --help
 
 ## The tools
 
@@ -16,11 +32,24 @@ Every run names a control phrase, such as your own name, that must appear in eac
 
     track-record barred --list barred.txt --control "Your Name" resume.pdf letter.md
 
+From a clone, in the repository's own test fixtures (`tests/fixtures/barred/`), the check gives:
+
+    track-record barred --list list-l1.txt --control Example\ Corp clean.txt two.txt nocontrol.txt
+    OK    clean.txt: 0 of 5 entries (control found; 1209 chars)
+    FAIL  two.txt: 2 entries
+    two.txt:13: entry #1 (2 x)
+    two.txt:13: entry #2 (1 x)
+    DEAD  nocontrol.txt: control not found
+
+The run exits 2 because one file is DEAD: it has no control phrase, so the check cannot vouch for it.
+
 Exit 0 means every file is OK, 1 means a match, and 2 means the check couldn't vouch for a file, or couldn't run. Spec: [docs/specs/barred.md](docs/specs/barred.md).
 
 ### `track-record keywords`
 
-Keep a folder of job postings you've saved yourself and a table of the terms you care about. The scan shows which terms the postings ask for and your copy never uses. Each posting is a `.txt` file whose short header, or `.meta.json` sidecar, records its SHA-256. A posting that no longer matches is refused. [keyword-scan.md § 4](docs/specs/keyword-scan.md) shows both formats. The term table is a tab-separated file with the columns `family`, `pattern` and `note`. For `demand` and `report`, mark at least one family `must-find` in its note, so a run that can't see the postings stops instead of reporting zeros. Mark a term `chosen` when it's your own choice of word.
+Keep a folder of job postings you've saved yourself, and a table of the terms you care about. The scan shows which terms the postings ask for that your copy never uses. It has three modes: `demand` shows which terms the postings ask for, `coverage` shows which terms your copy uses, and `report` puts the two together and lists the gaps.
+
+Each posting is a `.txt` file whose short header, or `.meta.json` sidecar, records its SHA-256; a posting that no longer matches is refused. [keyword-scan.md § 4](docs/specs/keyword-scan.md) shows both formats. The term table is a tab-separated file with the columns `family`, `pattern` and `note`. In `demand` and `report`, mark at least one family `must-find` in its note, so a run that can't see the postings stops instead of reporting zeros. Mark a term `chosen` when it's your own choice of word.
 
     track-record keywords demand   --postings postings/ --terms terms.tsv
     track-record keywords coverage --terms terms.tsv resume.md
@@ -30,20 +59,20 @@ It reports gaps and never rewrites your copy or sets a keyword-score target. A `
 
 ### `track-record tone`
 
-Checks your copy against a rule file of phrasings to avoid, each set as an `error` or a `warn`. Every finding names the sentence and the rule's reason, and only `error` rules fail a run. Before any file is read, each rule is tested against its own examples, so a broken rule stops the run instead of passing everything. An exemption lets one `error` rule pass a piece of wording you quote exactly, and the same wording anywhere else still fails. The check never edits a file or suggests a replacement. Without `--rules`, the shipped default rules run; to make your own, start from them:
+Run the tone check over your copy to find hype, hedges and filler:
+
+    track-record tone resume.md letter.md
+
+It checks each file against a rule file of phrasings to avoid, each set as an `error` or a `warn`; without `--rules`, the shipped default rules run. Every finding names the sentence and the rule's reason, and only `error` rules fail a run. The check never edits a file or suggests a replacement.
+
+To make your own rules, start from the defaults:
 
     track-record tone --print-defaults > tone-rules.json
     track-record tone --rules tone-rules.json resume.md letter.md
 
+Before any file is read, each rule is tested against its own examples, so a broken rule stops the run instead of passing everything. An exemption lets one `error` rule pass a piece of wording you quote exactly, and the same wording anywhere else still fails.
+
 Add `--warn-only` to run only the `warn` rules, and `--stale-check` to report exemptions whose wording appears in none of the files you name; a stale exemption counts as an error. Exit 0 means no errors (warnings allowed), 1 means at least one error, and 2 means the check couldn't run. Spec: [docs/specs/tone-and-tells.md](docs/specs/tone-and-tells.md).
-
-## Install
-
-Python 3.9 or later, with no other dependencies. From a clone:
-
-    python3 -m pip install .
-
-Reading a PDF needs `pdftotext` (from Poppler) on your `PATH`.
 
 ## Coming
 
@@ -54,7 +83,7 @@ Building and reviewing a résumé from one source file, tracking applications an
 GNU Affero General Public License v3.0 or later; see [LICENSE](LICENSE).
 A commercial licence is also available from the copyright holder.
 
-## Development: running the tests and the barred-strings scan
+## Development
 
 Run the tests from the repository root:
 

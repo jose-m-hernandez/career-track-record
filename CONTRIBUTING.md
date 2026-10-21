@@ -4,7 +4,7 @@
 merged, a contributor licence agreement has to be in place, because the project
 is offered under the AGPL and under a commercial licence. Until then, please
 open an issue to report a bug or suggest a change, except for a security problem
-(see SECURITY.md).
+(see [SECURITY.md](SECURITY.md)).
 
 ## How changes are made here
 
