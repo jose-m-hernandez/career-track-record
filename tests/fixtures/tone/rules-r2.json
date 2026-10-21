@@ -1,0 +1,61 @@
+{
+  "rules": [
+    {
+      "id": "cpp",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "C++",
+      "case": "insensitive",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "I wrote C++ daily."
+      ],
+      "must_not": [
+        "I wrote C daily."
+      ]
+    },
+    {
+      "id": "etc-dot",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "etc.",
+      "case": "insensitive",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "Go, etc. Then more."
+      ],
+      "must_not": [
+        "The etc file."
+      ]
+    },
+    {
+      "id": "aa",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "a a",
+      "case": "insensitive",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "a a"
+      ],
+      "must_not": [
+        "a b"
+      ]
+    },
+    {
+      "id": "done-next",
+      "level": "warn",
+      "kind": "regex",
+      "text": "done\\. next",
+      "case": "insensitive",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "It was done. Next came more."
+      ],
+      "must_not": [
+        "done next"
+      ]
+    }
+  ],
+  "exemptions": []
+}

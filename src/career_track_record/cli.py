@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-from career_track_record import barred, keywords
+from career_track_record import barred, keywords, tone
 
 
 def _build_parser():
@@ -34,6 +34,9 @@ def _build_parser():
     # Listed for --help only: main() hands "barred" to its own parser (_parse_barred).
     top.add_parser("barred", help="report wording from your own barred list",
                    add_help=False)
+    # Listed for --help only: main() hands "tone" to its own parser (_parse_tone).
+    top.add_parser("tone", help="flag hype, hedges and filler in your copy",
+                   add_help=False)
     return parser
 
 
@@ -54,7 +57,7 @@ class _OptionError(Exception):
 
 _BARRED_VALUE_OPTIONS = ("--list", "--control", "--min-chars")
 _BARRED_OPTIONS = _BARRED_VALUE_OPTIONS + ("--strip-comments",)
-_OPTION_NAME = re.compile(r"-{1,2}[A-Za-z][A-Za-z0-9-]*\Z")
+_TONE_OPTIONS = ("--rules", "--warn-only", "--stale-check", "--print-defaults")
 
 
 def _parse_barred(args):
@@ -122,12 +125,87 @@ def _main_barred(args, environ):
     return result.exit_code
 
 
+def _parse_tone(args):
+    """Parse the options of ``tone``. Returns (options, reasons); reasons is a list of
+    one-line option problems, empty when the command line is usable."""
+    found = {"rules": None, "warn_only": False, "stale_check": False,
+             "print_defaults": False, "files": []}
+    reasons = []
+    rules_given = False
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            found["files"].extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            found["files"].append(arg)
+            continue
+        name, equals, value = arg.partition("=")
+        if name not in _TONE_OPTIONS:
+            reasons.append("unknown option %s" % _one_line_name(name))
+            continue
+        if name != "--rules":
+            if equals:
+                reasons.append("%s takes no value" % name)
+            elif name == "--warn-only":
+                found["warn_only"] = True
+            elif name == "--stale-check":
+                found["stale_check"] = True
+            else:
+                found["print_defaults"] = True
+            continue
+        if not equals:
+            if i >= len(args) or args[i].startswith("-"):
+                reasons.append("--rules needs a value")
+                continue
+            value = args[i]
+            i += 1
+        if rules_given:
+            reasons.append("--rules given twice")
+        else:
+            rules_given = True
+            found["rules"] = value
+    if found["print_defaults"] and args != ["--print-defaults"]:
+        reasons.append("--print-defaults allows no other argument")
+    return found, reasons
+
+
+def _one_line_name(name):
+    return name.replace("\r", "?").replace("\n", "?")
+
+
+def _main_tone(args):
+    opts, reasons = _parse_tone(args)
+    if reasons:
+        _write(sys.stderr, "".join("cannot run: %s\n" % reason for reason in reasons))
+        return 2
+    if opts["print_defaults"]:
+        try:
+            text = tone.default_rules_text()
+        except tone.ToneError as exc:
+            _write(sys.stderr, "cannot run: %s\n" % exc)
+            return 2
+        _write(sys.stdout, text)
+        return 0
+    result = tone.run(rules_path=opts["rules"], files=opts["files"],
+                      warn_only=opts["warn_only"], stale_check=opts["stale_check"])
+    if not result.ran:
+        _write(sys.stderr, result.error + "\n")
+        return result.exit_code
+    _write(sys.stdout, result.text)
+    return result.exit_code
+
+
 def main(argv=None, environ=None):
     if argv is None:
         argv = sys.argv[1:]
     argv = list(argv)
     if argv and argv[0] == "barred":
         return _main_barred(argv[1:], os.environ if environ is None else environ)
+    if argv and argv[0] == "tone":
+        return _main_tone(argv[1:])
     return _main_keywords(_build_parser().parse_args(argv))
 
 

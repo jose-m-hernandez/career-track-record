@@ -1,0 +1,82 @@
+{
+  "rules": [
+    {
+      "id": "turnkey",
+      "level": "error",
+      "kind": "phrase",
+      "text": "turnkey",
+      "case": "insensitive",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "A turnkey plan."
+      ],
+      "must_not": [
+        "A turn key plan."
+      ]
+    },
+    {
+      "id": "no-em-dash",
+      "level": "error",
+      "kind": "char",
+      "text": "—",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "a — b"
+      ],
+      "must_not": [
+        "a – b"
+      ]
+    },
+    {
+      "id": "assisted-with",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "assisted with",
+      "case": "insensitive",
+      "category": "hedge",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "I assisted with it."
+      ],
+      "must_not": [
+        "It was assisted by me."
+      ]
+    },
+    {
+      "id": "lower-we",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "we",
+      "case": "sensitive",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "then we left"
+      ],
+      "must_not": [
+        "We left."
+      ]
+    },
+    {
+      "id": "as-you-can-see",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "as you can see",
+      "case": "insensitive",
+      "category": "tell",
+      "rationale": "invented rationale",
+      "must_fire": [
+        "As you can see, yes."
+      ],
+      "must_not": [
+        "You can see it."
+      ]
+    }
+  ],
+  "exemptions": [
+    {
+      "rule": "turnkey",
+      "anchor": "Built the turnkey importer for Example Corp",
+      "reason": "invented reason"
+    }
+  ]
+}

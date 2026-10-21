@@ -12,6 +12,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The barred-wording check's behaviour spec, `docs/specs/barred.md`.
 - The no-network test now excuses one module, by exact problem, to run `pdftotext`.
 - `track-record barred` checks file names in both forms, so a name hyphenated across a line break still matches, and escapes control and format characters in the paths it prints, so no file name can forge an output line.
+- `track-record tone`: flags hype, hedges and filler in résumé and profile copy, names the sentence and the reason, and fails only on rules you set as errors.
+- A default rule set for it, each rule proven against its own examples before any file is checked.
+- The tone check's behaviour spec, `docs/specs/tone-and-tells.md`.
 
 ## [0.1.0] - 2026-10-20
 
