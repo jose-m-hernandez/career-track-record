@@ -1,12 +1,13 @@
 # AGENTS.md
 
-You are an AI agent helping someone with their job search, using this
+You are an AI agent helping someone manage their own career, using this
 repository. This file is your instructions. It applies to every task here.
 
 ## Status
 
-Early development. No tools ship yet. If the person asks you to do something
-this repository does not yet do, say so plainly instead of improvising it.
+Two tools ship: `track-record barred` and `track-record keywords` (see
+README.md). If the person asks you to do something these tools don't do yet,
+say so plainly instead of improvising it.
 
 ## Standing orders
 
