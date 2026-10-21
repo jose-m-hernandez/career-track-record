@@ -1,6 +1,6 @@
 # career-track-record
 
-Tools for people managing their own career. Two ship today: the barred-wording check, which finds wording you've barred in files you're about to send, and the keyword scan, which shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says.
+Tools for people managing their own career. Three ship today: the barred-wording check, which finds wording you've barred in files you're about to send; the keyword scan, which shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says; and the tone check, which flags hype, hedges and filler in that copy.
 
 These tools are safe to leave running. They import no network or mail library: a [test](tests/test_no_network.py) fails if any of them does, and the only outside program a tool starts is `pdftotext`. So they can't apply for a job, publish a post, or send a message for you. That holds for these tools only, not for what your AI agent does on its own or what you share with your AI provider.
 
@@ -27,6 +27,15 @@ Keep a folder of job postings you've saved yourself and a table of the terms you
     track-record keywords report   --postings postings/ --terms terms.tsv --copy resume.md
 
 It reports gaps and never rewrites your copy or sets a keyword-score target. A `chosen` term is labelled as yours in the report, and the scan never suggests dropping or replacing one your copy uses. Spec: [docs/specs/keyword-scan.md](docs/specs/keyword-scan.md).
+
+### `track-record tone`
+
+Checks your copy against a rule file of phrasings to avoid, each set as an `error` or a `warn`. Every finding names the sentence and the rule's reason, and only `error` rules fail a run. Before any file is read, each rule is tested against its own examples, so a broken rule stops the run instead of passing everything. An exemption lets one `error` rule pass a piece of wording you quote exactly, and the same wording anywhere else still fails. The check never edits a file or suggests a replacement. Without `--rules`, the shipped default rules run; to make your own, start from them:
+
+    track-record tone --print-defaults > tone-rules.json
+    track-record tone --rules tone-rules.json resume.md letter.md
+
+Add `--warn-only` to run only the `warn` rules, and `--stale-check` to report exemptions whose wording appears in none of the files you name; a stale exemption counts as an error. Exit 0 means no errors (warnings allowed), 1 means at least one error, and 2 means the check couldn't run. Spec: [docs/specs/tone-and-tells.md](docs/specs/tone-and-tells.md).
 
 ## Install
 

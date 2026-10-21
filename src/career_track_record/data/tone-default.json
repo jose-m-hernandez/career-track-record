@@ -1,0 +1,117 @@
+{
+  "rules": [
+    {
+      "id": "results-driven",
+      "level": "error",
+      "kind": "phrase",
+      "text": "results-driven",
+      "case": "insensitive",
+      "rationale": "A label the reader cannot check; show a result instead.",
+      "must_fire": [
+        "A results-driven engineer."
+      ],
+      "must_not": [
+        "The results drove the plan."
+      ]
+    },
+    {
+      "id": "team-player",
+      "level": "error",
+      "kind": "phrase",
+      "text": "team player",
+      "case": "insensitive",
+      "rationale": "A claim every applicant makes; name what you did with the team.",
+      "must_fire": [
+        "I am a team player."
+      ],
+      "must_not": [
+        "The team played a part."
+      ]
+    },
+    {
+      "id": "go-getter",
+      "level": "error",
+      "kind": "phrase",
+      "text": "go-getter",
+      "case": "insensitive",
+      "rationale": "Hype that reads as filler.",
+      "must_fire": [
+        "A real go-getter."
+      ],
+      "must_not": [
+        "We had to go get the data."
+      ]
+    },
+    {
+      "id": "outside-the-box",
+      "level": "error",
+      "kind": "phrase",
+      "text": "think outside the box",
+      "case": "insensitive",
+      "rationale": "A cliché in place of the idea itself.",
+      "must_fire": [
+        "I think outside the box."
+      ],
+      "must_not": [
+        "The box shipped outside the window."
+      ]
+    },
+    {
+      "id": "detail-oriented",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "detail-oriented",
+      "case": "insensitive",
+      "rationale": "Shows care better than it claims it.",
+      "must_fire": [
+        "Detail-oriented and fast."
+      ],
+      "must_not": [
+        "Each detail was oriented to the user."
+      ]
+    },
+    {
+      "id": "assisted-with",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "assisted with",
+      "case": "insensitive",
+      "rationale": "Names a supporting role without saying what you did.",
+      "must_fire": [
+        "I assisted with the launch."
+      ],
+      "must_not": [
+        "The launch was assisted by a script."
+      ]
+    },
+    {
+      "id": "various",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "various",
+      "case": "insensitive",
+      "rationale": "A vague quantity; name the things or the number.",
+      "must_fire": [
+        "Built various tools."
+      ],
+      "must_not": [
+        "The variance was small."
+      ]
+    },
+    {
+      "id": "etc",
+      "level": "warn",
+      "kind": "phrase",
+      "text": "etc",
+      "case": "insensitive",
+      "rationale": "A trailing list hides the item that mattered.",
+      "must_fire": [
+        "Python, Go, etc."
+      ],
+      "must_not": [
+        "The etching was fine."
+      ]
+    }
+  ],
+  "exemptions": []
+}

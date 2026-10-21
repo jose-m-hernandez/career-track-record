@@ -69,6 +69,13 @@ class PackagingCase(unittest.TestCase):
                 entry_names = [n for n in held if n.endswith("entry_points.txt")]
                 self.assertEqual(len(entry_names), 1, held)
                 entry_points = wheel.read(entry_names[0]).decode("utf-8")
+                data_name = "career_track_record/data/tone-default.json"
+                self.assertIn(data_name, held, held)
+                shipped = wheel.read(data_name)
+            source_path = os.path.join(REPO_ROOT, "src", "career_track_record", "data",
+                                       "tone-default.json")
+            with open(source_path, "rb") as handle:
+                self.assertEqual(shipped, handle.read())
             self.assertIn("career_track_record/__init__.py", held, held)
             for module in ("keywords", "posting_file", "cli", "barred", "pdf_text"):
                 self.assertIn("career_track_record/%s.py" % module, held, held)
