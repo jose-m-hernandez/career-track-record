@@ -266,12 +266,39 @@ def _is_the_list(path, list_path):
         return False
 
 
+_SIMPLE_ESCAPES = {"\\": "\\\\", "\n": "\\n", "\r": "\\r", "\t": "\\t"}
+
+
+def printed_path(path):
+    """The path as given, with the characters of spec section 6 escaped in one pass."""
+    out = []
+    for ch in path:
+        if ch in _SIMPLE_ESCAPES:
+            out.append(_SIMPLE_ESCAPES[ch])
+            continue
+        code = ord(ch)
+        category = unicodedata.category(ch)
+        if category == "Cc":
+            out.append("\\x%02x" % code)
+        elif category == "Cf" or code in (0x2028, 0x2029):
+            out.append("\\u%04x" % code if code <= 0xFFFF else "\\U%08x" % code)
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def _name_hits(name, entries):
+    forms = _forms(name)
+    return [e for e in entries if _match(e, forms)[0] > 0]
+
+
 def _check_file(position, path, entries, controls, strip, min_chars, list_path):
-    prepared_name = prepare(path)
-    name_form = (prepared_name, [1] * len(prepared_name))
-    name_hits = [e for e in entries if _match(e, (name_form,))[0] > 0]
+    shown = printed_path(path)
+    by_path = set(e.number for e in _name_hits(path, entries))
+    by_shown = set(e.number for e in _name_hits(shown, entries))
+    name_hits = [e for e in entries if e.number in by_path | by_shown]
     label = ("file #%d" % position
-             if name_hits or _is_the_list(path, list_path) else path)
+             if name_hits or _is_the_list(path, list_path) else shown)
     try:
         try:
             text = _read_text(path, strip)
