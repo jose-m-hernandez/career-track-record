@@ -5,6 +5,7 @@ No test reads a real list: every run removes BARRED_STRINGS_PATH and BARRED_STRI
 the environment it passes, and adds BARRED_STRINGS_PATH back only to name a fixture list.
 """
 
+import ast
 import io
 import os
 import re
@@ -1051,6 +1052,169 @@ class FixturesCase(unittest.TestCase):
         self.assertEqual(bad, [])
         self.assertGreaterEqual(checked, 80)
         self.assertFalse(os.path.exists(os.path.join(FX, "badutf8.txt")))
+
+
+
+CLEAN = read(os.path.join(FX, "clean.txt"))
+TWO = read(os.path.join(FX, "two.txt"))
+L1_PATH = os.path.join(FX, L1)
+DEAD_READ = "DEAD  file #1: cannot read\n"
+
+
+def temp_run(files, extra=(), list_text=None):
+    """Write each (name, bytes) into a temp directory and run the command there.
+
+    Names are passed relative, as given. With list_text, the list is list.txt in that
+    directory; otherwise it is L1 by absolute path."""
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, content in files:
+            write(os.path.join(tmp, name), content)
+        if list_text is None:
+            list_args = ["--list", L1_PATH]
+        else:
+            write(os.path.join(tmp, "list.txt"), list_text)
+            list_args = ["--list", "list.txt"]
+        return run_cli(list_args + ["--control", "Example Corp"] + list(extra)
+                       + [name for name, _content in files], cwd=tmp)
+
+
+def missing_run(name):
+    """Run against a file that does not exist, from the fixtures directory."""
+    assert not os.path.exists(os.path.join(FX, name))
+    return run_cli(["--list", L1, "--control", "Example Corp", name])
+
+
+L1_TEXT = read(L1_PATH).decode("utf-8")
+SIXTH_ENTRY_LIST = L1_TEXT + "e\\np\n"
+
+
+class NameFormsCase(RunCase):
+    def test_a_name_hyphenated_across_a_line_break_matches(self):
+        self.assertEqual(
+            temp_run([("moon-\nshot.txt", CLEAN)]),
+            (1, "FAIL  file #1: 1 entries\nfile #1:0: entry #4 (file name)\n", ""))
+
+    def test_a_missing_file_with_a_rejoined_matching_name_keeps_the_label_rule(self):
+        self.assertEqual(missing_run("moon-\nshot-absent.txt"), (2, DEAD_READ, ""))
+
+    def test_matching_uses_the_path_as_given(self):
+        self.assertEqual(missing_run("fix\tit-absent.txt"), (2, DEAD_READ, ""))
+
+    def test_a_printed_path_that_matches_an_entry_is_a_finding(self):
+        self.assertEqual(
+            temp_run([("re\nport.txt", CLEAN)], list_text=SIXTH_ENTRY_LIST),
+            (1, "FAIL  file #1: 1 entries\nfile #1:0: entry #6 (file name)\n", ""))
+
+    def test_the_same_entry_without_an_escape_is_ok(self):
+        self.assertEqual(
+            temp_run([("report.txt", CLEAN)], list_text=SIXTH_ENTRY_LIST),
+            (0, "OK    report.txt: 0 of 6 entries (control found; 1209 chars)\n", ""))
+
+
+class PrintedPathCase(RunCase):
+    def test_a_line_feed_cannot_forge_a_line(self):
+        code, out, err = temp_run([("clean\nOK    forged.txt", CLEAN)])
+        self.assertEqual(
+            (code, out, err),
+            (0, "OK    clean\\nOK    forged.txt: 0 of 5 entries (control found; 1209 chars)\n",
+             ""))
+        self.assertEqual(len(out.splitlines()), 1)
+
+    def test_a_backslash_is_doubled(self):
+        self.assertEqual(
+            temp_run([("a\\b.txt", CLEAN)]),
+            (0, "OK    a\\\\b.txt: 0 of 5 entries (control found; 1209 chars)\n", ""))
+
+    def test_a_direction_override_is_escaped(self):
+        self.assertEqual(
+            temp_run([("notes\u202etxt.md", CLEAN)]),
+            (0, "OK    notes\\u202etxt.md: 0 of 5 entries (control found; 1209 chars)\n", ""))
+
+    def test_fail_and_finding_lines_use_the_printed_path(self):
+        self.assertEqual(
+            temp_run([("two\n.txt", TWO)]),
+            (1, "FAIL  two\\n.txt: 2 entries\ntwo\\n.txt:13: entry #1 (2 x)\n"
+                "two\\n.txt:13: entry #2 (1 x)\n", ""))
+
+    def test_each_escape_on_a_dead_line(self):
+        rows = [
+            ("a\tb.txt", "a\\tb.txt"),
+            ("a\rb.txt", "a\\rb.txt"),
+            ("a\x01b.txt", "a\\x01b.txt"),
+            ("a\x1bb.txt", "a\\x1bb.txt"),
+            ("a\x7fb.txt", "a\\x7fb.txt"),
+            ("a\x85b.txt", "a\\x85b.txt"),
+            ("a\x9fb.txt", "a\\x9fb.txt"),
+            ("a\u2028b.txt", "a\\u2028b.txt"),
+            ("a\u2029b.txt", "a\\u2029b.txt"),
+            ("a\ufeffb.txt", "a\\ufeffb.txt"),
+            ("a\U000e0001b.txt", "a\\U000e0001b.txt"),
+            ("a\\\nb.txt", "a\\\\\\nb.txt"),
+        ]
+        for name, printed in rows:
+            with self.subTest(name=name):
+                self.assertEqual(missing_run(name),
+                                 (2, "DEAD  " + printed + ": cannot read\n", ""))
+
+    def test_a_nul_is_escaped(self):
+        result = barred.run(list_path=os.path.join(FX, L1), files=["a\x00b.txt"],
+                            controls=["Example Corp"])
+        self.assertEqual(result.exit_code, 2)
+        self.assertTrue(result.ran)
+        self.assertEqual(result.text, "DEAD  a\\x00b.txt: cannot read\n")
+
+    def test_other_characters_print_as_given(self):
+        for name in ["caf\u00e9\u00a0\U0001f600.txt", "a b-c.txt"]:
+            with self.subTest(name=name):
+                self.assertEqual(missing_run(name),
+                                 (2, "DEAD  " + name + ": cannot read\n", ""))
+
+
+class Revision4NothingBarredIsPrintedCase(RunCase):
+    def test_new_name_runs_print_no_entry_and_no_matching_name(self):
+        code1, out1, err1 = temp_run([
+            ("moon-\nshot.txt", CLEAN),
+            ("clean\nOK    forged.txt", CLEAN),
+            ("a\\b.txt", CLEAN),
+            ("notes\u202etxt.md", CLEAN),
+            ("two\n.txt", TWO),
+        ])
+        code2, out2, err2 = temp_run([("re\nport.txt", CLEAN)], list_text=SIXTH_ENTRY_LIST)
+        seen1 = (out1 + err1).lower()
+        seen2 = (out2 + err2).lower()
+        for entry in L1_ENTRIES:
+            self.assertFalse(contains_entry(seen1, entry, False), entry)
+            self.assertFalse(contains_entry(seen2, entry, False), entry)
+        self.assertFalse(contains_entry(seen2, "e\\np", False))
+        for name in ["moon-\nshot.txt", "moon-\\nshot.txt"]:
+            self.assertNotIn(name, out1 + err1)
+        for name in ["re\nport.txt", "re\\nport.txt"]:
+            self.assertNotIn(name, out2 + err2)
+        self.assertTrue(contains_entry("re\\nport.txt", "e\\np", False))
+
+
+class Revision4MinCharsCase(RunCase):
+    def test_the_revision_4_known_answers(self):
+        base = ["--list", "list-l1.txt", "--control", "Example Corp"]
+        self.assertEqual(
+            run_cli(base + ["--min-chars", "1000000000000000000", "clean.txt"]),
+            (2, "", "cannot run: --min-chars is too large (at most 18 digits)\n"))
+        self.assertEqual(
+            run_cli(base + ["--min-chars", "999999999999999999", "clean.txt"]),
+            (2, "DEAD  clean.txt: too short (1209 chars, minimum 999999999999999999)\n", ""))
+        self.assertEqual(
+            run_cli(base + ["--min-chars", "0000000000000000000500", "clean.txt"]),
+            (0, OK_CLEAN, ""))
+
+
+class LayoutCase(unittest.TestCase):
+    def test_the_main_guard_is_the_last_statement(self):
+        with open(os.path.abspath(__file__), encoding="utf-8") as handle:
+            tree = ast.parse(handle.read())
+        guard = ast.dump(ast.parse('__name__ == "__main__"', mode="eval").body)
+        guards = [i for i, node in enumerate(tree.body)
+                  if isinstance(node, ast.If) and ast.dump(node.test) == guard]
+        self.assertEqual(guards, [len(tree.body) - 1])
 
 
 if __name__ == "__main__":
