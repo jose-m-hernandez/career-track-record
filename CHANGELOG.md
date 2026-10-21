@@ -20,6 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - README now covers what ships today, how to install it, and what's coming.
+- README and AGENTS.md now list the tone check among the tools that ship.
 - AGENTS.md now says which tools ship, and that the repository serves anyone managing their own career, not only a job search.
 
 ## [0.1.0] - 2026-10-20
