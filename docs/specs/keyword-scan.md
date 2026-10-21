@@ -1,4 +1,4 @@
-# Keyword scan: behaviour spec (W1.2 parity release, W1.2b posting-line citation)
+# Keyword scan: behaviour spec
 
 Status: accepted.
 Date: 2026-10-20.
@@ -7,7 +7,7 @@ Date: 2026-10-20.
 
 ## 1. Purpose
 
-Show which terms a batch of job postings ask for that the user's own copy never uses, and, from W1.2b on, the posting line each one came from.
+Show which terms a batch of job postings ask for that the user's own copy never uses, and, from the citation release on, the posting line each one came from.
 
 ## 2. Scope
 
@@ -16,19 +16,19 @@ In:
 - reading a term table;
 - reading one or more copy files (plain text, Markdown, or TypeScript source holding résumé text);
 - three modes: `demand`, `coverage` and `report`;
-- the posting file format, which the posting fetch tool (W1.4) writes and this tool reads;
-- W1.2b: the posting-line citation, in text and machine-readable output.
+- the posting file format, which the posting fetch tool writes and this tool reads;
+- from the citation release: the posting-line citation, in text and machine-readable output.
 
 Out:
-- fetching postings (W1.4);
+- fetching postings (the posting fetch tool's job);
 - rewriting, suggesting or ranking copy;
 - any keyword density or score target;
 - network access of any kind.
 
 ## 3. Releases
 
-- **W1.2 (parity release).** Reproduces the behaviour in sections 4 to 9 exactly. The known answers in section 11 are its tests. It has no citation output.
-- **W1.2b (next release, after parity passes).** Adds the citation (section 10). The citation is additive: it never changes a line that W1.2 prints, or its order. The parity comparison ignores it.
+- **The parity release.** Reproduces the behaviour in sections 4 to 9 exactly. The known answers in section 11 are its tests. It has no citation output.
+- **The citation release (next, after parity passes).** Adds the citation (section 10). The citation is additive: it never changes a line that the parity release prints, or its order. The parity comparison ignores it.
 
 ## 4. Inputs
 
@@ -51,7 +51,7 @@ A headed posting file has:
 2. **An optional seventh line**, the control line. A seventh line is a control line when it starts with the letters `control` and contains a colon-space anywhere. `control: x`, `controller: x` and `control: ` with an empty value all qualify. A seventh line that starts with `control` but has no colon-space, such as `control:x`, is body text, and the body's hash then has to cover it. When a control line is present, one blank line may follow it, and that blank line also belongs to the header.
 3. **The body:** everything after the header.
 
-The file is read as UTF-8 text, with every line ending translated to a single line feed. The `sha256` value must equal the SHA-256 of the body, encoded as UTF-8, with lines joined by single line feeds and nothing added at the end. The body must contain at least one character that is not whitespace. So a file of exactly seven lines whose seventh is a control line has an empty body (section 8, case 3). The `bytes` value must be present and non-empty, but W1.2 does not compare it to the body (section 12, decision 3).
+The file is read as UTF-8 text, with every line ending translated to a single line feed. The `sha256` value must equal the SHA-256 of the body, encoded as UTF-8, with lines joined by single line feeds and nothing added at the end. The body must contain at least one character that is not whitespace. So a file of exactly seven lines whose seventh is a control line has an empty body (section 8, case 3). The `bytes` value must be present and non-empty, but the parity release does not compare it to the body (section 12, decision 3).
 
 Only the body is searched for terms. Header lines, including the control line and the blank line after it, never count toward hits, even when a value such as a `source_url` slug contains a term.
 
@@ -127,7 +127,7 @@ A copy file is read as UTF-8. One that is not valid UTF-8 stops the run (section
 
 ## 6. Modes and output
 
-Exit status for every mode: **0** means the run worked, whether or not it found gaps; **2** means it cannot run (section 8). In W1.2 no mode exits 1 (section 12, decision 1).
+Exit status for every mode: **0** means the run worked, whether or not it found gaps; **2** means it cannot run (section 8). In the parity release no mode exits 1 (section 12, decision 1).
 
 ### 6.1 `demand`
 
@@ -182,7 +182,7 @@ Tables are Markdown pipe tables: a header row, a separator row of `---` cells, t
 
 A `chosen` family is reported like any other family, with its label. The scan never marks a chosen term the user's copy uses as unused, unneeded or replaceable, even when no posting uses it. Test 11.9 pins this.
 
-## 7. Machine-readable output (W1.2b)
+## 7. Machine-readable output (citation release)
 
 `--json` replaces the text output with a single JSON object containing:
 - `mode`;
@@ -201,11 +201,11 @@ It exits 2 with one line on standard error. It never prints an empty or all-zero
 4. In `demand` and `report`: every `must-find` family has zero demand across the postings read, which shows the run is not seeing the postings. The same applies when no family is marked `must-find`. `coverage` never checks this.
 5. The term table is missing or has no rows.
 6. A copy file named on the command line does not exist.
-7. W1.2b: the stored posting a citation is about to quote no longer matches its recorded hash (section 9).
+7. From the citation release: the stored posting a citation is about to quote no longer matches its recorded hash (section 9).
 8. A posting, copy file or term table is not valid UTF-8.
 9. A term pattern is not a valid regular expression.
 
-## 9. Verbatim guarantee (W1.2b)
+## 9. Verbatim guarantee (citation release)
 
 Every cited line is the posting's own text. The guarantee works in three steps:
 - **Check first.** Before printing citations, the tool re-reads each cited posting from disk and re-checks its hash (4.2 or 4.3). A posting that fails is case 7: it exits 2 and cites nothing.
@@ -214,7 +214,7 @@ Every cited line is the posting's own text. The guarantee works in three steps:
 
 This is the same promise the README makes for every quote the tools show: it can be checked word for word against the saved copy it came from, for as long as the user keeps that copy. Stored postings are covered.
 
-## 10. The posting-line citation (W1.2b)
+## 10. The posting-line citation (citation release)
 
 For each gap family, `report` cites the postings behind its demand.
 
@@ -373,7 +373,7 @@ Run `report --copy copy3.txt` on example-a and example-b only:
 - the summary line names only python, evals and knowledge-graph;
 - no output anywhere suggests removing, replacing or reconsidering field-notes.
 
-### 11.10 Citation (W1.2b)
+### 11.10 Citation (citation release)
 
 `report --copy copy.txt` on P1 prints, after the summary line:
 - under `Posting lines:` for python: `2026-01-15-example-a.txt:8: You will build agents and evals in Python.` and `2026-01-15-example-b.txt:9: Python is required.`;
@@ -383,15 +383,15 @@ Run `report --copy copy3.txt` on example-a and example-b only:
 
 In every case the count of cited postings equals the family's demand count. A test re-reads each cited file and asserts that the cited text is exactly that line. With the same output in `--json`, the parsed `cites` arrays hold the same posting, line, text and hash.
 
-### 11.11 Citation against a changed posting (W1.2b)
+### 11.11 Citation against a changed posting (citation release)
 
 Edit example-a on disk after its header is written, without fixing the hash, then run 11.10. It exits 2 (case 7), prints nothing on standard output, and quotes no line.
 
 ## 12. Decisions
 
-1. **Exit status.** W1.2 exits 0 when it finds gaps, matching today's behaviour, and 2 when it cannot run (section 8). From W1.2b, a run that finds gaps exits 1. That change ships as its own dated decision, after the parity release, so no parity comparison spans it.
+1. **Exit status.** The parity release exits 0 when it finds gaps, matching today's behaviour, and 2 when it cannot run (section 8). From the citation release, a run that finds gaps exits 1. That change ships as its own dated decision, after the parity release, so no parity comparison spans it.
 2. **Note values.** The tool has one vocabulary, `chosen` and `must-find`, with no aliases. A term file that uses other labels is translated before it reaches the tool.
-3. **`bytes` in a headed posting.** The posting writer (W1.4) always writes it correctly. W1.2 requires it and does not check it. From W1.2b it is checked, and a mismatch is section 8 case 3.
+3. **`bytes` in a headed posting.** The posting writer always writes it correctly. The parity release requires it and does not check it. From the citation release it is checked, and a mismatch is section 8 case 3.
 4. **`--max-cites`.** The default is 3 cited postings per gap family, followed by `(and M more)` when there are more. `--max-cites 0` cites every posting.
 5. **The `demand` report.** It is written to stdout, and to the file named by `--out` when given. There is no default write location.
 6. **Copy files that share a base name** in `coverage` and `report` are labelled by the shortest path suffix that tells them apart, and only when names collide. With no collision, output is byte-identical to the base-name form.

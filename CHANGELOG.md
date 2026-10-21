@@ -8,20 +8,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `track-record barred`: reports where a file's text or name uses wording from your own barred list, by entry number only, and refuses to call a file clean when it could not read it in full.
+- `track-record barred`: reports where a file's text or name uses wording from your own barred list, by entry number only, and refuses to call a file clean when it could not read it in full. A file name hyphenated across a line break still matches, and the paths it prints are escaped, so no file name can forge an output line.
 - The barred-wording check's behaviour spec, `docs/specs/barred.md`.
-- The no-network test now excuses one module, by exact problem, to run `pdftotext`.
-- `track-record barred` checks file names in both forms, so a name hyphenated across a line break still matches, and escapes control and format characters in the paths it prints, so no file name can forge an output line.
+- The no-network test now lets one module start one program: `pdf_text.py` may run `pdftotext`, and nothing else.
 - `track-record tone`: flags hype, hedges and filler in résumé and profile copy, names the sentence and the reason, and fails only on rules you set as errors.
-- A default rule set for it, each rule proven against its own examples before any file is checked.
+- A default rule set for the tone check, each rule proven against its own examples before any file is checked.
 - The tone check's behaviour spec, `docs/specs/tone-and-tells.md`.
 - METHOD.md: the six rules these tools are being built to.
 
 ### Changed
 
-- README now covers what ships today, how to install it, and what's coming.
-- README and AGENTS.md now list the tone check among the tools that ship.
-- AGENTS.md now says which tools ship, and that the repository serves anyone managing their own career, not only a job search.
+- README and AGENTS.md now name the three tools that ship. The README also covers how to install them and what's coming. AGENTS.md says the repository serves anyone managing their own career, not only a job search.
+- The keyword scan's spec now names its releases in words: the parity release, which ships, and the citation release, which comes next.
 
 ## [0.1.0] - 2026-10-20
 
