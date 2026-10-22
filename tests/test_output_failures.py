@@ -90,6 +90,8 @@ RUNS = [
 ]
 CANNOT = [("KW_CANNOT", KW_CANNOT, KW), ("B_CANNOT", B_CANNOT, BX),
           ("T_CANNOT", T_CANNOT, T_CWD)]
+HELP = [["--help"], ["-h"], ["keywords", "--help"], ["keywords", "demand", "--help"],
+        ["keywords", "coverage", "--help"], ["keywords", "report", "--help"]]
 
 
 class _FullBuffer(object):
@@ -194,6 +196,42 @@ class OutputFailureCase(unittest.TestCase):
                 with unittest.mock.patch.object(sys, "stdout", _Full()), \
                         unittest.mock.patch.object(sys, "stderr", stderr):
                     code = cli.main(_joined(args, cwd), environ={})
+                    stderr.flush()
+                    written = stderr.buffer.getvalue()
+                self.assertEqual(code, 2)
+                self.assertEqual(written, NO_OUTPUT.encode("utf-8"))
+
+    def test_help_still_prints_to_stdout(self):
+        for args in HELP:
+            with self.subTest(args=args):
+                code, out, err = normal(args, KW)
+                self.assertEqual(code, 0)
+                self.assertTrue(out.startswith("usage: track-record"), out[:80])
+                self.assertEqual(err, "")
+
+    def test_help_with_closed_stdout_exits_2_with_one_line(self):
+        for args in HELP:
+            with self.subTest(args=args):
+                self.assertEqual(closed(args, KW, 1), (2, "", NO_OUTPUT))
+
+    def test_help_with_broken_pipe_exits_2_with_one_line(self):
+        for args in HELP:
+            with self.subTest(args=args):
+                self.assertEqual(broken(args, KW), (2, NO_OUTPUT))
+
+    def test_help_with_closed_stderr_keeps_0(self):
+        for args in HELP:
+            with self.subTest(args=args):
+                code, out, _ = normal(args, KW)
+                self.assertEqual(closed(args, KW, 2), (0, out, ""))
+
+    def test_help_on_a_full_disk_exits_2_with_one_line(self):
+        for args in HELP:
+            with self.subTest(args=args):
+                stderr = io.TextIOWrapper(io.BytesIO(), encoding="utf-8")
+                with unittest.mock.patch.object(sys, "stdout", _Full()), \
+                        unittest.mock.patch.object(sys, "stderr", stderr):
+                    code = cli.main(list(args), environ={})
                     stderr.flush()
                     written = stderr.buffer.getvalue()
                 self.assertEqual(code, 2)

@@ -8,8 +8,18 @@ import sys
 from career_track_record import barred, keywords, tone
 
 
+class _Parser(argparse.ArgumentParser):
+    """Help goes out through _out, so help that cannot be written exits 2 like any output."""
+
+    def print_help(self, file=None):
+        if file is None:
+            _out(self.format_help())
+        else:
+            argparse.ArgumentParser.print_help(self, file)
+
+
 def _build_parser():
-    parser = argparse.ArgumentParser(prog="track-record")
+    parser = _Parser(prog="track-record")
     top = parser.add_subparsers(dest="command", metavar="command")
     top.required = True
     kw = top.add_parser("keywords", help="scan saved job postings for terms")
