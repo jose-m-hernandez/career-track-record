@@ -1,4 +1,3 @@
-# Change the origin, then copy again; do not edit this copy.
 """Barred-strings scan.
 
 Reads a private list of strings (one per line) and fails if any of them
@@ -71,6 +70,10 @@ MSG_SELF_TEST = (
 MSG_CANARY_FLAG = (
     "barred-strings scan: entry 1 (the canary) cannot carry the word flag; "
     "failing closed"
+)
+MSG_LIST_MALFORMED_CI = (
+    "barred-strings scan: the list is malformed; run the scan locally to see "
+    "which entry; failing closed"
 )
 MSG_SHALLOW = (
     "barred-strings scan: repository is shallow; fetch full history "
@@ -454,7 +457,12 @@ def _run(argv, environ):
     top = _toplevel(repo)
     if ci_mode:
         _check_fork(environ)
-    pairs = _get_list(environ, ci_mode, top)
+    try:
+        pairs = _get_list(environ, ci_mode, top)
+    except ListError as err:
+        if ci_mode and str(err) != MSG_NO_LIST:
+            raise ListError(MSG_LIST_MALFORMED_CI)
+        raise
     entries = [entry for entry, _ in pairs]
     word_flags = [word for _, word in pairs]
     folded = [fold(entry) for entry in entries]
@@ -464,8 +472,9 @@ def _run(argv, environ):
     hits, n_blobs, n_paths, n_commits = scan_repo(
         repo, folded, branch, word_flags
     )
-    for kind, where, ordinal in hits:
-        print("entry %d matched in %s" % (ordinal, where))
+    if not ci_mode:
+        for kind, where, ordinal in hits:
+            print("entry %d matched in %s" % (ordinal, where))
     if hits:
         print("barred-strings scan: %d hit(s); failing" % len(hits))
         return 1

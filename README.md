@@ -93,4 +93,4 @@ The barred-strings scan, `ci/barred_strings.py` (a maintainer check on this repo
 
     BARRED_STRINGS_PATH=/path/to/list python3 ci/barred_strings.py
 
-The first entry in the list must be a canary: `barred-strings-canary-` followed by at least 8 letters or digits. The scan prints entry numbers only, never the matched text. Exit 0 means clean, 1 a hit, 2 the scan could not run.
+The first entry in the list must be a canary: `barred-strings-canary-` followed by at least 8 letters or digits. Run locally, the scan prints each hit's entry number and where it was found; in CI it prints only the number of hits. It never prints the matched text. Exit 0 means clean, 1 a hit, 2 the scan could not run.

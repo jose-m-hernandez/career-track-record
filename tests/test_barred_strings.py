@@ -1,4 +1,3 @@
-# Change the origin, then copy again; do not edit this copy.
 """Unit tests for ci/barred_strings.py. All strings here are invented."""
 
 import ast
@@ -33,6 +32,10 @@ MSG_SELF_TEST = (
 MSG_CANARY_FLAG = (
     "barred-strings scan: entry 1 (the canary) cannot carry the word flag; "
     "failing closed"
+)
+MSG_LIST_MALFORMED_CI = (
+    "barred-strings scan: the list is malformed; run the scan locally to see "
+    "which entry; failing closed"
 )
 MSG_FORK = (
     "barred-strings scan: pull request from a fork: secrets are not available "
@@ -453,7 +456,7 @@ class Case(unittest.TestCase):
     def test_ci_branch_from_head_ref(self):
         repo, _ = self.make_repo()
         same = self.write_event({"full_name": "example-org/example-repo"})
-        hit = ["entry 3 matched in branch", "barred-strings scan: 1 hit(s); failing"]
+        hit = ["barred-strings scan: 1 hit(s); failing"]
         clean = ["barred-strings scan: clean (3 entries; 1 blobs; 1 paths; "
                  "1 commits; branch checked)"]
 
@@ -478,6 +481,90 @@ class Case(unittest.TestCase):
                               GITHUB_REF_NAME="ember-gull-0042")
         status, out, _ = self.run_main(repo, env)
         self.assertEqual((status, self.lines(out)), (1, hit))
+
+    def assert_ci_output_has_count_only(self, repo, status, out, err, paths=()):
+        self.assertEqual(status, 1)
+        self.assertEqual(self.lines(out), ["barred-strings scan: 1 hit(s); failing"])
+        self.assertEqual(err, "")
+        shas = self.git(repo, "rev-list", "--all").split()
+        shas += self.git(repo, "ls-tree", "-r", "HEAD").replace("\t", " ").split()
+        short = [word[:7] for word in shas if len(word) >= 40]
+        for fragment in ["entry ", "matched in"] + list(paths) + short:
+            self.assertNotIn(fragment, out + err)
+
+    def ci_push(self, ref="main", **extra):
+        return self.ci_environ("push", GITHUB_REF_NAME=ref, **extra)
+
+    def test_ci_hit_output_has_count_only_for_file_name(self):
+        repo, _ = self.make_repo({"zebra quartz notes.txt": "plain text\n"})
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assert_ci_output_has_count_only(
+            repo, status, out, err, paths=["zebra quartz notes.txt", "notes.txt"])
+
+    def test_ci_hit_output_has_count_only_for_blob_text(self):
+        repo, _ = self.make_repo({"docs/page.txt": "see zebra quartz here\n"})
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assert_ci_output_has_count_only(
+            repo, status, out, err, paths=["docs/page.txt", "page.txt"])
+
+    def test_ci_hit_output_has_count_only_for_commit(self):
+        repo, _ = self.make_repo(message="notes: zebra quartz\n")
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assert_ci_output_has_count_only(repo, status, out, err)
+        repo, _ = self.make_repo(author="zebra quartz bench")
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assert_ci_output_has_count_only(repo, status, out, err)
+
+    def test_ci_hit_output_has_count_only_for_branch(self):
+        repo, _ = self.make_repo()
+        status, out, err = self.run_main(repo, self.ci_push("ember-gull-0042"))
+        self.assert_ci_output_has_count_only(
+            repo, status, out, err, paths=["ember-gull-0042"])
+
+    def multi_hit_repo(self):
+        return self.make_repo({"a.txt": "zebra\nquartz\n"},
+                              message="zebra  quartz", branch="ember-gull-0042")
+
+    def test_ci_hit_output_has_count_only_for_several_hits(self):
+        repo, _ = self.multi_hit_repo()
+        status, out, err = self.run_main(repo, self.ci_push("ember-gull-0042"))
+        self.assertEqual(status, 1)
+        self.assertEqual(self.lines(out), ["barred-strings scan: 3 hit(s); failing"])
+        self.assertEqual(err, "")
+
+    def test_local_hit_output_keeps_entries(self):
+        repo, _ = self.multi_hit_repo()
+        status, out, err = self.run_local(repo)
+        self.assertEqual(status, 1)
+        out_lines = self.lines(out)
+        self.assertEqual(len(out_lines), 4)
+        for line in out_lines[:3]:
+            self.assertTrue(line.startswith("entry "), line)
+        self.assertEqual(out_lines[3], "barred-strings scan: 3 hit(s); failing")
+        self.assertEqual(err, "")
+
+    def assert_ci_list_error_names_no_entry(self, list_text):
+        repo, _ = self.make_repo()
+        status, out, err = self.run_main(
+            repo, self.ci_push(BARRED_STRINGS=list_text))
+        self.assertEqual(status, 2)
+        self.assertEqual(self.lines(err), [MSG_LIST_MALFORMED_CI])
+        self.assertEqual(out, "")
+        self.assertNotRegex(out + err, r"entry \d")
+
+    def test_ci_empty_entry_names_no_entry(self):
+        self.assert_ci_list_error_names_no_entry(CANARY + "\n\u200b\u00ad\n")
+
+    def test_ci_not_canary_names_no_entry(self):
+        self.assert_ci_list_error_names_no_entry(ENTRY_A + "\n" + CANARY + "\n")
+
+    def test_ci_canary_flag_names_no_entry(self):
+        self.assert_ci_list_error_names_no_entry(CANARY + "\tword\n" + ENTRY_A + "\n")
+
+    def test_ci_empty_list_keeps_no_list_message(self):
+        repo, _ = self.make_repo()
+        status, out, err = self.run_main(repo, self.ci_push(BARRED_STRINGS=""))
+        self.assertEqual((status, self.lines(err)), (2, [MSG_NO_LIST]))
 
     def test_ci_refuses_list_file(self):
         repo, _ = self.make_repo()
