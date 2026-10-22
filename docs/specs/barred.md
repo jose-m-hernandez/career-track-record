@@ -2,7 +2,7 @@
 
 Status: accepted.
 Date: 2026-10-20.
-Revision: 4. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7).
+Revision: 5. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5.
 
 The command is `<cli> barred`.
 
@@ -127,11 +127,18 @@ The run also exits `2`, before any file is read, when:
 
 7. an option is unknown, lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`), or has a value out of range (`--min-chars` that is not a whole number of 0 or more, or that has more than 18 significant digits; leading zeros don't count). The digit cap keeps the parse inside what every supported Python converts without error.
 
+At any point in the run:
+
+8. Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). The run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said.
+
+A closed or failing standard error never changes the exit status. When a message can't be written there, it is dropped, and the run exits exactly as it would have with the message written.
+
 ## 8. Rules that hold in every run
 
 - It never edits an input or the list.
 - It never prints an entry, a note, matched text, a matching path or the list's path.
 - It never reports a file clean that it did not read in full.
+- A closed or failing standard error never changes the exit status (section 7).
 
 ## 9. Decisions
 
@@ -264,6 +271,8 @@ A PDF whose text holds `// turnkey synergy` FAILs with `--strip-comments`: strip
 - No file named: exit 2. No `--control`: exit 2. A list holding only comments and blank lines: exit 2. A missing list: exit 2. A list that is not valid UTF-8: exit 2.
 - No `--list`, with `BARRED_STRINGS_PATH` naming L1: the same results as `--list` naming L1. No `--list` and the variable unset, or set but empty: exit 2.
 - `--list` given twice, `--min-chars -1`, `--min-chars x`, and an unknown option: each exits 2 before any file is read.
+- `clean.txt` with standard output closed: exit 2, and standard error is exactly `cannot run: cannot write output`.
+- No file named, with standard error closed: exit 2. `clean.txt` with standard error closed: exit 0.
 - `--min-chars 1000000000000000000` (19 digits) exits 2 before any file is read, with a one-line reason naming the 18-digit cap. `--min-chars 999999999999999999` (18 digits) is in range: `clean.txt` is DEAD, too short. Exit 2. `--min-chars 0000000000000000000500` (22 digits, 3 significant) is in range and means 500: `clean.txt` is OK. Exit 0.
 - A list whose only entry line is three spaces, a tab and a note: exit 2. A list whose only entry is a zero-width space: exit 2.
 - L2 with the flag field `word` added to the canary's line: exit 2.
