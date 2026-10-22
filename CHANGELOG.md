@@ -18,8 +18,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The barred-wording check's behaviour spec, `docs/specs/barred.md`.
 - The no-network test now lets one module start one program: `pdf_text.py` may run `pdftotext`, and nothing else.
 - `track-record tone`: flags hype, hedges and filler in résumé and profile copy, names the sentence and the reason, and fails only on rules you set as errors.
-- A default rule set for the tone check, each rule proven against its own examples before any file is checked.
-- The tone check's behaviour spec, `docs/specs/tone-and-tells.md`.
+- A default rule set for the voice and tone check, each rule proven against its own examples before any file is checked.
+- The voice and tone check's behaviour spec, `docs/specs/tone-and-tells.md`.
 - METHOD.md: the six rules these tools are being built to.
 
 ### Changed

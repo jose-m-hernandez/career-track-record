@@ -4,7 +4,7 @@ Tools for people managing their own career. Three ship:
 
 - **The barred-wording check** finds wording you've barred in files you're about to send.
 - **The keyword scan** shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says.
-- **The tone check** flags hype, hedges and filler in that copy.
+- **The voice and tone check** flags hype, hedges and filler in that copy.
 
 These tools are safe to leave running. They import no network or mail library: a [test](tests/test_no_network.py) fails if any of them does, and the only outside program a tool starts is `pdftotext`. So they can't apply for a job, publish a post, or send a message for you. That holds for these tools only, not for what your AI agent does on its own or what you share with your AI provider.
 
@@ -59,7 +59,7 @@ It reports gaps and never rewrites your copy or sets a keyword-score target. A `
 
 ### `track-record tone`
 
-Run the tone check over your copy to find hype, hedges and filler:
+Run the voice and tone check over your copy to find hype, hedges and filler:
 
     track-record tone resume.md letter.md
 
