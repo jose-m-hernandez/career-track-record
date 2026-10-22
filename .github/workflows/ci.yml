@@ -18,6 +18,7 @@ jobs:
       - name: Barred-strings scan
         env:
           BARRED_STRINGS: ${{ secrets.BARRED_STRINGS }}
+          BARRED_ALLOW: ${{ secrets.BARRED_ALLOW }}
         run: python3 ci/barred_strings.py
 
   tests:

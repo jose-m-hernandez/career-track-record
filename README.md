@@ -94,3 +94,5 @@ The barred-strings scan, `ci/barred_strings.py` (a maintainer check on this repo
     BARRED_STRINGS_PATH=/path/to/list python3 ci/barred_strings.py
 
 The first entry in the list must be a canary: `barred-strings-canary-` followed by at least 8 letters or digits. Run locally, the scan prints each hit's entry number and where it was found; in CI it prints only the number of hits. It never prints the matched text. Exit 0 means clean, 1 a hit, 2 the scan could not run.
+
+An intentional use of a barred entry in one file's contents or one commit (a commit that quotes a barred string on purpose, say) can be approved privately by the maintainer; the scan then accepts that entry there and still fails everywhere else. A file name or branch name is never approved.

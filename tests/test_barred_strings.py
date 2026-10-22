@@ -5,6 +5,7 @@ import contextlib
 import io
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -67,6 +68,37 @@ MSG_FILE_IN_REPO = (
 MSG_SHALLOW = (
     "barred-strings scan: repository is shallow; fetch full history "
     "(fetch-depth: 0); failing closed"
+)
+
+
+MSG_LIST_LINKED = (
+    "barred-strings scan: the list file has more than one hard link; use a "
+    "single-link file outside the repository; failing closed"
+)
+MSG_ALLOW_LINKED = (
+    "barred-strings scan: the allow file has more than one hard link; use a "
+    "single-link file outside the repository; failing closed"
+)
+MSG_A1 = (
+    "barred-strings scan: BARRED_ALLOW_PATH is not accepted in CI; failing closed"
+)
+MSG_A2 = (
+    "barred-strings scan: set BARRED_ALLOW or BARRED_ALLOW_PATH, not both; "
+    "failing closed"
+)
+MSG_A3 = (
+    "barred-strings scan: the allow file must live outside the repository; "
+    "failing closed"
+)
+MSG_A4 = "barred-strings scan: cannot read the allow file; failing closed"
+MSG_A6 = (
+    "barred-strings scan: the allow list is malformed; run the scan locally to "
+    "see which line; failing closed"
+)
+REASON = "approved for the test"
+CLEAN_3 = (
+    "barred-strings scan: clean (3 entries; 1 blobs; 1 paths; "
+    "1 commits; branch checked)"
 )
 
 
@@ -1117,7 +1149,8 @@ class Case(unittest.TestCase):
     def test_env_keys_are_closed(self):
         self.assertEqual(
             barred_strings.ENV_KEYS,
-            ("BARRED_STRINGS", "BARRED_STRINGS_PATH", "GITHUB_ACTIONS",
+            ("BARRED_STRINGS", "BARRED_STRINGS_PATH", "BARRED_ALLOW",
+             "BARRED_ALLOW_PATH", "GITHUB_ACTIONS",
              "GITHUB_EVENT_NAME", "GITHUB_EVENT_PATH", "GITHUB_REPOSITORY",
              "GITHUB_HEAD_REF", "GITHUB_REF_NAME"),
         )
@@ -1140,6 +1173,316 @@ class Case(unittest.TestCase):
             self.assertIn(key, barred_strings.ENV_KEYS)
         self.assertEqual(source.count("os.environ"), 1)
         self.assertEqual(source.count("getenv"), 0)
+
+
+    # -- private allow list -----------------------------------------------
+
+    def allow(self, *lines):
+        """Allow text: each line is (object id, entry number)."""
+        return "".join("%s\t%s\t%s\n" % (oid, number, REASON)
+                       for oid, number in lines)
+
+    def local_allow(self, text):
+        return {"BARRED_STRINGS": LIST_TEXT, "BARRED_ALLOW": text}
+
+    def stale_line(self, number):
+        return "barred-strings scan: allow line %d allowed nothing (stale)" % number
+
+    def stale_count(self, count):
+        return "barred-strings scan: %d stale allow line(s); failing" % count
+
+    def test_allow_content_hit_passes(self):
+        repo, _ = self.make_repo({"a.txt": "see zebra quartz\n"})
+        blob = self.git(repo, "rev-parse", "HEAD:a.txt")
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow((blob, 2))))
+        self.assertEqual(status, 0)
+        self.assertEqual(self.lines(out), [CLEAN_3])
+        self.assertEqual(err, "")
+
+    def two_blob_repo(self):
+        repo, sha = self.make_repo({"a.txt": "zebra quartz one\n",
+                                    "b.txt": "zebra quartz two\n"})
+        return repo, sha, self.git(repo, "rev-parse", "HEAD:a.txt")
+
+    def test_allow_same_entry_other_object_still_fails(self):
+        repo, sha, blob_a = self.two_blob_repo()
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow((blob_a, 2))))
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            self.lines(out),
+            [self.blob_line(repo, 2, "HEAD:b.txt", "b.txt", sha),
+             "barred-strings scan: 1 hit(s); failing"])
+        self.assertEqual(err, "")
+
+    def test_allow_other_entry_same_object_still_fails(self):
+        repo, sha = self.make_repo({"a.txt": "zebra quartz and ember-gull\n"})
+        blob = self.git(repo, "rev-parse", "HEAD:a.txt")
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow((blob, 3))))
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            self.lines(out),
+            [self.blob_line(repo, 2, "HEAD:a.txt", "a.txt", sha),
+             "barred-strings scan: 1 hit(s); failing"])
+        self.assertEqual(err, "")
+
+    def test_allow_commit_hit_passes(self):
+        repo, sha = self.make_repo(message="note: zebra quartz\n")
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow((sha, 2))))
+        self.assertEqual(status, 0)
+        self.assertEqual(self.lines(out), [CLEAN_3])
+        self.assertEqual(err, "")
+
+    def test_allow_stale_line_fails(self):
+        repo, _ = self.make_repo()
+        text = "# a note\n" + self.allow(("ab" * 20, 2))
+        status, out, err = self.run_main(repo, self.local_allow(text))
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            self.lines(out), [self.stale_line(2), self.stale_count(1)])
+        self.assertEqual(err, "")
+        environ = self.ci_push(BARRED_ALLOW=text)
+        status, out, err = self.run_main(repo, environ)
+        self.assertEqual(status, 1)
+        self.assertEqual(self.lines(out), [self.stale_count(1)])
+        self.assertEqual(err, "")
+
+    def test_allow_malformed_locally(self):
+        repo, _ = self.make_repo()
+        good = "ab" * 20
+        cases = [
+            ("is not three tab-separated fields", 1, "just words\n"),
+            ("is not three tab-separated fields", 3,
+             "# c\n\n%s\t2\n" % good),
+            ("is not three tab-separated fields", 1,
+             "%s\t2\t%s\textra\n" % (good, REASON)),
+            ("names an object id that is not 40 lowercase hex characters", 1,
+             "%s\t2\t%s\n" % ("AB" * 20, REASON)),
+            ("names an object id that is not 40 lowercase hex characters", 2,
+             "# c\n%s\t2\t%s\n" % ("ab" * 19, REASON)),
+            ("names an entry number that is not a whole number from 2 up", 1,
+             "%s\t0\t%s\n" % (good, REASON)),
+            ("names an entry number that is not a whole number from 2 up", 1,
+             "%s\t02\t%s\n" % (good, REASON)),
+            ("names an entry number that is not a whole number from 2 up", 1,
+             "%s\ttwo\t%s\n" % (good, REASON)),
+            ("names an entry number past the end of the list", 1,
+             "%s\t4\t%s\n" % (good, REASON)),
+            ("has an empty reason, or one that starts or ends with a space", 1,
+             "%s\t2\t\n" % good),
+            ("has an empty reason, or one that starts or ends with a space", 1,
+             "%s\t2\t lead\n" % good),
+            ("has an empty reason, or one that starts or ends with a space", 1,
+             "%s\t2\ttrail \n" % good),
+            ("is not ASCII text", 1, "%s\t2\tcaf\u00e9\n" % good),
+            ("is not ASCII text", 2, "# c\n# caf\u00e9\n"),
+            ("is not ASCII text", 1, "%s\t2\t%s\r\n" % (good, REASON)),
+            ("is not ASCII text", 1, "%s\t2\tbell\x01\n" % good),
+            ("has a reason that uses a barred entry", 1,
+             "%s\t2\tcovers zebra  QUARTZ here\n" % good),
+            ("repeats line 2", 4,
+             "# c\n%s\t2\tone\n\n%s\t2\ttwo\n" % (good, good)),
+        ]
+        for reason, number, text in cases:
+            with self.subTest(reason=reason, number=number, text=text):
+                status, out, err = self.run_main(repo, self.local_allow(text))
+                self.assertEqual(status, 2)
+                self.assertEqual(out, "")
+                self.assertEqual(
+                    self.lines(err),
+                    ["barred-strings scan: allow line %d %s; failing closed"
+                     % (number, reason)])
+
+    def test_allow_malformed_in_ci(self):
+        repo, _ = self.make_repo()
+        status, out, err = self.run_main(
+            repo, self.ci_push(BARRED_ALLOW="# c\njust words\n"))
+        self.assertEqual(status, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(self.lines(err), [MSG_A6])
+
+    def test_allow_canary_entry_refused(self):
+        repo, _ = self.make_repo()
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow(("ab" * 20, 1))))
+        self.assertEqual(status, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(
+            self.lines(err),
+            ["barred-strings scan: allow line 1 names an entry number that is "
+             "not a whole number from 2 up; failing closed"])
+
+    def test_allow_cannot_approve_a_file_name(self):
+        repo, sha = self.make_repo({"zebra quartz notes.txt": "plain text\n"})
+        blob = self.git(repo, "rev-parse", "HEAD:zebra quartz notes.txt")
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow((blob, 2))))
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            self.lines(out),
+            ["entry 2 matched in a file name (first seen in %s)" % sha[:12],
+             self.stale_line(1),
+             "barred-strings scan: 1 hit(s); failing",
+             self.stale_count(1)])
+        self.assertEqual(err, "")
+
+    def test_allow_cannot_approve_the_branch(self):
+        repo, sha = self.make_repo(branch="ember-gull-0042")
+        status, out, err = self.run_main(
+            repo, self.local_allow(self.allow((sha, 3))))
+        self.assertEqual(status, 1)
+        self.assertEqual(
+            self.lines(out),
+            ["entry 3 matched in branch",
+             self.stale_line(1),
+             "barred-strings scan: 1 hit(s); failing",
+             self.stale_count(1)])
+        self.assertEqual(err, "")
+
+    def test_allow_sources(self):
+        repo, _ = self.make_repo()
+        valid = os.path.join(self.tmp, "allow.txt")
+        with open(valid, "w", encoding="ascii") as handle:
+            handle.write("# nothing approved\n")
+        status, out, err = self.run_main(
+            repo, self.ci_push(BARRED_ALLOW_PATH=valid))
+        self.assertEqual((status, out, self.lines(err)), (2, "", [MSG_A1]))
+        status, out, err = self.run_main(
+            repo, {"BARRED_STRINGS": LIST_TEXT, "BARRED_ALLOW": "# x\n",
+                   "BARRED_ALLOW_PATH": valid})
+        self.assertEqual((status, out, self.lines(err)), (2, "", [MSG_A2]))
+        inside = os.path.join(repo, "allow.txt")
+        shutil.copyfile(valid, inside)
+        directory = os.path.join(self.tmp, "allow-dir")
+        os.mkdir(directory)
+        link = os.path.join(self.tmp, "allow-link.txt")
+        os.symlink(valid, link)
+        for path, message in ((inside, MSG_A3),
+                              (os.path.join(self.tmp, "missing.txt"), MSG_A4),
+                              (directory, MSG_A4), (link, MSG_A4)):
+            with self.subTest(path=os.path.basename(path)):
+                status, out, err = self.run_main(
+                    repo, {"BARRED_STRINGS": LIST_TEXT,
+                           "BARRED_ALLOW_PATH": path})
+                self.assertEqual(
+                    (status, out, self.lines(err)), (2, "", [message]))
+        status, out, err = self.run_main(
+            repo, {"BARRED_STRINGS": LIST_TEXT, "BARRED_ALLOW_PATH": valid})
+        self.assertEqual((status, self.lines(out), err), (0, [CLEAN_3], ""))
+
+    def test_allow_empty_and_unset_change_nothing(self):
+        clean, _ = self.make_repo()
+        hit, sha = self.make_repo({"a.txt": "see zebra quartz\n"})
+        for extra in ({}, {"BARRED_ALLOW": ""}, {"BARRED_ALLOW_PATH": ""},
+                      {"BARRED_ALLOW": "", "BARRED_ALLOW_PATH": ""}):
+            with self.subTest(extra=extra):
+                environ = {"BARRED_STRINGS": LIST_TEXT}
+                environ.update(extra)
+                status, out, err = self.run_main(clean, environ)
+                self.assertEqual((status, self.lines(out), err),
+                                 (0, [CLEAN_3], ""))
+                status, out, err = self.run_main(hit, environ)
+                self.assertEqual(
+                    (status, self.lines(out), err),
+                    (1, [self.blob_line(hit, 2, "HEAD:a.txt", "a.txt", sha),
+                         "barred-strings scan: 1 hit(s); failing"], ""))
+
+    def test_allow_ci_output_names_nothing(self):
+        repo, sha, blob_a = self.two_blob_repo()
+        stale_repo, _ = self.make_repo()
+        runs = [
+            (repo, self.ci_push(BARRED_ALLOW=self.allow((blob_a, 2)))),
+            (stale_repo, self.ci_push(BARRED_ALLOW=self.allow(("ab" * 20, 2)))),
+        ]
+        for target, environ in runs:
+            status, out, err = self.run_main(target, environ)
+            self.assertEqual(status, 1)
+            combined = out + err
+            self.assertNotIn("entry ", combined)
+            self.assertNotIn("allow line ", combined)
+            self.assertNotRegex(combined, r"[0-9a-f]{7,}")
+            self.assertNotIn("matched in", combined)
+
+    # -- where the list and allow files may live --------------------------
+
+    def in_repo_file(self, name):
+        repo, _ = self.make_repo()
+        inside = os.path.join(repo, name)
+        with open(inside, "w", encoding="utf-8") as handle:
+            handle.write(LIST_TEXT)
+        return repo, inside
+
+    def refusals(self, repo, path):
+        """(label, environ, expected message) for each way of naming path."""
+        return [
+            ("list", {"BARRED_STRINGS_PATH": path}, MSG_FILE_IN_REPO),
+            ("allow", {"BARRED_STRINGS": LIST_TEXT, "BARRED_ALLOW_PATH": path},
+             MSG_A3),
+        ]
+
+    def test_case_variant_path_into_repository_refused(self):
+        for label in ("list", "allow"):
+            with self.subTest(path=label):
+                repo, _ = self.in_repo_file("unused.txt")
+                os.mkdir(os.path.join(repo, "sub"))
+                inside = os.path.join(repo, "sub", label + ".txt")
+                with open(inside, "w", encoding="utf-8") as handle:
+                    handle.write(LIST_TEXT)
+                head, name = os.path.split(repo)
+                variant = os.path.join(head, name.upper(), "sub", label + ".txt")
+                if not os.path.exists(variant):
+                    self.skipTest("the file system is case-sensitive")
+                self.assertNotEqual(variant, inside)
+                for which, environ, message in self.refusals(repo, variant):
+                    if which != label:
+                        continue
+                    status, out, err = self.run_main(repo, environ)
+                    self.assertEqual(
+                        (status, out, self.lines(err)), (2, "", [message]))
+
+    def test_symlink_into_repository_refused(self):
+        repo, inside = self.in_repo_file("target.txt")
+        link = os.path.join(self.tmp, "link.txt")
+        os.symlink(inside, link)
+        for which, environ, message in self.refusals(repo, link):
+            with self.subTest(path=which):
+                status, out, err = self.run_main(repo, environ)
+                self.assertEqual(
+                    (status, out, self.lines(err)), (2, "", [message]))
+
+    def test_hard_link_refused_and_single_link_accepted(self):
+        repo, inside = self.in_repo_file("target.txt")
+        linked = os.path.join(self.tmp, "linked.txt")
+        os.link(inside, linked)
+        self.assertEqual(os.stat(inside).st_nlink, 2)
+        self.assertEqual(os.stat(linked).st_nlink, 2)
+        copy = os.path.join(self.tmp, "copy.txt")
+        shutil.copyfile(inside, copy)
+        self.assertEqual(os.stat(copy).st_nlink, 1)
+        status, out, err = self.run_main(repo, {"BARRED_STRINGS_PATH": linked})
+        self.assertEqual(
+            (status, out, self.lines(err)), (2, "", [MSG_LIST_LINKED]))
+        status, out, err = self.run_main(repo, {"BARRED_STRINGS_PATH": copy})
+        self.assertEqual((status, self.lines(out), err), (0, [CLEAN_3], ""))
+        allow_inside = os.path.join(repo, "allow.txt")
+        with open(allow_inside, "w", encoding="ascii") as handle:
+            handle.write("# nothing approved\n")
+        allow_linked = os.path.join(self.tmp, "allow-linked.txt")
+        os.link(allow_inside, allow_linked)
+        self.assertEqual(os.stat(allow_inside).st_nlink, 2)
+        allow_copy = os.path.join(self.tmp, "allow-copy.txt")
+        shutil.copyfile(allow_inside, allow_copy)
+        self.assertEqual(os.stat(allow_copy).st_nlink, 1)
+        environ = {"BARRED_STRINGS": LIST_TEXT, "BARRED_ALLOW_PATH": allow_linked}
+        status, out, err = self.run_main(repo, environ)
+        self.assertEqual(
+            (status, out, self.lines(err)), (2, "", [MSG_ALLOW_LINKED]))
+        environ["BARRED_ALLOW_PATH"] = allow_copy
+        status, out, err = self.run_main(repo, environ)
+        self.assertEqual((status, self.lines(out), err), (0, [CLEAN_3], ""))
 
 
 if __name__ == "__main__":

@@ -17,6 +17,7 @@ Exit status: 0 clean, 1 hit, 2 could not run.
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -25,6 +26,8 @@ import unicodedata
 ENV_KEYS = (
     "BARRED_STRINGS",
     "BARRED_STRINGS_PATH",
+    "BARRED_ALLOW",
+    "BARRED_ALLOW_PATH",
     "GITHUB_ACTIONS",
     "GITHUB_EVENT_NAME",
     "GITHUB_EVENT_PATH",
@@ -59,6 +62,37 @@ MSG_FILE_IN_REPO = (
 MSG_FILE_UNREADABLE = (
     "barred-strings scan: cannot read the list file; failing closed"
 )
+MSG_LIST_LINKED = (
+    "barred-strings scan: the list file has more than one hard link; use a "
+    "single-link file outside the repository; failing closed"
+)
+MSG_ALLOW_LINKED = (
+    "barred-strings scan: the allow file has more than one hard link; use a "
+    "single-link file outside the repository; failing closed"
+)
+MSG_ALLOW_FILE_IN_CI = (
+    "barred-strings scan: BARRED_ALLOW_PATH is not accepted in CI; failing closed"
+)
+MSG_ALLOW_BOTH = (
+    "barred-strings scan: set BARRED_ALLOW or BARRED_ALLOW_PATH, not both; "
+    "failing closed"
+)
+MSG_ALLOW_IN_REPO = (
+    "barred-strings scan: the allow file must live outside the repository; "
+    "failing closed"
+)
+MSG_ALLOW_UNREADABLE = (
+    "barred-strings scan: cannot read the allow file; failing closed"
+)
+MSG_ALLOW_MALFORMED = (
+    "barred-strings scan: allow line %d %s; failing closed"
+)
+MSG_ALLOW_MALFORMED_CI = (
+    "barred-strings scan: the allow list is malformed; run the scan locally to "
+    "see which line; failing closed"
+)
+MSG_ALLOW_STALE_LINE = "barred-strings scan: allow line %d allowed nothing (stale)"
+MSG_ALLOW_STALE_COUNT = "barred-strings scan: %d stale allow line(s); failing"
 MSG_NOT_CANARY = (
     "barred-strings scan: entry 1 is not a canary (barred-strings-canary- plus at "
     "least 8 letters or digits); failing closed"
@@ -99,6 +133,15 @@ MSG_COMMIT_NOT_UTF8_CI = (
 
 class ListError(Exception):
     """The list is unusable. The message is safe to print."""
+
+
+class AllowError(Exception):
+    """An allow line is unusable. Carries the line number and a fixed reason."""
+
+    def __init__(self, line, reason):
+        super().__init__(reason)
+        self.line = line
+        self.reason = reason
 
 
 class Failure(Exception):
@@ -230,9 +273,31 @@ def _git(repo, args, data=None, check=True):
 
 
 def _inside(path, top):
+    """True if path is the repository or anything under it.
+
+    The string test is the fast path. The walk compares file identity, so a
+    path spelled with different letter case on a case-insensitive disk is
+    still caught.
+    """
     path = os.path.realpath(path)
     top = os.path.realpath(top)
-    return path == top or path.startswith(top.rstrip(os.sep) + os.sep)
+    if path == top or path.startswith(top.rstrip(os.sep) + os.sep):
+        return True
+    try:
+        top_stat = os.stat(top)
+    except OSError:
+        return False
+    current = path
+    while True:
+        try:
+            if os.path.samestat(os.stat(current), top_stat):
+                return True
+        except OSError:
+            pass
+        parent = os.path.dirname(current)
+        if parent == current:
+            return False
+        current = parent
 
 
 def _read_blobs(repo, shas):
@@ -273,8 +338,9 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
     """Return (hits, n_blobs, n_paths, n_commits).
 
     Every blob and every path in every commit reachable from HEAD is scanned,
-    each once. hits is a list of (kind, printed_location, ordinal); kind 0 is
-    a blob or file name, 1 a commit, 2 the branch.
+    each once. hits is a list of (kind, printed_location, ordinal, object_id);
+    kind 0 is a blob or file name, 1 a commit, 2 the branch. The object id is
+    the full blob or commit sha, and None for a file name or the branch.
     """
     if _git(repo, ["rev-parse", "--is-shallow-repository"]).stdout.strip() == b"true":
         raise Failure(MSG_SHALLOW)
@@ -312,7 +378,7 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
         found = find_hits(path, folded_entries, word_flags)
         path_hit[path] = bool(found)
         for ordinal in found:
-            hits.add((0, "a file name (first seen in %s)" % commit[:12], ordinal))
+            hits.add((0, "a file name (first seen in %s)" % commit[:12], ordinal, None))
 
     blobs = _read_blobs(repo, list(blob_first))
     for sha, (commit, paths) in blob_first.items():
@@ -334,7 +400,7 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
             first = "at a withheld path"
         where = "blob %s (first seen %s in %s)" % (sha[:12], first, commit[:12])
         for ordinal in found:
-            hits.add((0, where, ordinal))
+            hits.add((0, where, ordinal, sha))
 
     log = _git(
         repo,
@@ -371,13 +437,13 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
             )
         for part in parts:
             for ordinal in find_hits(part, folded_entries, word_flags):
-                hits.add((1, "commit " + sha, ordinal))
+                hits.add((1, "commit " + sha, ordinal, sha))
 
     for ordinal in find_hits(branch, folded_entries, word_flags):
-        hits.add((2, "branch", ordinal))
+        hits.add((2, "branch", ordinal, None))
 
     def order(hit):
-        kind, where, ordinal = hit
+        kind, where, ordinal, _ = hit
         if kind == 1:
             return (kind, commit_order[where[len("commit "):]], ordinal, "")
         if kind == 0:
@@ -417,6 +483,12 @@ def _get_list(environ, ci_mode, top):
             if _inside(from_file, top):
                 raise Failure(MSG_FILE_IN_REPO)
             try:
+                info = os.stat(from_file)
+            except OSError:
+                raise Failure(MSG_FILE_UNREADABLE)
+            if stat.S_ISREG(info.st_mode) and info.st_nlink > 1:
+                raise Failure(MSG_LIST_LINKED)
+            try:
                 with open(from_file, encoding="utf-8") as handle:
                     text = handle.read()
             except (OSError, UnicodeDecodeError):
@@ -428,6 +500,82 @@ def _get_list(environ, ci_mode, top):
     if not text.strip():
         raise Failure(MSG_NO_LIST)
     return parse_entries(text)
+
+
+def _get_allow_text(environ, ci_mode, top):
+    """Return the allow text as bytes; empty means no allow lines."""
+    from_file = environ.get("BARRED_ALLOW_PATH") or ""
+    from_env = environ.get("BARRED_ALLOW") or ""
+    if ci_mode:
+        if from_file:
+            raise Failure(MSG_ALLOW_FILE_IN_CI)
+    else:
+        if from_file and from_env:
+            raise Failure(MSG_ALLOW_BOTH)
+        if from_file:
+            if _inside(from_file, top):
+                raise Failure(MSG_ALLOW_IN_REPO)
+            try:
+                info = os.lstat(from_file)
+            except OSError:
+                raise Failure(MSG_ALLOW_UNREADABLE)
+            if not stat.S_ISREG(info.st_mode):
+                raise Failure(MSG_ALLOW_UNREADABLE)
+            if info.st_nlink > 1:
+                raise Failure(MSG_ALLOW_LINKED)
+            try:
+                with open(from_file, "rb") as handle:
+                    return handle.read()
+            except OSError:
+                raise Failure(MSG_ALLOW_UNREADABLE)
+    return from_env.encode("utf-8", "surrogatepass")
+
+
+_OBJECT_ID = re.compile(rb"[0-9a-f]{40}")
+_ENTRY_NUMBER = re.compile(rb"[1-9][0-9]*")
+
+
+def parse_allow(data, folded_entries, word_flags):
+    """Return {(object id, entry number): allow line number}.
+
+    Raises AllowError at the first malformed line. Entry 1, the canary, can
+    never be approved.
+    """
+    allow = {}
+    for number, line in enumerate(data.split(b"\n"), 1):
+        if any(byte >= 0x80 or byte == 0x0D for byte in line):
+            raise AllowError(number, "is not ASCII text")
+        if not line.strip(b" \t") or line.startswith(b"#"):
+            continue
+        fields = line.split(b"\t")
+        if len(fields) != 3:
+            raise AllowError(number, "is not three tab-separated fields")
+        object_id, entry_number, reason = fields
+        if not _OBJECT_ID.fullmatch(object_id):
+            raise AllowError(
+                number, "names an object id that is not 40 lowercase hex characters"
+            )
+        if not _ENTRY_NUMBER.fullmatch(entry_number) or int(entry_number) < 2:
+            raise AllowError(
+                number, "names an entry number that is not a whole number from 2 up"
+            )
+        ordinal = int(entry_number)
+        if ordinal > len(folded_entries):
+            raise AllowError(number, "names an entry number past the end of the list")
+        if not reason or reason.startswith(b" ") or reason.endswith(b" "):
+            raise AllowError(
+                number,
+                "has an empty reason, or one that starts or ends with a space",
+            )
+        if any(not 0x20 <= byte <= 0x7E for byte in reason):
+            raise AllowError(number, "is not ASCII text")
+        if find_hits(reason.decode("ascii"), folded_entries, word_flags):
+            raise AllowError(number, "has a reason that uses a barred entry")
+        key = (object_id.decode("ascii"), ordinal)
+        if key in allow:
+            raise AllowError(number, "repeats line %d" % allow[key])
+        allow[key] = number
+    return allow
 
 
 def _self_test(entries, folded, top):
@@ -491,6 +639,14 @@ def _run(argv, environ):
     word_flags = [word for _, word in pairs]
     folded = [fold(entry) for entry in entries]
     _self_test(entries, folded, top)
+    try:
+        allow = parse_allow(
+            _get_allow_text(environ, ci_mode, top), folded, word_flags
+        )
+    except AllowError as err:
+        if ci_mode:
+            raise Failure(MSG_ALLOW_MALFORMED_CI)
+        raise Failure(MSG_ALLOW_MALFORMED % (err.line, err.reason))
     branch = _branch_name(environ, ci_mode, repo)
 
     try:
@@ -501,11 +657,26 @@ def _run(argv, environ):
         if ci_mode:
             raise Failure(err.ci_message)
         raise
+    used = set()
+    kept = []
+    for hit in hits:
+        key = (hit[3], hit[2])
+        if hit[3] is not None and key in allow:
+            used.add(key)
+        else:
+            kept.append(hit)
+    hits = kept
+    stale = sorted(number for key, number in allow.items() if key not in used)
     if not ci_mode:
-        for kind, where, ordinal in hits:
+        for kind, where, ordinal, _ in hits:
             print("entry %d matched in %s" % (ordinal, where))
+        for number in stale:
+            print(MSG_ALLOW_STALE_LINE % number)
     if hits:
         print("barred-strings scan: %d hit(s); failing" % len(hits))
+    if stale:
+        print(MSG_ALLOW_STALE_COUNT % len(stale))
+    if hits or stale:
         return 1
     print(
         "barred-strings scan: clean (%d entries; %d blobs; %d paths; "
