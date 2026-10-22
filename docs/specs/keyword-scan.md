@@ -203,7 +203,10 @@ It exits 2 with one line on standard error. It never prints an empty or all-zero
 6. A copy file named on the command line does not exist.
 7. From the citation release: the stored posting a citation is about to quote no longer matches its recorded hash (section 9).
 8. A posting, copy file or term table is not valid UTF-8.
-9. A term pattern is not a valid regular expression.
+9. A term pattern cannot be compiled: it is not a valid regular expression, or compiling it fails in any other way. Every such failure is this case, with one line and no traceback.
+10. Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). The run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said.
+
+A closed or failing standard error never changes the exit status. When a message can't be written there, it is dropped, and the run exits exactly as it would have with the message written.
 
 ## 9. Verbatim guarantee (citation release)
 
@@ -357,7 +360,11 @@ Each case exits 2, prints nothing on standard output, and prints one line on sta
 2. example-a with `a plus.` changed to `a must.` in the body, so the hash fails;
 3. example-b with its key `http_status` changed to `status`;
 4. a single posting whose body is `Data Engineer, Example D` and `Python and evals.`, so the `must-find` family has zero demand;
-5. `report --copy` naming a file that does not exist.
+5. `report --copy` naming a file that does not exist;
+6. `demand` on example-a with standard output closed, where standard error is exactly `cannot run: cannot write output`;
+7. a term table whose only pattern is `(`, so it cannot be compiled.
+
+With standard error closed, case 1 still exits 2, and `demand` on example-a still exits 0.
 
 ### 11.8 Posting file round trip
 
