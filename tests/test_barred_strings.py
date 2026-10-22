@@ -80,6 +80,7 @@ class Case(unittest.TestCase):
         proc = subprocess.run(
             ["git", "-C", cwd] + list(args),
             env=env,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
@@ -168,6 +169,16 @@ class Case(unittest.TestCase):
 
     def lines(self, text):
         return text.splitlines()
+
+    def test_git_helper_never_reads_stdin(self):
+        repo = os.path.join(self.tmp, "stdin-check")
+        os.mkdir(repo)
+        with mock.patch("subprocess.run", wraps=subprocess.run) as spy:
+            self.git(repo, "init", "-q")
+            self.git(repo, "rev-parse", "--git-dir")
+        self.assertTrue(spy.call_args_list)
+        for call in spy.call_args_list:
+            self.assertIs(call.kwargs.get("stdin"), subprocess.DEVNULL)
 
     # -- matching ---------------------------------------------------------
 
