@@ -61,7 +61,7 @@ def _read_utf8(path, what):
 def _compile(pattern):
     try:
         return re.compile(pattern, re.IGNORECASE)
-    except re.error as exc:
+    except Exception as exc:
         raise KeywordError(
             "term pattern is not a valid regular expression: %s (%s)" % (pattern, exc)
         )

@@ -14,6 +14,8 @@ import os
 import re
 import unicodedata
 
+from career_track_record import barred
+
 _DEFAULT_RULES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "data", "tone-default.json")
 
@@ -484,7 +486,7 @@ def _anchored(text, anchor, start, end):
 # ---------------------------------------------------------------- the run
 
 def _label(name):
-    return name.replace("\r", "?").replace("\n", "?")
+    return barred.printed_path(name)
 
 
 def _cannot(lines):
@@ -492,6 +494,9 @@ def _cannot(lines):
 
 
 def _run(rules_path, files, warn_only, stale_check):
+    files = list(files)
+    if not files:
+        return _cannot(["cannot run: no input file"])
     try:
         rule_set = load_rules(rules_path)
     except ToneError as exc:
@@ -500,9 +505,6 @@ def _run(rules_path, files, warn_only, stale_check):
     if problems:
         return _cannot(problems)
     rules, exemptions = rule_set._checked
-    files = list(files)
-    if not files:
-        return _cannot(["cannot run: no input file"])
     bodies = []
     failures = []
     for name in files:
@@ -538,11 +540,11 @@ def _run(rules_path, files, warn_only, stale_check):
                 else:
                     warnings += 1
                 out.append("%s:%d: %s %s%s: %s\n    %s\n" % (
-                    name, body.line_of(start), rule.level, rule.id,
+                    _label(name), body.line_of(start), rule.level, rule.id,
                     "" if rule.category is None else " [%s]" % rule.category,
                     rule.rationale, body.sentence(start, end)))
         if not shown:
-            out.append("%s: clean\n" % name)
+            out.append("%s: clean\n" % _label(name))
     if stale_check:
         for rule_id, anchor in exemptions:
             if not any(anchor in body.text for body in bodies):

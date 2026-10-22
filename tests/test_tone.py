@@ -715,6 +715,59 @@ class PinnedRuleCase(ToneCase):
                        + "stale exemption: tk\n" + summary(1, 2, 0), cwd=self.tmp)
 
 
+class Revision5Case(ToneCase):
+    def test_11_52_repeated_warn_only(self):
+        once = run_cli(["--rules", R1, "--warn-only", "case-11-01.txt"])
+        twice = run_cli(["--rules", R1, "--warn-only", "--warn-only", "case-11-01.txt"])
+        self.assertEqual(twice, once)
+        self.assertEqual(twice[0], 0)
+
+    def test_11_53_a_line_feed_in_a_name_is_escaped(self):
+        write_bytes(os.path.join(self.tmp, "bad\nname.txt"),
+                    read_bytes(os.path.join(FX, "case-11-01.txt")))
+        code, out, err = run_cli(["--rules", os.path.join(FX, R1), "bad\nname.txt"],
+                                 cwd=self.tmp)
+        self.assertEqual(code, 1)
+        lines = out.split("\n")
+        self.assertTrue(lines[0].startswith("bad\\nname.txt:1: error turnkey"), lines[0])
+        self.assertFalse(any(line.startswith("name.txt") for line in lines))
+
+    def test_11_54_stops_at_the_command_line_stage(self):
+        self.assertEqual(run_cli(["--rules", "missing.json"]),
+                         (2, "", "cannot run: no input file\n"))
+
+    def test_11_54_stops_at_the_rule_file_stage(self):
+        code, out, err = run_cli(["--rules", "missing.json", "case-11-01.txt"])
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(len(err.splitlines()), 1)
+        self.assertIn("rule file", err)
+
+    def test_an_unreadable_name_is_escaped_on_stderr(self):
+        self.assertEqual(run_cli(["--rules", R1, "no\nsuch.txt"]),
+                         (2, "", "cannot run: cannot read no\\nsuch.txt\n"))
+
+    def test_stale_check_over_several_files_uses_any_file(self):
+        self.assertRun(["--rules", R1, "--stale-check", "case-11-03.txt", "case-11-12.txt"],
+                       0, "case-11-03.txt: clean\ncase-11-12.txt: clean\n" + summary(2, 0, 0))
+        self.assertRun(["--rules", R1, "--stale-check", "case-11-12.txt", "case-11-03.txt"],
+                       0, "case-11-12.txt: clean\ncase-11-03.txt: clean\n" + summary(2, 0, 0))
+
+    def test_regex_dollar_also_matches_before_a_final_line_feed(self):
+        data = {"rules": [{"id": "ends-plan", "level": "error", "kind": "regex",
+                           "text": "plan$", "case": "sensitive", "rationale": WHY,
+                           "must_fire": ["the plan"], "must_not": ["plans"]}],
+                "exemptions": []}
+        path = self.scratch(data)
+        write_bytes(os.path.join(self.tmp, "lf.txt"), b"We wrote the plan\n")
+        write_bytes(os.path.join(self.tmp, "mid.txt"), b"the plan\nand more text here\n")
+        self.assertEqual(run_cli(["--rules", path, "lf.txt"], cwd=self.tmp),
+                         (1, finding("lf.txt", 1, "error", "ends-plan", "We wrote the plan")
+                          + summary(1, 1, 0), ""))
+        self.assertEqual(run_cli(["--rules", path, "mid.txt"], cwd=self.tmp),
+                         (0, one_file("mid.txt"), ""))
+
+
 class ApiCase(ToneCase):
     def test_run_returns_a_result(self):
         result = tone.run(rules_path=os.path.join(FX, R1),
