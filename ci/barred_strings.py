@@ -83,6 +83,18 @@ MSG_NO_HEAD = "barred-strings scan: no commit at HEAD; failing closed"
 MSG_NO_BRANCH = (
     "barred-strings scan: cannot determine the branch name; failing closed"
 )
+MSG_SUBMODULE_CI = (
+    "barred-strings scan: a submodule entry is in history; run the scan "
+    "locally to see which; failing closed"
+)
+MSG_BLOB_NOT_UTF8_CI = (
+    "barred-strings scan: a blob is not UTF-8 text; run the scan locally to "
+    "see which; failing closed"
+)
+MSG_COMMIT_NOT_UTF8_CI = (
+    "barred-strings scan: a commit is not UTF-8 text; run the scan locally "
+    "to see which; failing closed"
+)
 
 
 class ListError(Exception):
@@ -91,6 +103,15 @@ class ListError(Exception):
 
 class Failure(Exception):
     """A run that cannot proceed. The message is safe to print."""
+
+
+class StateFailure(Failure):
+    """A repository state the scan cannot read. str() is the local message,
+    which may name a SHA; ci_message is the one safe for a public log."""
+
+    def __init__(self, local_message, ci_message):
+        super().__init__(local_message)
+        self.ci_message = ci_message
 
 
 class GitError(Exception):
@@ -274,9 +295,10 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
         in_commit = {}
         for mode, sha, path in _tree_records(repo, commit):
             if mode == "160000":
-                raise Failure(
+                raise StateFailure(
                     "barred-strings scan: a submodule entry first seen in %s; "
-                    "failing closed" % commit[:12]
+                    "failing closed" % commit[:12],
+                    MSG_SUBMODULE_CI,
                 )
             if path not in path_first:
                 path_first[path] = commit
@@ -297,9 +319,10 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
         try:
             text = blobs[sha].decode("utf-8")
         except UnicodeDecodeError:
-            raise Failure(
+            raise StateFailure(
                 "barred-strings scan: blob %s (first seen in %s) is not UTF-8 "
-                "text; failing closed" % (sha[:12], commit[:12])
+                "text; failing closed" % (sha[:12], commit[:12]),
+                MSG_BLOB_NOT_UTF8_CI,
             )
         found = find_hits(text, folded_entries, word_flags)
         if not found:
@@ -341,9 +364,10 @@ def scan_repo(repo, folded_entries, branch, word_flags=None):
                 )
             ]
         except UnicodeDecodeError:
-            raise Failure(
+            raise StateFailure(
                 "barred-strings scan: commit %s is not UTF-8 text; "
-                "failing closed" % sha
+                "failing closed" % sha,
+                MSG_COMMIT_NOT_UTF8_CI,
             )
         for part in parts:
             for ordinal in find_hits(part, folded_entries, word_flags):
@@ -469,9 +493,14 @@ def _run(argv, environ):
     _self_test(entries, folded, top)
     branch = _branch_name(environ, ci_mode, repo)
 
-    hits, n_blobs, n_paths, n_commits = scan_repo(
-        repo, folded, branch, word_flags
-    )
+    try:
+        hits, n_blobs, n_paths, n_commits = scan_repo(
+            repo, folded, branch, word_flags
+        )
+    except StateFailure as err:
+        if ci_mode:
+            raise Failure(err.ci_message)
+        raise
     if not ci_mode:
         for kind, where, ordinal in hits:
             print("entry %d matched in %s" % (ordinal, where))

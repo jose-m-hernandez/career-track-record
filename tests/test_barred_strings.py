@@ -37,6 +37,18 @@ MSG_LIST_MALFORMED_CI = (
     "barred-strings scan: the list is malformed; run the scan locally to see "
     "which entry; failing closed"
 )
+MSG_SUBMODULE_CI = (
+    "barred-strings scan: a submodule entry is in history; run the scan "
+    "locally to see which; failing closed"
+)
+MSG_BLOB_NOT_UTF8_CI = (
+    "barred-strings scan: a blob is not UTF-8 text; run the scan locally to "
+    "see which; failing closed"
+)
+MSG_COMMIT_NOT_UTF8_CI = (
+    "barred-strings scan: a commit is not UTF-8 text; run the scan locally "
+    "to see which; failing closed"
+)
 MSG_FORK = (
     "barred-strings scan: pull request from a fork: secrets are not available "
     "here, so the scan cannot run; failing closed"
@@ -662,6 +674,14 @@ class Case(unittest.TestCase):
              % self.raw_sha],
         )
 
+    def test_ci_non_utf8_commit_names_no_sha(self):
+        repo = self.make_raw_commit_repo()
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assertEqual(status, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(self.lines(err), [MSG_COMMIT_NOT_UTF8_CI])
+        self.assertNotRegex(out + err, r"[0-9a-f]{7,}")
+
     # -- repository states ------------------------------------------------
 
     def test_shallow_repo_fails(self):
@@ -686,6 +706,16 @@ class Case(unittest.TestCase):
             ["barred-strings scan: blob %s (first seen in %s) is not UTF-8 text; "
              "failing closed" % (blob[:12], first[:12])],
         )
+
+    def test_ci_non_utf8_file_names_no_sha(self):
+        repo, first = self.make_repo({"data.bin": b"\xff\xfe\x00"})
+        self.git(repo, "rm", "-q", "data.bin")
+        self.commit(repo, "remove data.bin")
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assertEqual(status, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(self.lines(err), [MSG_BLOB_NOT_UTF8_CI])
+        self.assertNotRegex(out + err, r"[0-9a-f]{7,}")
 
     def test_internal_error_hides_message(self):
         repo, _ = self.make_repo()
@@ -983,6 +1013,19 @@ class Case(unittest.TestCase):
             ["barred-strings scan: a submodule entry first seen in %s; "
              "failing closed" % second[:12]],
         )
+
+    def test_ci_submodule_entry_names_no_sha(self):
+        repo, _ = self.make_repo()
+        self.git(repo, "update-index", "--add", "--cacheinfo",
+                 "160000,%s,vendor/sub" % ("ab" * 20))
+        self.commit(repo, "add a submodule entry")
+        self.assertEqual(
+            self.git(repo, "ls-tree", "HEAD", "vendor/sub").split(" ")[0], "160000")
+        status, out, err = self.run_main(repo, self.ci_push())
+        self.assertEqual(status, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(self.lines(err), [MSG_SUBMODULE_CI])
+        self.assertNotRegex(out + err, r"[0-9a-f]{7,}")
 
     def test_hits_print_in_integer_entry_order(self):
         entries = ["alpha-two"] + ["filler-%d" % n for n in range(3, 10)] + [
