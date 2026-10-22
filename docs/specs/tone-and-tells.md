@@ -2,7 +2,7 @@
 
 Status: accepted.
 Date: 2026-10-20.
-Revision: 2. Answers to the build questions are folded in (sections 3 to 7, 10 and 11).
+Revision: 5. Answers to the build questions are folded in (sections 3 to 7, 10 and 11). Revision 3 adds output that cannot be written and a closed standard error (section 7), with known answers 11.49 to 11.51. Revision 4 has the tests write the file of 11.34 at run time. Revision 5 makes repeated flags harmless (section 3.0), escapes printed paths (section 7), and states that the run stops at the first failing stage (section 7), with known answers 11.52 to 11.54.
 
 The command is `<cli> tone`.
 
@@ -34,6 +34,8 @@ Out:
 | `--warn-only` | Run only `warn` rules on the files (section 3.2). |
 | `--stale-check` | Check exemptions for staleness (section 5). |
 | `--print-defaults` | Write the shipped default rule file to standard output, byte for byte, and exit `0`. It reads no input file and no rule file, and it allows no other argument: anything else on the command line exits `2`. This is how a user starts a rule file of their own. |
+
+Repeating `--warn-only` or `--stale-check` is harmless and changes nothing. Only `--rules` is limited to one use.
 
 Every other argument is an input file.
 
@@ -111,18 +113,32 @@ For each file, in argument order, either `<file>: clean` or, for each finding:
 - **A sentence** runs from just after the previous sentence end (or the end of the previous blank line, or the start of the file) up to and including its own sentence end, closing quotes and brackets included (or up to the next blank line, or the end of the file).
 - `<sentence>` is every sentence the match touches, from the start of the one where the match begins to the end of the one where it ends. So a match that runs across a sentence end prints both sentences. Every run of whitespace inside it, line breaks included, prints as one space, and leading and trailing whitespace is trimmed.
 - `[<category>]` is printed only when the rule has one.
+- `<file>` is the file's printed path (below).
+
+**The printed path.** Wherever a file name is printed, on standard output or standard error, it is the path as given with these characters escaped:
+- the backslash, as `\\`;
+- line feed, carriage return and tab, as `\n`, `\r` and `\t`;
+- every other control character (U+0000 to U+001F, U+007F, U+0080 to U+009F), as `\x` and two lowercase hex digits;
+- the line separator and paragraph separator (U+2028, U+2029) and every format character (Unicode category Cf, including the direction overrides), as `\u` and four lowercase hex digits. Format characters above U+FFFF take `\U` and eight lowercase hex digits. The next-line character U+0085 is a C1 control, so it takes the `\x85` form above.
+
+A path with none of these characters is printed exactly as given. Escaping exists so that no file name can forge or reorder an output line. It changes only what is printed: the file is always opened by the path as given.
 
 Stale exemptions follow, as in section 5. The run then ends with the line `<n> file(s), <e> error(s), <w> warning(s)`, printed literally, `(s)` included.
 
-When the run cannot go ahead, every reason goes to standard error, one line each, and nothing goes to standard output. All input files are opened before any output, so an unreadable file stops the run before any file is reported.
+When the run cannot go ahead, nothing goes to standard output, and the reasons go to standard error, one line each. The run checks in three stages, in this order: the command line (options, and whether any input file is named), then the rule file and its self-test (section 6), then the input files. It stops at the first stage that fails and reports every problem found in that stage. So a missing rule file with no input file named gives one line, saying no input file is named, because the rule file is never reached. All input files are opened before any output, so an unreadable file stops the run before any file is reported.
 
-Exit status: `0` with no errors (warnings allowed), `1` with at least one error (stale exemptions included), and `2` when it cannot run: the self-test fails; the rule file is missing, not valid UTF-8 or not valid JSON; an input file is missing, unreadable or not valid UTF-8; no input file is named; or an option is unknown, lacks its value or is given twice. The highest applies.
+Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). Then the run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said.
+
+A closed or failing standard error never changes the exit status. When a message can't be written there, it is dropped, and the run exits exactly as it would have with the message written.
+
+Exit status: `0` with no errors (warnings allowed), `1` with at least one error (stale exemptions included), and `2` when it cannot run: the self-test fails; the rule file is missing, not valid UTF-8 or not valid JSON; an input file is missing, unreadable or not valid UTF-8; no input file is named; an option is unknown or lacks its value, or `--rules` is given twice; or standard output cannot be written. The highest applies.
 
 ## 8. Rules that hold in every run
 
 - It never edits a file or the rule file.
 - It never suggests a replacement.
 - A warning never changes the exit status.
+- A closed or failing standard error never changes the exit status (section 7).
 
 ## 9. The default rule set
 
@@ -155,7 +171,7 @@ Every row's two examples are also its `must_fire` and `must_not` texts, so the s
 
 ## 11. Acceptance tests (known answers)
 
-The fixtures are invented. They live under `tests/fixtures/tone/`. Each text file ends with one LF unless stated.
+The fixtures are invented. They live under `tests/fixtures/tone/`, except the file of 11.34, which is not valid UTF-8. The tests write that one at run time, because the repository's history scan refuses a file that isn't UTF-8. Each text file ends with one LF unless stated.
 
 **Rule file R1** (shown as a table; the fixture is the JSON form):
 
@@ -254,3 +270,13 @@ Rule-file strictness. Each case is a scratch rule file, and each exits 2 with no
 - 11.46: an empty `rules` array;
 - 11.47: a `regex` rule whose `text` is `x*`, which matches the empty string;
 - 11.48: two broken rules in one file give two lines on standard error, one naming each rule.
+
+Output failures:
+- 11.49: the file of 11.1 with standard output closed: exit 2, and standard error is exactly `cannot run: cannot write output`.
+- 11.50: no input file named, with standard error closed: exit 2.
+- 11.51: the file of 11.1 with standard error closed: exit 1.
+
+Options and names:
+- 11.52: the file of 11.1 with `--warn-only` given twice gives the same result as with it given once.
+- 11.53: the file of 11.1 copied to a file whose name holds a line feed (`bad` + LF + `name.txt`): its finding line starts `bad\nname.txt:`, and no output line starts with `name.txt`.
+- 11.54: a missing `--rules` file and no input file named: exit 2, and exactly one line on standard error, saying no input file is named. The same missing `--rules` file with the file of 11.1 named: exit 2, and one line saying the rule file can't be read. The line need not print the file's path, and if it does, the path is printed by the printed-path rule (section 7).
