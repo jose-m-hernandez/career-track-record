@@ -10,6 +10,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - In CI, the maintainer barred-strings scan prints only the number of hits, and a malformed list fails without naming the entry. Local runs still print each hit's entry number and where it was found, and name the malformed entry.
 - The documentation calls the tone check the voice and tone check. The command is still `track-record tone`.
+- The behaviour specs for the barred-wording check, the keyword scan and the voice and tone check now say what happens when output can't be written or standard error is closed. The voice and tone check's spec also says how it prints file names and which options may be repeated. This entry changes documentation only.
+
+### Fixed
+
+- The test suite no longer hangs when it runs with standard input left open.
 
 ## [0.2.0] - 2026-10-21
 
