@@ -90,8 +90,10 @@ RUNS = [
 ]
 CANNOT = [("KW_CANNOT", KW_CANNOT, KW), ("B_CANNOT", B_CANNOT, BX),
           ("T_CANNOT", T_CANNOT, T_CWD)]
-HELP = [["--help"], ["-h"], ["keywords", "--help"], ["keywords", "demand", "--help"],
-        ["keywords", "coverage", "--help"], ["keywords", "report", "--help"]]
+HELP = [["--help"], ["-h"], ["keywords", "--help"], ["keywords", "-h"],
+        ["keywords", "demand", "--help"], ["keywords", "demand", "-h"],
+        ["keywords", "coverage", "--help"], ["keywords", "coverage", "-h"],
+        ["keywords", "report", "--help"], ["keywords", "report", "-h"]]
 
 
 class _FullBuffer(object):
