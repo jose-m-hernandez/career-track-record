@@ -16,3 +16,8 @@ open an issue to report a bug or suggest a change, except for a security problem
 - Nothing is committed straight to `main`. Every change, the maintainer's included,
   lands through a pull request.
 - Every change is reviewed independently before it lands.
+
+## For the maintainer
+
+- Before merging a pull request from a fork, fetch its head commit, run `ci/barred_strings.py` locally with the private list, and merge only if the scan is clean. CI cannot run the scan for a fork, because a fork does not get the repository's secrets.
+- Approve an intentional use of a barred entry only in the private allow list, never in the repository.
