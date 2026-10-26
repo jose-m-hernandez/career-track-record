@@ -14,7 +14,7 @@ import os
 import re
 import unicodedata
 
-from career_track_record import barred
+from career_track_record import barred, pdf_text
 
 _DEFAULT_RULES = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                               "data", "tone-default.json")
@@ -493,6 +493,33 @@ def _cannot(lines):
     return Result(2, False, text="", error="\n".join(lines))
 
 
+class _PdfProblem(Exception):
+    """A PDF input could not be read. ``line`` is the stderr line for it."""
+
+    def __init__(self, line):
+        Exception.__init__(self, line)
+        self.line = line
+
+
+def _read_pdf(name):
+    """The text pdftotext extracts from a PDF input, as written (never folded)."""
+    label = _label(name)
+    try:
+        with open(name, "rb"):
+            pass
+    except (OSError, ValueError):
+        raise _PdfProblem("cannot run: cannot read %s" % label)
+    target = "./" + name if name.startswith("-") else name
+    try:
+        return pdf_text.pdf_text(target, errors="strict")
+    except pdf_text.PdfTextError as exc:
+        if exc.reason == "not found":
+            raise _PdfProblem("cannot run: cannot read %s: pdftotext not found" % label)
+        raise _PdfProblem("cannot run: cannot read %s: pdftotext failed or timed out" % label)
+    except UnicodeDecodeError:
+        raise _PdfProblem("cannot run: %s is not valid UTF-8" % label)
+
+
 def _run(rules_path, files, warn_only, stale_check):
     files = list(files)
     if not files:
@@ -508,6 +535,12 @@ def _run(rules_path, files, warn_only, stale_check):
     bodies = []
     failures = []
     for name in files:
+        if name.lower().endswith(".pdf"):
+            try:
+                bodies.append(_Body(_read_pdf(name)))
+            except _PdfProblem as exc:
+                failures.append(exc.line)
+            continue
         try:
             with open(name, "rb") as handle:
                 raw = handle.read()
