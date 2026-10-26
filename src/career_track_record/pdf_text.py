@@ -15,7 +15,7 @@ class PdfTextError(Exception):
         self.reason = reason
 
 
-def pdf_text(path, timeout=60):
+def pdf_text(path, timeout=60, *, errors="replace"):
     try:
         done = subprocess.run(["pdftotext", path, "-"], stdin=subprocess.DEVNULL,
                               capture_output=True, timeout=timeout, check=False)
@@ -25,4 +25,4 @@ def pdf_text(path, timeout=60):
         raise PdfTextError("failed")
     if done.returncode != 0:
         raise PdfTextError("failed")
-    return done.stdout.decode("utf-8", errors="replace")
+    return done.stdout.decode("utf-8", errors=errors)

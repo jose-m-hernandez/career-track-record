@@ -182,6 +182,25 @@ class PdfSeamCase(unittest.TestCase):
         self.assertEqual(inspect.signature(pdf_text.pdf_text).parameters["timeout"].default,
                          60)
 
+    def _call_with_invalid_bytes(self, **kwargs):
+        stand_in(self.bin, "printf 'ok \\377\\n'\n")
+        old = os.environ.get("PATH")
+        try:
+            os.environ["PATH"] = self.bin
+            return pdf_text.pdf_text(os.path.join(self.work, "x.pdf"), **kwargs)
+        finally:
+            if old is None:
+                del os.environ["PATH"]
+            else:
+                os.environ["PATH"] = old
+
+    def test_strict_errors_raise_on_invalid_utf8(self):
+        with self.assertRaises(UnicodeDecodeError):
+            self._call_with_invalid_bytes(errors="strict")
+
+    def test_default_still_replaces_invalid_utf8(self):
+        self.assertEqual(self._call_with_invalid_bytes(), "ok �\n")
+
 
 class RealPdftotextCase(unittest.TestCase):
     def test_real_pdftotext_reads_the_sample(self):

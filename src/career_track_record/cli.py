@@ -8,8 +8,18 @@ import sys
 from career_track_record import barred, keywords, tone
 
 
+class _Parser(argparse.ArgumentParser):
+    """Help goes out through _out, so help that cannot be written exits 2 like any output."""
+
+    def print_help(self, file=None):
+        if file is None:
+            _out(self.format_help())
+        else:
+            argparse.ArgumentParser.print_help(self, file)
+
+
 def _build_parser():
-    parser = argparse.ArgumentParser(prog="track-record")
+    parser = _Parser(prog="track-record")
     top = parser.add_subparsers(dest="command", metavar="command")
     top.required = True
     kw = top.add_parser("keywords", help="scan saved job postings for terms")
@@ -49,6 +59,46 @@ def _write(stream, text):
     else:
         stream.write(text)
         stream.flush()
+
+
+class _OutputError(Exception):
+    """Standard output could not be written."""
+
+
+def _silence(stream):
+    """After a failed write, point the stream's descriptor at the null device, so that
+    the interpreter's own final flush has nothing left to fail on."""
+    try:
+        fd = stream.fileno()
+        null = os.open(os.devnull, os.O_WRONLY)
+        try:
+            os.dup2(null, fd)
+        finally:
+            os.close(null)
+    except Exception:
+        pass
+
+
+def _out(text):
+    stream = sys.stdout
+    if stream is None:
+        raise _OutputError()
+    try:
+        _write(stream, text)
+    except (OSError, ValueError):
+        _silence(stream)
+        raise _OutputError()
+
+
+def _err(text):
+    """Write to standard error; a closed or failing stream changes nothing."""
+    stream = sys.stderr
+    if stream is None:
+        return
+    try:
+        _write(stream, text)
+    except Exception:
+        _silence(stream)
 
 
 class _OptionError(Exception):
@@ -110,7 +160,7 @@ def _main_barred(args, environ):
     try:
         opts = _parse_barred(args)
     except _OptionError as exc:
-        _write(sys.stderr, "cannot run: %s\n" % exc)
+        _err("cannot run: %s\n" % exc)
         return 2
     list_path = opts["list"]
     if list_path is None:
@@ -119,9 +169,9 @@ def _main_barred(args, environ):
                         controls=opts["controls"], strip_comments=opts["strip"],
                         min_chars=opts["min_chars"])
     if not result.ran:
-        _write(sys.stderr, result.error + "\n")
+        _err(result.error + "\n")
         return result.exit_code
-    _write(sys.stdout, result.text)
+    _out(result.text)
     return result.exit_code
 
 
@@ -179,26 +229,34 @@ def _one_line_name(name):
 def _main_tone(args):
     opts, reasons = _parse_tone(args)
     if reasons:
-        _write(sys.stderr, "".join("cannot run: %s\n" % reason for reason in reasons))
+        _err("".join("cannot run: %s\n" % reason for reason in reasons))
         return 2
     if opts["print_defaults"]:
         try:
             text = tone.default_rules_text()
         except tone.ToneError as exc:
-            _write(sys.stderr, "cannot run: %s\n" % exc)
+            _err("cannot run: %s\n" % exc)
             return 2
-        _write(sys.stdout, text)
+        _out(text)
         return 0
     result = tone.run(rules_path=opts["rules"], files=opts["files"],
                       warn_only=opts["warn_only"], stale_check=opts["stale_check"])
     if not result.ran:
-        _write(sys.stderr, result.error + "\n")
+        _err(result.error + "\n")
         return result.exit_code
-    _write(sys.stdout, result.text)
+    _out(result.text)
     return result.exit_code
 
 
 def main(argv=None, environ=None):
+    try:
+        return _main(argv, environ)
+    except _OutputError:
+        _err("cannot run: cannot write output\n")
+        return 2
+
+
+def _main(argv, environ):
     if argv is None:
         argv = sys.argv[1:]
     argv = list(argv)
@@ -228,11 +286,11 @@ def _main_keywords(args):
             with open(args.out, "w", encoding="utf-8", newline="\n") as handle:
                 handle.write(result.text[:-1])
         except OSError as exc:
-            _write(sys.stderr, "cannot run: cannot write %s: %s\n"
+            _err("cannot run: cannot write %s: %s\n"
                    % (args.out, exc.strerror or exc))
             return 2
     if not result.ran:
-        _write(sys.stderr, result.error + "\n")
+        _err(result.error + "\n")
         return result.exit_code
-    _write(sys.stdout, result.text)
+    _out(result.text)
     return result.exit_code
