@@ -248,7 +248,7 @@ class DeadAndCannotRunCase(RunCase):
                         "clean.txt"], 0, OK_CLEAN)
 
     def test_a_control_that_folds_to_nothing_proves_nothing(self):
-        self.assertCannot(["--list", L1, "--control", "​", "clean.txt"],
+        self.assertCannot(["--list", L1, "--control", "\u200b", "clean.txt"],
                           "no usable --control given")
 
     def test_no_input_file(self):
@@ -289,9 +289,9 @@ class DeadAndCannotRunCase(RunCase):
 
     def test_empty_entries(self):
         self.assertListCannot("   \tnote\n", "entry 1 is empty")
-        self.assertListCannot("​\n", "entry 1 is empty")
-        self.assertListCannot("moonshot\n  ​ \n", "entry 2 is empty")
-        self.assertListCannot("# c\nmoonshot\n\nfix it\n​‍\n", "entry 3 is empty")
+        self.assertListCannot("\u200b\n", "entry 1 is empty")
+        self.assertListCannot("moonshot\n  \u200b \n", "entry 2 is empty")
+        self.assertListCannot("# c\nmoonshot\n\nfix it\n\u200b\u200d\n", "entry 3 is empty")
 
     def test_canary_cannot_carry_the_word_flag(self):
         with open(os.path.join(FX, L2), encoding="utf-8") as handle:
@@ -319,7 +319,7 @@ class DeadAndCannotRunCase(RunCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = ["--list", os.path.join(FX, L1)] + CTRL
             write(os.path.join(tmp, "ff.txt"), padded(["page\fturnkey synergy"]))
-            write(os.path.join(tmp, "ls.txt"), padded(["x turnkey synergy y"]))
+            write(os.path.join(tmp, "ls.txt"), padded(["x\u2028turnkey synergy\u2029y"]))
             write(os.path.join(tmp, "cr.txt"), padded(["turnkey synergy"], eol="\r"))
             for name in ("ff.txt", "ls.txt", "cr.txt"):
                 with self.subTest(name):
@@ -473,7 +473,7 @@ class ListFormatCase(RunCase):
         with open(os.path.join(FX, L1), encoding="utf-8", newline="") as handle:
             text = handle.read()
         self.assertIn("# an invented list\n", text)
-        variant = "﻿" + text.replace("# an invented list", "  # an invented list")
+        variant = "\ufeff" + text.replace("# an invented list", "  # an invented list")
         variant = variant.replace("\n", "\r\n")
         names = ["plain.txt", "clean.txt"]
         with tempfile.TemporaryDirectory() as tmp:
@@ -496,7 +496,7 @@ class ListFormatCase(RunCase):
                                   "two.txt:13: entry #2 (1 x)\n")
             # U+2028 is not a line break, so this is still one entry; it is whitespace,
             # so the entry prepares to the phrase "turnkey synergy" and matches plain.txt.
-            write(path, "turnkey synergy\n")
+            write(path, "turnkey\u2028synergy\n")
             code, out, err = run_cli(["--list", path] + CTRL + ["plain.txt"])
             self.assertEqual((code, err), (1, ""))
             self.assertEqual(out, "FAIL  plain.txt: 1 entries\nplain.txt:13: entry #1 (1 x)\n")
@@ -504,7 +504,7 @@ class ListFormatCase(RunCase):
     def test_load_list_numbers_and_flags(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "l.txt")
-            write(path, "﻿# c\n\nAlpha\tWoRd\tnote\r\n  # d\n Beta \tnote: word\n")
+            write(path, "\ufeff# c\n\nAlpha\tWoRd\tnote\r\n  # d\n Beta \tnote: word\n")
             entries = barred.load_list(path)
         self.assertEqual([(e.number, e.folded, e.word) for e in entries],
                          [(1, "alpha", True), (2, "beta", False)])
@@ -546,11 +546,11 @@ class PreparedCase(RunCase):
                         "clean.txt"], 0, OK_CLEAN)
 
     def test_an_entry_of_format_characters_and_a_space_is_empty(self):
-        code, out, err = self.run_list("​ ​\n", CTRL + ["clean.txt"])
+        code, out, err = self.run_list("\u200b \u200b\n", CTRL + ["clean.txt"])
         self.assertEqual((code, out, err), (2, "", "cannot run: entry 1 is empty\n"))
 
     def test_preparing_trims_what_folding_leaves(self):
-        code, out, err = self.run_list("​turnkey synergy\n", CTRL + ["plain.txt"])
+        code, out, err = self.run_list("\u200bturnkey synergy\n", CTRL + ["plain.txt"])
         self.assertEqual((code, err), (1, ""))
         self.assertEqual(out, "FAIL  plain.txt: 1 entries\nplain.txt:13: entry #1 (1 x)\n")
 
@@ -885,7 +885,7 @@ class RuleGapCase(RunCase):
 
     def test_09_every_cf_character_is_removed(self):
         self.expect("turnkey synergy\n", "cf2064.txt",
-                    padded(["turn⁤key synergy"]), 1, self.fail_text("cf2064.txt", 1))
+                    padded(["turn\u2064key synergy"]), 1, self.fail_text("cf2064.txt", 1))
 
     def test_10_a_near_canary_may_carry_the_word_flag(self):
         self.expect("barred-strings-canary-example0001!\tword\n", "clean.txt",
@@ -976,7 +976,7 @@ class RuleGapCase(RunCase):
 
     def test_27_the_control_is_matched_after_folding(self):
         self.expect(self.l1(), "nbspctl.txt",
-                    FILLER_LINE * 12 + "Example Corp shipped it.\n", 0,
+                    FILLER_LINE * 12 + "Example\u00a0Corp shipped it.\n", 0,
                     self.ok("nbspctl.txt", 5, 757))
 
     def test_28_min_chars_with_leading_zeros_is_read_by_value(self):
