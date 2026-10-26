@@ -1,8 +1,8 @@
 # Barred-wording check: behaviour spec
 
 Status: accepted.
-Date: 2026-10-20.
-Revision: 5. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5.
+Date: 2026-10-22.
+Revision: 6.1. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9.
 
 The command is `<cli> barred`.
 
@@ -51,8 +51,9 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 ### 3.2 Input files
 
 - A file whose name ends in `.pdf` (any case) is read as the text that `pdftotext` writes for it, in its default (non-layout) mode.
+- **Known limit: PDF wraps inside a page.** In its default mode, `pdftotext` removes a line-end hyphen together with the line break wherever a line inside a page wraps after a letter or digit. So `zebra-`, a line break, then `word` reaches the check as `zebraword`. The hyphen-kept form (section 4, form 3) therefore never sees such a wrap. An entry `zebra-word` wrapped at its hyphen inside a page of a PDF is not matched, and neither is a `word`-flagged entry that is one half of it (`zebra` or `word`). A text file, and a PDF wrap at a page break (where `pdftotext` keeps the hyphen), are matched as section 4 states (10.9). The prior tool reads PDFs the same way, so it has the same miss. This is a stated limit, not a deliberate difference. Measured on poppler 26.07.0; earlier versions are not measured.
 - Any other file is read as UTF-8. Each invalid byte sequence is replaced by U+FFFD and is not fatal. A replacement character is an ordinary character: it is counted in the length and it breaks a match that runs across it.
-- **Line breaks.** Everywhere in this spec, for input files and PDF text alike, LF, CRLF and a lone CR each count as one line break. A form feed, which `pdftotext` writes between pages, is whitespace and not a line break. So are U+2028 and U+2029.
+- **Line breaks.** Everywhere in this spec, for input files and PDF text alike, LF, CRLF and a lone CR each count as one line break. A form feed, which `pdftotext` writes between pages, is whitespace and not a line break. So are U+2028 and U+2029. No other character is a line break: the vertical tab, U+001C to U+001E and U+0085 are whitespace only, in input files and in the list file alike.
 - Lines are numbered from 1. A byte-order mark is not a line break, so it never changes a line number.
 - `--strip-comments` applies to every input file that is not a PDF, whatever its extension. It never applies to a PDF's text. It removes, in this order:
   1. every block comment, from `/*` to the next `*/`, across lines. This is a text rule, not a parser: a `/*` inside a string still opens a block. A `/*` with no later `*/` removes nothing;
@@ -71,17 +72,20 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 
 **Folding** a text means, in order: Unicode NFKC normalisation, which folds ligatures such as "fi" into two letters and a no-break space into a space; full Unicode case folding, so that `ß` folds to `ss`; NFKC again; and removal of every format character (Unicode category Cf). That category includes the soft hyphen, the zero-width space, joiner and non-joiner, the word joiner, the byte-order mark and the direction marks. Entries, controls and file names are folded in the same way as text. Each is then **prepared**: every run of whitespace inside it becomes one space, and leading and trailing whitespace is removed. So an entry written with a double space matches text with a single space or a line break, as the CI scanner does.
 
-Each file's text is compared in two forms:
+**Whitespace**, everywhere in this spec, means exactly the characters for which Python's `str.isspace()` is true. There are 29 of them (measured on Python 3.9 and 3.14): U+0009 to U+000D, U+001C to U+001F, U+0020, U+0085, U+00A0, U+1680, U+2000 to U+200A, U+2028, U+2029, U+202F, U+205F and U+3000. This includes some characters a reader might not expect: the vertical tab, the information separators U+001C to U+001F and the next-line character U+0085. A control character that is not on this list, such as U+0001, is not whitespace. The list is fixed by this spec, so a later Unicode version changes it only by a new revision. Where a rule names spaces or tabs, it means U+0020 and U+0009 only.
+
+Each file's text is compared in three forms:
 1. **Joined:** the folded text, with every run of whitespace, line breaks included, turned into one space. Nothing is trimmed from its ends.
 2. **Rejoined:** the folded text, in which a hyphen-minus (U+002D, and no other dash) is removed whenever all of the following hold: the character before it is a word character; after it come only spaces or tabs, then one line break, then any whitespace; and the next character after that is a word character. The hyphen is removed together with all that whitespace. Then whitespace runs collapse as in the joined form. A word split across lines by hyphenation is matched whole. A **word character** is a letter, a number (any Unicode category starting with L or N) or the underscore.
+3. **Hyphen-kept:** the folded text, in which a line-end hyphen-minus (U+002D, and no other dash) is kept and the whitespace after it is removed, whenever all of the following hold: the character before it is a word character; after it come only spaces, tabs or form feeds, then one line break, then any whitespace; and the next character after that is a word character. Then whitespace runs collapse as in the joined form. So `zebra-`, a line break, then `word` becomes `zebra-word`, and a hyphenated entry wrapped at its hyphen is matched whole (in a PDF, at a page break only; see the known limit in section 3.2). A form feed on either side of the line break (a page break, as `pdftotext` writes it) is removed in the same way. The joined and rejoined forms are unchanged by this form.
 
 Matching rules:
-- An entry matches wherever it occurs as a literal substring of either form. It is not limited to whole words: an entry `moonshot` also matches inside `moonshots`.
+- An entry matches wherever it occurs as a literal substring of any of the three forms. It is not limited to whole words: an entry `moonshot` also matches inside `moonshots`.
 - An entry with the `word` flag matches only where the character before it and the character after it are each either absent (the start or end of the text) or a **boundary character**. A boundary character is anything that is not a letter (any Unicode category starting with L) and not a decimal digit (category Nd). So the underscore and punctuation are boundaries. This deliberately follows the repository's CI scanner, so one list means the same thing to both. It differs from the phrase boundary in the tone-and-tells check.
 - Matches are counted left to right, without overlap. A candidate that fails the `word` rule does not use up any text, and the search goes on from the next character.
 - A hyphen that is not at a line end is kept. `end-to-end` stays hyphenated and does not match an entry `end to end`.
 - An en dash is a different character from an em dash. Barring one does not bar the other.
-- The count for an entry in a file is the larger of its match counts in the two forms.
+- The count for an entry in a file is the largest of its match counts in the three forms.
 
 ## 5. The minimum length
 
@@ -89,7 +93,7 @@ Matching rules:
 
 ## 6. Output and exit status
 
-**File labels.** Each input file is named in the output by its **printed path**, unless its path matches any entry. A path matches when its folded path, in either form of section 4 (joined or rejoined), matches an entry under section 4's rules, `word` flag included. It also matches when its printed path, folded, matches an entry. Such a file is labelled `file #<i>` instead, where `<i>` is its 1-based position among the input files. Its path is never printed. The same rule keeps the list file's path out of every message. A finding from the name alone is reported on the `(file name)` line, whichever form matched.
+**File labels.** Each input file is named in the output by its **printed path**, unless its path matches any entry. A path matches when its folded path, in any of the three forms of section 4 (joined, rejoined or hyphen-kept), matches an entry under section 4's rules, `word` flag included. It also matches when its printed path, folded, matches an entry. Such a file is labelled `file #<i>` instead, where `<i>` is its 1-based position among the input files. Its path is never printed. The same rule keeps the list file's path out of every message. A finding from the name alone is reported on the `(file name)` line, whichever form matched.
 
 **The printed path** is the path as given, with these characters escaped:
 - the backslash, as `\\`;
@@ -104,7 +108,7 @@ One status line per input file, in argument order:
 - `FAIL  <label>: <k> entries`, where `<k>` is the number of distinct entries matched in the file's name or text. Next come the finding lines. First, one line per entry matched in the name, in entry order: `<label>:0: entry #<N> (file name)`. Then one line per entry matched in the text, in entry order: `<label>:<line>: entry #<N> (<count> x)`. An entry matched in both appears once in each group;
 - `DEAD  <label>: <reason>`, where the reason names the case from section 7, never an entry. A DEAD file gets no finding lines, even when its name matches.
 
-**The line number** of a text finding is the line on which that entry's earliest match begins, taking the earliest across both forms. A match begins at the character in the file (or in the PDF's text) from which its first folded character came. For a match that runs across a line break, that is the line where it starts.
+**The line number** of a text finding is the line on which that entry's earliest match begins, taking the earliest across all three forms. A match begins at the character in the file (or in the PDF's text) from which its first folded character came. For a match that runs across a line break, that is the line where it starts.
 
 The output never contains a list entry, a note, a matching path, the list file's path, or text quoted from the input. A test greps the captured output for each entry and finds none.
 
@@ -152,9 +156,9 @@ A closed or failing standard error never changes the exit status. When a message
    - Case folding is full Unicode case folding, so `ß` matches `ss`. Before, matching ignored only simple case.
    - Every format character is removed. Before, six named ones were.
    - Entries are trimmed, an indented `#` line is a comment, a CR at a line end is never part of an entry, a leading byte-order mark is dropped, and the canary and the `word` flag are read. Before, edge spaces and a trailing CR stayed in the entry (so it could not match), an indented `#` line was an entry, and a `word` note was only a note.
-   - A file name that matches an entry is a finding, and that name is never printed. Before, names were not checked and every path was printed. Names are checked in both forms of section 4, so a name hyphenated across a line break is matched whole.
+   - A file name that matches an entry is a finding, and that name is never printed. Before, names were not checked and every path was printed. Names are checked in all three forms of section 4, so a name hyphenated across a line break is matched whole, with or without its hyphen.
    - A printed path has its backslashes, control characters, line and paragraph separators and format characters escaped (section 6). Before, every path was printed raw, so a line break in a file name could forge an output line.
-   - The prior tool's line-break handling, rejoin rule and comment stripping are kept as they were, including the text-rule limit in section 3.2.
+   - The prior tool's line-break handling, rejoin rule and comment stripping are kept as they were, including the text-rule limit in section 3.2, with one deliberate exception: the hyphen-kept form (section 4, form 3) is new. The prior tool turned `zebra-`, a line break, then `word` into `zebraword` and `zebra- word`, so it missed an entry `zebra-word` wrapped at its hyphen. This tool catches it (10.9). In a PDF this holds at a page break. A wrap inside a page is the known limit in section 3.2.
 
 ## 10. Acceptance tests (known answers)
 
@@ -186,6 +190,15 @@ café
 ```
 
 L2 has five entries: 1 the canary, 2 `grossweg`, 3 `padded phrase`, 4 `fix` with the `word` flag, and 5 `café`, written with a precomposed `é`.
+
+**List L3:**
+
+```text
+# a third invented list
+zebra-word
+```
+
+L3 has one entry: 1 `zebra-word`.
 
 ### 10.1 Each evasion still matches (exit 1, entry 1, count 1)
 
@@ -311,4 +324,25 @@ L1 written with CRLF line endings, with a byte-order mark before its first line,
 
 ### 10.8 Nothing barred is ever printed
 
-Every run in 10.1 to 10.7 is captured. For each L1 and L2 entry, and for each fixture name that contains an entry, a search of the captured output finds nothing. The search uses section 4's matching rules, so an entry with the `word` flag is searched as a whole word: `prefix-notes.txt` in an OK line is not a hit for `fix`. The same search on the list files finds each entry, which shows the search works.
+Every run in 10.1 to 10.7 and 10.9 is captured. For each L1, L2 and L3 entry, and for each fixture name that contains an entry, a search of the captured output finds nothing. The search uses section 4's matching rules, so an entry with the `word` flag is searched as a whole word: `prefix-notes.txt` in an OK line is not a hit for `fix`. The same search on the list files finds each entry, which shows the search works.
+
+### 10.9 The hyphen-kept form (runs use `--list` naming L3)
+
+Each file is the padding, the test lines, then the padding again, so the first test line is line 13. LF ends each line unless stated.
+
+| File | Test lines | Result |
+|---|---|---|
+| `hyphkeep.txt` | `a zebra-`, then a line break and `word here` | FAIL, entry 1 on line 13, once |
+| `hyphff1.txt` | `a zebra-`, then a line break, a form feed and `word here` | FAIL, entry 1 on line 13, once: a page break after the line break |
+| `hyphff2.txt` | `a zebra-`, then a form feed, a line break and `word here` | FAIL, entry 1 on line 13, once: a page break before the line break |
+| `hyphkeepcrlf.txt` | as `hyphkeep.txt`, with CRLF line endings throughout | FAIL, entry 1 on line 13, once |
+| `nokeep.txt` | `a zebra -`, then a line break and `word here` | OK: the hyphen must follow a word character |
+| `hyphmid.pdf` | an invented PDF, padded to the minimum, whose text wraps `a zebra-` / `word here` inside a page | OK under default-mode extraction: the known limit in section 3.2. Skipped where `pdftotext` is absent. |
+
+`hyphkeep.txt` prints `FAIL  hyphkeep.txt: 1 entries`, then `hyphkeep.txt:13: entry #1 (1 x)`. Exit 1. `hyphff1.txt`, `hyphff2.txt` and `hyphkeepcrlf.txt` print the same two lines with their own names. Exit 1 each.
+
+`nokeep.txt` prints `OK    nokeep.txt: 0 of 1 entries (control found; <c> chars)`. Exit 0.
+
+A file named `zebra-`, a line feed, then `word.txt`, holding `clean.txt`'s content, run against L3: the hyphen-kept form of its name matches. It prints `FAIL  file #1: 1 entries`, then `file #1:0: entry #1 (file name)`. Exit 1.
+
+Against L1, the hyphen-kept form changes no result in 10.1 to 10.7: `hyph.txt` still counts entry 1 once, and `early.txt` still prints `early.txt:13: entry #1 (2 x)`.
