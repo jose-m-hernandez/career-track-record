@@ -167,7 +167,7 @@ class PdfSeamCase(unittest.TestCase):
         old = os.environ.get("PATH")
         started = time.time()
         try:
-            os.environ["PATH"] = self.bin
+            os.environ["PATH"] = self.bin + os.pathsep + "/usr/bin:/bin"
             with self.assertRaises(pdf_text.PdfTextError) as slow:
                 pdf_text.pdf_text(os.path.join(self.work, "x.pdf"), timeout=1)
         finally:
@@ -175,8 +175,35 @@ class PdfSeamCase(unittest.TestCase):
                 del os.environ["PATH"]
             else:
                 os.environ["PATH"] = old
-        self.assertLess(time.time() - started, 4)
+        elapsed = time.time() - started
+        self.assertGreaterEqual(elapsed, 0.9)
+        self.assertLess(elapsed, 4)
         self.assertEqual(slow.exception.reason, "failed")
+
+    def test_pdftotext_does_not_inherit_stdin(self):
+        # The stand-in echoes the first line of its standard input. Standard input of
+        # this process is pointed at a file holding "inherited", so a child that
+        # inherited it would print that; a child given /dev/null prints nothing.
+        feed = os.path.join(self.work, "feed.txt")
+        with open(feed, "w", encoding="utf-8") as handle:
+            handle.write("inherited\n")
+        stand_in(self.bin, "read line\nprintf '%s' \"$line\"\n")
+        old_path = os.environ.get("PATH")
+        saved = os.dup(0)
+        feed_fd = os.open(feed, os.O_RDONLY)
+        try:
+            os.dup2(feed_fd, 0)
+            os.environ["PATH"] = self.bin
+            text = pdf_text.pdf_text(os.path.join(self.work, "x.pdf"), timeout=5)
+        finally:
+            os.dup2(saved, 0)
+            os.close(saved)
+            os.close(feed_fd)
+            if old_path is None:
+                del os.environ["PATH"]
+            else:
+                os.environ["PATH"] = old_path
+        self.assertEqual(text, "")
 
     def test_the_default_timeout_is_60_seconds(self):
         self.assertEqual(inspect.signature(pdf_text.pdf_text).parameters["timeout"].default,
