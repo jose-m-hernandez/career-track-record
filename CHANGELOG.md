@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-26
+
 ### Added
 
 - The maintainer barred-strings scan can accept an intentional use of a barred entry, in one file's contents or one commit, that the maintainer has approved privately; every other use still fails, and a file or branch name is never accepted.
@@ -16,7 +18,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - In CI, the maintainer barred-strings scan prints only the number of hits, and a malformed list fails without naming the entry. Local runs still print each hit's entry number and where it was found, and name the malformed entry.
 - The documentation calls the tone check the voice and tone check. The command is still `track-record tone`.
 - The behaviour specs for the barred-wording check, the keyword scan and the voice and tone check now say what happens when output can't be written or standard error is closed. The voice and tone check's spec also says how it prints file names and which options may be repeated. This entry changes documentation only.
-- In CI, the maintainer barred-strings scan's messages for a repository state it can't scan (a submodule entry, or a file or commit that isn't UTF-8 text) no longer print the ID of the commit or file involved; run the scan locally to see which.
+- In CI, the maintainer barred-strings scan's messages for a repository state it can't scan (a submodule, or a file or commit that isn't UTF-8 text) no longer print the ID of the commit or file involved; run the scan locally to see which.
+- CONTRIBUTING.md now says how to name the maintainer barred-strings scan and a barred entry.
 
 ### Fixed
 
