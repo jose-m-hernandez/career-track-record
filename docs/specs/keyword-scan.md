@@ -1,7 +1,7 @@
 # Keyword scan: behaviour spec
 
 Status: accepted.
-Date: 2026-10-20.
+Date: 2026-10-22.
 
 `<cli>` is the command name until it is settled.
 
@@ -204,7 +204,7 @@ It exits 2 with one line on standard error. It never prints an empty or all-zero
 7. From the citation release: the stored posting a citation is about to quote no longer matches its recorded hash (section 9).
 8. A posting, copy file or term table is not valid UTF-8.
 9. A term pattern cannot be compiled: it is not a valid regular expression, or compiling it fails in any other way. Every such failure is this case, with one line and no traceback.
-10. Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). The run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said.
+10. Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). The run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said. This includes help: `-h` and `--help`, at every level (`<cli>`, `<cli> keywords`, and each of `demand`, `coverage` and `report`), write through the same output, so a help write that fails exits `2` with the same line.
 
 A closed or failing standard error never changes the exit status. When a message can't be written there, it is dropped, and the run exits exactly as it would have with the message written.
 

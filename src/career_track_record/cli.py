@@ -109,9 +109,61 @@ _BARRED_VALUE_OPTIONS = ("--list", "--control", "--min-chars")
 _BARRED_OPTIONS = _BARRED_VALUE_OPTIONS + ("--strip-comments",)
 _TONE_OPTIONS = ("--rules", "--warn-only", "--stale-check", "--print-defaults")
 
+_BARRED_HELP = """\
+usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
+    [--min-chars N] FILE...
+
+Report wording from your own barred list, by entry number only.
+
+  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
+  --control TEXT    a string each file must hold (repeatable, any one counts)
+  --strip-comments  strip comments and note values before matching
+  --min-chars N     the minimum length of each file (default 500)
+  -h, --help        show this summary and exit
+
+exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
+"""
+
+_TONE_HELP = """\
+usage: track-record tone [--rules FILE] [--warn-only] [--stale-check] FILE...
+       track-record tone --print-defaults
+
+Flag hype, hedges and filler in your copy.
+
+  --rules FILE      the rule file (default: the shipped rules)
+  --warn-only       run only warn rules
+  --stale-check     check exemptions for staleness
+  --print-defaults  write the shipped rule file and exit
+  -h, --help        show this summary and exit
+
+exit: 0 no errors, 1 errors found, 2 it cannot run
+"""
+
+
+def _asks_for_help(args, value_options=(), not_values=()):
+    """True when an argument before the end of the options is exactly -h or --help. It wins
+    over every other argument, even one standing where an option expects its value. The
+    options end at the first ``--`` that is not an option's value; value_options and
+    not_values mirror the parser (a value is taken unless it is one of not_values)."""
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg in ("-h", "--help"):
+            return True
+        if arg == "--":
+            return False
+        if arg in value_options and i < len(args) and args[i] not in not_values:
+            if args[i] in ("-h", "--help"):
+                return True
+            i += 1
+    return False
+
 
 def _parse_barred(args):
     """Parse the options of ``barred``. Raises _OptionError on any problem."""
+    if _asks_for_help(args, _BARRED_VALUE_OPTIONS, _BARRED_OPTIONS):
+        return {"help": True}
     found = {"list": None, "controls": [], "strip": False, "min_chars": 500}
     seen = set()
     files = []
@@ -162,6 +214,9 @@ def _main_barred(args, environ):
     except _OptionError as exc:
         _err("cannot run: %s\n" % exc)
         return 2
+    if opts.get("help"):
+        _out(_BARRED_HELP)
+        return 0
     list_path = opts["list"]
     if list_path is None:
         list_path = environ.get("BARRED_STRINGS_PATH") or None
@@ -180,6 +235,8 @@ def _parse_tone(args):
     one-line option problems, empty when the command line is usable."""
     found = {"rules": None, "warn_only": False, "stale_check": False,
              "print_defaults": False, "files": []}
+    if _asks_for_help(args):
+        return {"help": True}, []
     reasons = []
     rules_given = False
     i = 0
@@ -231,6 +288,9 @@ def _main_tone(args):
     if reasons:
         _err("".join("cannot run: %s\n" % reason for reason in reasons))
         return 2
+    if opts.get("help"):
+        _out(_TONE_HELP)
+        return 0
     if opts["print_defaults"]:
         try:
             text = tone.default_rules_text()

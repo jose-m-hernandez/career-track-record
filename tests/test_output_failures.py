@@ -93,7 +93,8 @@ CANNOT = [("KW_CANNOT", KW_CANNOT, KW), ("B_CANNOT", B_CANNOT, BX),
 HELP = [["--help"], ["-h"], ["keywords", "--help"], ["keywords", "-h"],
         ["keywords", "demand", "--help"], ["keywords", "demand", "-h"],
         ["keywords", "coverage", "--help"], ["keywords", "coverage", "-h"],
-        ["keywords", "report", "--help"], ["keywords", "report", "-h"]]
+        ["keywords", "report", "--help"], ["keywords", "report", "-h"],
+        ["barred", "--help"], ["tone", "--help"], ["barred", "-h"], ["tone", "-h"]]
 
 
 class _FullBuffer(object):

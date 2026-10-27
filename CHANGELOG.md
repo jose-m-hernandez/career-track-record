@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `track-record barred` and `track-record tone` accept `-h` and `--help`: each prints its fixed help text and exits 0, without reading any file. The new command spec, docs/specs/cli.md, states the help rule that `track-record keywords`, `barred` and `tone` share.
+
 ### Changed
 
 - The barred-wording check's behaviour spec, revision 6.1, lists exactly which characters count as whitespace and adds a third way of comparing text, one that keeps a plain hyphen at the end of a line. It describes how a hyphenated entry wrapped at its hyphen is caught, and states a known limit: inside a PDF page, that wrap is still missed. This change is documentation only.

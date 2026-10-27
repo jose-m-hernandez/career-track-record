@@ -2,7 +2,7 @@
 
 Status: accepted.
 Date: 2026-10-22.
-Revision: 6.1. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9.
+Revision: 6.3. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0).
 
 The command is `<cli> barred`.
 
@@ -35,6 +35,7 @@ Out:
 | `--control TEXT` | A control string. May be given more than once (section 3.3). |
 | `--strip-comments` | Strip comments and note values before matching (section 3.2). |
 | `--min-chars N` | The minimum length (section 5). `N` is a whole number, 0 or more, with at most 18 significant digits (leading zeros don't count). Default 500. |
+| `-h`, `--help` | Write the fixed summary of section 3.4 to standard output and exit `0`. It reads no list (neither `--list` nor `BARRED_STRINGS_PATH`), no control and no input file, and it wins over every other argument. An argument that is exactly `-h` or `--help` counts wherever it stands, even in the place of another option's value. After `--`, every argument is a file name, so `-- --help` checks a file named `--help`. The summary is fixed text, never built from the list. |
 
 Every other argument is an input file. When `--list` is absent, the list is the file named by the environment variable `BARRED_STRINGS_PATH`. An unset or empty variable counts as absent. With neither, the run cannot go ahead (section 7, case 3).
 
@@ -67,6 +68,25 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 - `--control TEXT` names a control string. It may be given more than once. A file passes its control when it contains any one of them.
 - A control is prepared as section 4 says (folded, whitespace runs collapsed, trimmed) and matched as a substring of the file's joined form, never with the `word` rule. A control that is empty after that is not a control: if no usable control remains, the run cannot go ahead (section 7, case 2).
 - With no `--control`, the run cannot go ahead (section 7, case 2). Control strings the user always wants can live in a config that the user's own wrapper passes in.
+
+### 3.4 The help summary
+
+The summary is the text below, byte for byte, ending in one line feed. `track-record` is the release's command name: if the name changes, the summary changes with it.
+
+```text
+usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
+    [--min-chars N] FILE...
+
+Report wording from your own barred list, by entry number only.
+
+  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
+  --control TEXT    a string each file must hold (repeatable, any one counts)
+  --strip-comments  strip comments and note values before matching
+  --min-chars N     the minimum length of each file (default 500)
+  -h, --help        show this summary and exit
+
+exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
+```
 
 ## 4. Folding and matching
 
@@ -129,11 +149,11 @@ A single file is DEAD, while the other files are still checked, when:
 
 The run also exits `2`, before any file is read, when:
 
-7. an option is unknown, lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`), or has a value out of range (`--min-chars` that is not a whole number of 0 or more, or that has more than 18 significant digits; leading zeros don't count). The digit cap keeps the parse inside what every supported Python converts without error.
+7. an option is unknown (`-h` and `--help` are known options, section 3.0), lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`), or has a value out of range (`--min-chars` that is not a whole number of 0 or more, or that has more than 18 significant digits; leading zeros don't count). The digit cap keeps the parse inside what every supported Python converts without error.
 
 At any point in the run:
 
-8. Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). The run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said.
+8. Its output cannot be written: standard output is closed, or a write to it fails (for example, a full disk, or a reader that closed the pipe). The run stops at once, exits `2` and writes one line to standard error, `cannot run: cannot write output`, with no traceback. Lines already written stay written, but the exit status is `2` whatever they said. This includes the help summary: a help write that fails exits `2` with this line.
 
 A closed or failing standard error never changes the exit status. When a message can't be written there, it is dropped, and the run exits exactly as it would have with the message written.
 
@@ -346,3 +366,12 @@ Each file is the padding, the test lines, then the padding again, so the first t
 A file named `zebra-`, a line feed, then `word.txt`, holding `clean.txt`'s content, run against L3: the hyphen-kept form of its name matches. It prints `FAIL  file #1: 1 entries`, then `file #1:0: entry #1 (file name)`. Exit 1.
 
 Against L1, the hyphen-kept form changes no result in 10.1 to 10.7: `hyph.txt` still counts entry 1 once, and `early.txt` still prints `early.txt:13: entry #1 (2 x)`.
+
+### 10.10 Help
+
+- `--help` alone, and `-h` alone: exit 0, standard output is exactly the summary of section 3.4, standard error is empty.
+- `--help` with `--list` naming a missing file: exit 0, the summary. This proves no list is read.
+- `--help` with no list, no control and no input file: exit 0, the summary.
+- `--help` with an unknown option: exit 0, the summary.
+- `--list --help`: exit 0, the summary (help in a value's place).
+- `--help` with standard output closed: exit 2, and one line on standard error, `cannot run: cannot write output`.

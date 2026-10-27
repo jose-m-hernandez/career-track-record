@@ -954,5 +954,71 @@ class K12PinsCase(ToneCase):
             + summary(1, 2, 0))), result)
 
 
+TONE_HELP = """\
+usage: track-record tone [--rules FILE] [--warn-only] [--stale-check] FILE...
+       track-record tone --print-defaults
+
+Flag hype, hedges and filler in your copy.
+
+  --rules FILE      the rule file (default: the shipped rules)
+  --warn-only       run only warn rules
+  --stale-check     check exemptions for staleness
+  --print-defaults  write the shipped rule file and exit
+  -h, --help        show this summary and exit
+
+exit: 0 no errors, 1 errors found, 2 it cannot run
+"""
+
+
+class HelpCase(ToneCase):
+    """tone -h and --help: fixed text, read nothing, win over option errors (G1)."""
+
+    def in_process(self, args):
+        import io
+        from career_track_record import cli as cli_module
+        old = (sys.stdout, sys.stderr)
+        try:
+            sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+            code = cli_module.main(["tone"] + list(args), environ={})
+            return code, sys.stdout.getvalue(), sys.stderr.getvalue()
+        finally:
+            sys.stdout, sys.stderr = old
+
+    def assertHelp(self, args, cwd=FX):
+        self.assertEqual(run_cli(args, cwd=cwd), (0, TONE_HELP, ""))
+        self.assertEqual(self.in_process(args), (0, TONE_HELP, ""))
+
+    def test_help_text_is_the_fixed_summary(self):
+        for flag in ("--help", "-h"):
+            with self.subTest(flag=flag):
+                self.assertHelp([flag])
+
+    def test_help_reads_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            for args in [["--help"], ["-h"], ["--rules", missing, "--help"],
+                         ["--help", missing], ["--help", "--rules", missing]]:
+                with self.subTest(args=args):
+                    self.assertHelp(args, cwd=tmp)
+                    self.assertEqual(os.listdir(tmp), [])
+
+    def test_help_wins_over_option_errors(self):
+        for args in [["--bogus", "--help"], ["--print-defaults", "--help"],
+                     ["--help", "--print-defaults"], ["--rules", "a", "--rules", "b", "--help"]]:
+            with self.subTest(args=args):
+                self.assertHelp(args)
+
+    def test_help_edge_table(self):
+        rows = [
+            (["--rules", "--help"], (0, TONE_HELP, "")),
+            (["--", "--help"], (2, "", "cannot run: cannot read --help\n")),
+            (["--help=1"], (2, "", "cannot run: unknown option --help\n")),
+        ]
+        for args, expected in rows:
+            with self.subTest(args=args):
+                self.assertEqual(run_cli(args), expected)
+                self.assertEqual(self.in_process(args), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

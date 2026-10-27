@@ -1217,5 +1217,110 @@ class LayoutCase(unittest.TestCase):
         self.assertEqual(guards, [len(tree.body) - 1])
 
 
+BARRED_HELP = """\
+usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
+    [--min-chars N] FILE...
+
+Report wording from your own barred list, by entry number only.
+
+  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
+  --control TEXT    a string each file must hold (repeatable, any one counts)
+  --strip-comments  strip comments and note values before matching
+  --min-chars N     the minimum length of each file (default 500)
+  -h, --help        show this summary and exit
+
+exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
+"""
+
+
+class HelpCase(RunCase):
+    """barred -h and --help: fixed text, read nothing, win over option errors (G1)."""
+
+    def in_process(self, args):
+        from career_track_record import cli as cli_module
+        old = (sys.stdout, sys.stderr)
+        try:
+            sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+            code = cli_module.main(["barred"] + list(args), environ={})
+            return code, sys.stdout.getvalue(), sys.stderr.getvalue()
+        finally:
+            sys.stdout, sys.stderr = old
+
+    def assertHelp(self, args, cwd=FX):
+        self.assertEqual(run_cli(args, cwd=cwd), (0, BARRED_HELP, ""))
+        self.assertEqual(self.in_process(args), (0, BARRED_HELP, ""))
+
+    def test_help_text_is_the_fixed_summary(self):
+        for flag in ("--help", "-h"):
+            with self.subTest(flag=flag):
+                self.assertHelp([flag])
+
+    def test_help_reads_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            for args in [["--help"], ["-h"], ["--list", missing, "--help"],
+                         ["--help", "--list", missing]]:
+                with self.subTest(args=args):
+                    self.assertHelp(args, cwd=tmp)
+                    self.assertEqual(os.listdir(tmp), [])
+
+    def test_help_reads_no_list_from_the_environment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            got = run_cli(["--help"], cwd=tmp, env_extra={"BARRED_STRINGS_PATH": missing})
+            self.assertEqual(got, (0, BARRED_HELP, ""))
+            old = (sys.stdout, sys.stderr)
+            try:
+                sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+                code = cli.main(["barred", "-h"], environ={"BARRED_STRINGS_PATH": missing})
+                got = (code, sys.stdout.getvalue(), sys.stderr.getvalue())
+            finally:
+                sys.stdout, sys.stderr = old
+            self.assertEqual(got, (0, BARRED_HELP, ""))
+            self.assertEqual(os.listdir(tmp), [])
+
+    def test_help_wins_over_option_errors(self):
+        for args in [["--frobnicate", "--help"], ["--min-chars", "x", "--help"],
+                     ["--strip-comments=yes", "--help"], ["--help", "--frobnicate"]]:
+            with self.subTest(args=args):
+                self.assertHelp(args)
+
+    def test_help_edge_table(self):
+        rows = [
+            (["--list", "--help"], (0, BARRED_HELP, "")),
+            (["--control", "--help"], (0, BARRED_HELP, "")),
+            (["--min-chars", "--help"], (0, BARRED_HELP, "")),
+            (["--", "--help"], (2, "", "cannot run: no --control given\n")),
+            (["--help=1"], (2, "", "cannot run: unknown option\n")),
+        ]
+        for args, expected in rows:
+            with self.subTest(args=args):
+                self.assertEqual(run_cli(args), expected)
+                self.assertEqual(self.in_process(args), expected)
+
+    def test_help_after_a_dash_dash_that_is_an_options_value(self):
+        # A `--` where a value-taking option's value goes is that value, not the end marker.
+        help_rows = [
+            ["--list", "--", "--help"],
+            ["--control", "--", "--help"],
+            ["--min-chars", "--", "--help"],
+            ["--list", "--", "-h"],
+            ["--list", "--help", "--", "x"],
+            ["--list", "--min-chars", "--", "--help"],
+        ]
+        for args in help_rows:
+            with self.subTest(args=args):
+                self.assertHelp(args)
+        # A `--` where no value is expected still ends the options.
+        rows = [
+            (["--list=x", "--", "--help"], (2, "", "cannot run: no --control given\n")),
+            (["--strip-comments", "--", "--help"], (2, "", "cannot run: no --control given\n")),
+        ]
+        for args, expected in rows:
+            with self.subTest(args=args):
+                self.assertEqual(run_cli(args), expected)
+                self.assertEqual(self.in_process(args), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

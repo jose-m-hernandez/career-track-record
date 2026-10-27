@@ -288,5 +288,17 @@ class CannotRunCli(CliBase):
         self.assertNotIn("Traceback", err)
 
 
+class TopLevelHelpListsToolsCli(CliBase):
+    def test_top_level_help_lists_barred_and_tone(self):
+        code, out, err = track("--help")
+        self.assertEqual((code, err), (0, ""))
+        lines = out.splitlines()
+        for line in (
+                "    barred    report wording from your own barred list",
+                "    tone      flag hype, hedges and filler in your copy"):
+            with self.subTest(line=line):
+                self.assertIn(line, lines)
+
+
 if __name__ == "__main__":
     unittest.main()
