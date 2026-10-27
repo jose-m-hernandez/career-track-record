@@ -9,6 +9,7 @@ import ast
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,7 @@ from career_track_record import barred, cli  # noqa: E402
 
 L1 = "list-l1.txt"
 L2 = "list-l2.txt"
+L3 = "list-l3.txt"
 CTRL = ["--control", "Example Corp"]
 PAD = "Example Corp shipped a reporting tool for teams."
 PAD_LINE = PAD + "\n"
@@ -33,6 +35,7 @@ L1_ENTRIES = ["turnkey synergy", "rockstar ninja", "—", "moonshot", "fix it"]
 L2_ENTRIES = ["barred-strings-canary-example0001", "grossweg", "padded phrase", "fix",
               "café"]
 L2_WORD = [False, False, False, True, False]
+L3_ENTRIES = ["zebra-word"]
 
 
 def clean_env(extra=None):
@@ -620,6 +623,8 @@ SWEEP = [
     (L1, ["moonshot-notes.txt", "clean.txt", "moonshot-plain.txt", "moonshot-short.txt"], []),
     (L2, ["fold.txt", "trim.txt", "word.txt", "word2.txt", "decomp.txt", "lrm.txt",
           "canary.txt", "clean.txt", "prefix-notes.txt", "moonshot-notes.txt"], []),
+    (L3, ["hyphkeep.txt", "hyphff1.txt", "hyphff2.txt", "hyphkeepcrlf.txt", "nokeep.txt"],
+     []),
 ]
 
 
@@ -629,7 +634,7 @@ class NothingBarredIsPrintedCase(RunCase):
                       if n != "make_fixtures.py" and not n.startswith("__"))
 
     def test_the_search_finds_each_entry_in_the_list_files(self):
-        for listing, entries in ((L1, L1_ENTRIES), (L2, L2_ENTRIES)):
+        for listing, entries in ((L1, L1_ENTRIES), (L2, L2_ENTRIES), (L3, L3_ENTRIES)):
             with open(os.path.join(FX, listing), encoding="utf-8") as handle:
                 text = handle.read()
             for entry in entries:
@@ -637,7 +642,8 @@ class NothingBarredIsPrintedCase(RunCase):
 
     def test_no_run_prints_an_entry_a_name_that_matches_or_a_list_path(self):
         by_list = {L1: [(e, False) for e in L1_ENTRIES],
-                   L2: list(zip(L2_ENTRIES, L2_WORD))}
+                   L2: list(zip(L2_ENTRIES, L2_WORD)),
+                   L3: [(e, False) for e in L3_ENTRIES]}
         runs = 0
         for listing, names, extra in SWEEP:
             checks = by_list[listing]
@@ -648,7 +654,7 @@ class NothingBarredIsPrintedCase(RunCase):
                         matching_names.add(name)
             if listing == L1:
                 self.assertIn("moonshot-notes.txt", matching_names)
-            else:
+            elif listing == L2:
                 # Named like the word entry `fix`, but not as a whole word: not a match.
                 self.assertNotIn("prefix-notes.txt", matching_names)
             captured = run_cli(["--list", listing] + CTRL + extra + names)
@@ -661,8 +667,28 @@ class NothingBarredIsPrintedCase(RunCase):
                 self.assertNotIn(name, captured_text)
             self.assertNotIn(L1, captured_text)
             self.assertNotIn(L2, captured_text)
+            self.assertNotIn(L3, captured_text)
             self.assertNotIn(FX, captured_text)
         self.assertEqual(runs, len(SWEEP))
+
+    def test_the_hyphmid_pdf_run_prints_no_entry(self):
+        if shutil.which("pdftotext") is None:
+            self.skipTest("pdftotext is not installed")
+        matching_names = set()
+        for name in self.fixture_names():
+            for entry in L3_ENTRIES:
+                if contains_entry(name.lower(), entry, False):
+                    matching_names.add(name)
+        captured = run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"])
+        captured_text = captured[1] + captured[2]
+        for entry in L3_ENTRIES:
+            self.assertFalse(contains_entry(captured_text.lower(), entry, False), entry)
+        for name in matching_names:
+            self.assertNotIn(name, captured_text)
+        self.assertNotIn(L1, captured_text)
+        self.assertNotIn(L2, captured_text)
+        self.assertNotIn(L3, captured_text)
+        self.assertNotIn(FX, captured_text)
 
     def test_the_badutf8_run_prints_no_entry(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -1026,13 +1052,14 @@ class FixturesCase(unittest.TestCase):
         names = ("plain case wrap hyph hyphcrlf hyphcr hyphsp soft zw nbsp lig emdash clean "
                  "endash compound note nbhyph two substr early bom short nocontrol "
                  "fold trim word word2 decomp lrm canary moonshot-notes moonshot-plain "
-                 "moonshot-short prefix-notes strip").split()
+                 "moonshot-short prefix-notes strip hyphkeep hyphff1 hyphff2 hyphkeepcrlf "
+                 "nokeep").split()
         for name in names:
             self.assertTrue(os.path.isfile(os.path.join(FX, name + ".txt")), name)
         for name in ("src lines nlnote url footnote spcolon single unterm strblock "
                      "value").split():
             self.assertTrue(os.path.isfile(os.path.join(FX, name + ".ts")), name)
-        for name in (L1, L2, "sample.pdf"):
+        for name in (L1, L2, L3, "sample.pdf", "hyphmid.pdf"):
             self.assertTrue(os.path.isfile(os.path.join(FX, name)), name)
 
     def test_every_committed_fixture_is_utf8(self):
@@ -1085,6 +1112,7 @@ def missing_run(name):
 
 
 L1_TEXT = read(L1_PATH).decode("utf-8")
+L3_TEXT = read(os.path.join(FX, L3)).decode("utf-8")
 SIXTH_ENTRY_LIST = L1_TEXT + "e\\np\n"
 
 
@@ -1205,6 +1233,48 @@ class Revision4MinCharsCase(RunCase):
         self.assertEqual(
             run_cli(base + ["--min-chars", "0000000000000000000500", "clean.txt"]),
             (0, OK_CLEAN, ""))
+
+
+class HyphenKeptCase(RunCase):
+    """Spec section 4 form 3 and section 10.9: a line-end hyphen is kept, the break goes."""
+
+    def assertOkRun(self, name, content, list_text):
+        code, out, err = temp_run([(name, content)], list_text=list_text)
+        self.assertEqual((code, err), (0, ""))
+        self.assertRegex(out, r"\AOK    %s: 0 of 1 entries \(control found; "
+                              r"[0-9]+ chars\)\n\Z" % re.escape(name))
+
+    def test_each_hyphen_kept_fixture_fails_on_line_13(self):
+        for name in ("hyphkeep.txt", "hyphff1.txt", "hyphff2.txt", "hyphkeepcrlf.txt"):
+            with self.subTest(name):
+                self.one(name, L3, [(13, 1, 1)])
+
+    def test_nokeep_is_ok(self):
+        self.assertRun(["--list", L3] + CTRL + ["nokeep.txt"], 0,
+                       "OK    nokeep.txt: 0 of 1 entries (control found; 1196 chars)\n")
+
+    def test_a_name_wrapped_at_its_hyphen_matches(self):
+        self.assertEqual(
+            temp_run([("zebra-\nword.txt", CLEAN)], list_text=L3_TEXT),
+            (1, "FAIL  file #1: 1 entries\nfile #1:0: entry #1 (file name)\n", ""))
+
+    def test_the_hyphen_must_follow_a_word_character(self):
+        self.assertOkRun("h4.txt", padded(["a zebra -", "word here"]), "zebra -word\n")
+
+    def test_a_word_character_must_follow_the_break(self):
+        self.assertOkRun("h5.txt", padded(["a zebra-", "(word here"]), "zebra-(word\n")
+
+    def test_only_the_hyphen_minus_is_kept(self):
+        self.assertOkRun("h6.txt", padded(["a zebra\u2013", "word here"]),
+                         "zebra\u2013word\n")
+
+    def test_a_pdf_wrap_inside_a_page_is_the_stated_limit(self):
+        if shutil.which("pdftotext") is None:
+            self.skipTest("pdftotext is not installed")
+        code, out, err = run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"])
+        self.assertEqual((code, err), (0, ""))
+        self.assertRegex(out, r"\AOK    hyphmid.pdf: 0 of 1 entries \(control found; "
+                              r"[0-9]+ chars\)\n\Z")
 
 
 class LayoutCase(unittest.TestCase):

@@ -26,7 +26,7 @@ This installs the `track-record` command. If your shell can't find it, run `pyth
 
 ### `track-record barred`
 
-Keep a private list of wording that must never appear in what you send: a UTF-8 text file with one entry per line, where a line starting with `#` is a comment. For each file that uses an entry, the check reports only the entry's number, so the wording itself never shows up in its output or your logs. Case, ligatures, invisible characters and a word split across a line break can't hide a match.
+Keep a private list of wording that must never appear in what you send: a UTF-8 text file with one entry per line, where a line starting with `#` is a comment. To have an entry match only as a whole word, put a tab character after it and then exactly `word`, in any case, so that a letter or digit directly before or after it rules the match out. For each file that uses an entry, the check reports only the entry's number, so the wording itself never shows up in its output or your logs. Case, ligatures, invisible characters and a word split across a line break can't hide a match. One exception is in PDFs. When a hyphenated word such as `zebra-word` wraps at its hyphen inside a page, `pdftotext` removes the hyphen and the line break before the check reads the text, so the check sees `zebraword` (measured with poppler 26.07.0). An entry `zebra-word` is then not caught, and neither is a `word`-flagged entry for one half of it, `zebra` or `word`. Across a page break, and in text files, both are caught.
 
 Every run names a control phrase, such as your own name, that must appear in each file, so a file read as blank or garbled can't pass as clean. A file that is too short, or that lacks the control, is reported DEAD, never OK.
 

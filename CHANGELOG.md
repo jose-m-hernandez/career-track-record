@@ -17,6 +17,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - More tests pin how the PDF reader behaves: the time-limit test now runs a program that really waits, so it fails unless the limit stops it, and new tests check that the voice and tone check prints an unreadable PDF's name escaped and that `pdftotext` is started with no standard input. Tests only.
 - The no-network test now also fails if a tool starts a program through `os.exec*`, `os.spawn*`, `os.fork` or a similar call (the one `pdftotext` call in `pdf_text.py` stays allowed), imports another network module (`_socket`, `_ssl`, `socketserver`, `wsgiref`, `nntplib`), imports `email`, or imports `runpy` or `code`, which run code from a string or file, or looks up names by string through `globals`, `vars`, `locals`, `__dict__` or `sys.modules`. It still checks names as written, not aliases, chains of lookups or names built from strings.
 
+### Fixed
+
+- `track-record barred` now catches an entry with a plain hyphen, wrapped at that hyphen, such as `zebra-word` written as `zebra-` at the end of one line and `word` at the start of the next, in a text file, in a file name and across a PDF page break. Inside a PDF page it is still missed, because `pdftotext` removes the hyphen there.
+
 ## [0.2.1] - 2026-10-26
 
 ### Added
