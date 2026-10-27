@@ -11,6 +11,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The barred-wording check's behaviour spec, revision 6.1, lists exactly which characters count as whitespace and adds a third way of comparing text, one that keeps a plain hyphen at the end of a line. It describes how a hyphenated entry wrapped at its hyphen is caught, and states a known limit: inside a PDF page, that wrap is still missed. This change is documentation only.
 - The test sources write invisible characters and the no-break space as escapes, and a test fails if one appears raw in any Python file under `tests/`. More tests pin rules of the voice and tone check that its spec states.
 - More tests pin how the PDF reader behaves: the time-limit test now runs a program that really waits, so it fails unless the limit stops it, and new tests check that the voice and tone check prints an unreadable PDF's name escaped and that `pdftotext` is started with no standard input. Tests only.
+- The no-network test now also fails if a tool starts a program through `os.exec*`, `os.spawn*`, `os.fork` or a similar call (the one `pdftotext` call in `pdf_text.py` stays allowed), imports another network module (`_socket`, `_ssl`, `socketserver`, `wsgiref`, `nntplib`), imports `email`, or imports `runpy` or `code`, which run code from a string or file, or looks up names by string through `globals`, `vars`, `locals`, `__dict__` or `sys.modules`. It still checks names as written, not aliases, chains of lookups or names built from strings.
 
 ## [0.2.1] - 2026-10-26
 
