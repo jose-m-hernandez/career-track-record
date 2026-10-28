@@ -1,6 +1,10 @@
-"""Structural test: no tool module imports a network or mail capability.
+"""Structural test: no tool module imports a network or mail capability, loads code
+from a string or file, looks up names by string, or starts a program. The one
+exception is pdf_text.py, which may run pdftotext.
 
-Names as written; aliases, getattr and built strings are not tracked."""
+This is a tripwire on literal forms: it checks names as written. It does not track
+aliases, chains of getattr or other lookups, or names built from strings. getattr
+itself is allowed, because the tools use it."""
 
 import ast
 import os
@@ -13,10 +17,21 @@ BARRED_IMPORTS = frozenset([
     "socket", "ssl", "http", "urllib", "ftplib", "smtplib", "poplib", "imaplib",
     "telnetlib", "xmlrpc", "asyncio", "subprocess", "multiprocessing", "webbrowser",
     "requests", "importlib", "builtins", "ctypes",
+    "pty", "_posixsubprocess", "concurrent",
+    "_socket", "_ssl", "socketserver", "wsgiref", "nntplib",
+    "runpy", "code",
+    "email",
 ])
 BARRED_NAMES = frozenset(["__import__", "eval", "exec", "compile", "importlib",
-                          "__builtins__"])
-BARRED_ATTRIBUTES = frozenset(["__import__", "import_module"])
+                          "__builtins__", "globals", "vars", "locals"])
+# Attributes of os that start a program (also barred as names imported from os).
+BARRED_PROGRAM_ATTRIBUTES = frozenset([
+    "execl", "execle", "execlp", "execlpe", "execv", "execve", "execvp", "execvpe",
+    "spawnl", "spawnle", "spawnlp", "spawnlpe", "spawnv", "spawnve", "spawnvp", "spawnvpe",
+    "posix_spawn", "posix_spawnp", "fork", "forkpty", "startfile",
+])
+BARRED_ATTRIBUTES = BARRED_PROGRAM_ATTRIBUTES | frozenset([
+    "__import__", "import_module", "__dict__", "modules"])
 BARRED_CALLED_ATTRIBUTES = frozenset(["system", "popen"])
 # One module may run a program: pdf_text.py starts pdftotext to read a PDF. It is excused
 # only for the exact problem strings listed here; any other problem in it still fails, and
@@ -52,7 +67,7 @@ def problems_in_source(source, filename="<string>"):
             if node.level == 0 and node.module and node.module.split(".")[0] in BARRED_IMPORTS:
                 found.append("imports from %s" % node.module)
             for alias in node.names:
-                if alias.name in BARRED_CALLED_ATTRIBUTES:
+                if alias.name in BARRED_CALLED_ATTRIBUTES or alias.name in BARRED_PROGRAM_ATTRIBUTES:
                     found.append("imports the name %s" % alias.name)
                 elif alias.name == "*":
                     found.append("uses a star import")
@@ -302,6 +317,63 @@ class NoNetworkCase(unittest.TestCase):
         self.assertIn("check=False)", source)
         planted = source.replace("check=False)", "check=False, env={})", 1)
         self.assertNotEqual(subprocess_use_problems(planted), [])
+
+    def _check_imports(self, modules):
+        for module in modules:
+            for form, expected in (
+                    ("import %s\n" % module, "imports %s" % module),
+                    ("import %s.x\n" % module, "imports %s.x" % module),
+                    ("from %s import y\n" % module, "imports from %s" % module),
+                    ("from %s.x import y\n" % module, "imports from %s.x" % module)):
+                with self.subTest(form=form):
+                    self.assertEqual(problems_in_source(form), [expected])
+
+    def test_catches_tier_a_programs(self):
+        attributes = ("execl", "execle", "execlp", "execlpe", "execv", "execve", "execvp",
+                      "execvpe", "spawnl", "spawnle", "spawnlp", "spawnlpe", "spawnv",
+                      "spawnve", "spawnvp", "spawnvpe", "posix_spawn", "posix_spawnp",
+                      "fork", "forkpty", "startfile")
+        imports = ("pty", "_posixsubprocess", "concurrent")
+        self.assertEqual(len(attributes), 21)
+        self.assertEqual(len(imports), 3)
+        for name in attributes:
+            for form, expected in (
+                    ("os.%s('x')\n" % name, "uses the attribute %s" % name),
+                    ("f = os.%s\n" % name, "uses the attribute %s" % name),
+                    ("from os import %s\n" % name, "imports the name %s" % name),
+                    ("from os import %s as y\n" % name, "imports the name %s" % name)):
+                with self.subTest(form=form):
+                    self.assertEqual(problems_in_source(form), [expected])
+        self._check_imports(imports)
+
+    def test_catches_tier_b_network(self):
+        imports = ("_socket", "_ssl", "socketserver", "wsgiref", "nntplib")
+        self.assertEqual(len(imports), 5)
+        self._check_imports(imports)
+
+    def test_catches_tier_c_code_loading(self):
+        imports = ("runpy", "code")
+        self.assertEqual(len(imports), 2)
+        self._check_imports(imports)
+
+    def test_catches_tier_d_mail(self):
+        imports = ("email",)
+        self.assertEqual(len(imports), 1)
+        self._check_imports(imports)
+
+    def test_catches_tier_e_lookup_by_string(self):
+        names = ("globals", "vars", "locals")
+        attributes = ("__dict__", "modules")
+        self.assertEqual(len(names), 3)
+        self.assertEqual(len(attributes), 2)
+        for name in names:
+            form = "%s()\n" % name
+            with self.subTest(form=form):
+                self.assertEqual(problems_in_source(form), ["uses the name %s" % name])
+        for name in attributes:
+            form = "x = y.%s\n" % name
+            with self.subTest(form=form):
+                self.assertEqual(problems_in_source(form), ["uses the attribute %s" % name])
 
 
 if __name__ == "__main__":

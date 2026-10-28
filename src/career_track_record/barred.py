@@ -1,7 +1,7 @@
 """Barred-wording check: where a file uses wording from the user's own barred list.
 
 The behaviour is stated in docs/specs/barred.md. In short: fold the list and each
-file's text (and name), compare in two forms, report entry numbers and line numbers
+file's text (and name), compare in three forms, report entry numbers and line numbers
 only, and call a file clean only when it was read in full and passed its control.
 
 Nothing here prints an entry, a note, matched text, a matching path or the list's path.
@@ -126,12 +126,41 @@ def _rejoin(text, lines):
     return "".join(out), out_lines
 
 
+def _keep_hyphen(text, lines):
+    """Keep a hyphen-minus that ends a line inside a word; remove the break after it.
+
+    After the hyphen only spaces, tabs or form feeds may come, then one line break, then
+    any whitespace, then a word character. The hyphen stays; the rest is removed."""
+    size = len(text)
+    out = []
+    out_lines = []
+    i = 0
+    while i < size:
+        ch = text[i]
+        out.append(ch)
+        out_lines.append(lines[i])
+        if ch == "-" and i > 0 and _is_word_char(text[i - 1]):
+            j = i + 1
+            while j < size and text[j] in " \t\f":
+                j += 1
+            if j < size and text[j] == "\n":
+                j += 1
+                while j < size and text[j].isspace():
+                    j += 1
+                if j < size and _is_word_char(text[j]):
+                    i = j
+                    continue
+        i += 1
+    return "".join(out), out_lines
+
+
 def _forms(text):
-    """The joined and rejoined forms of a text, each with the line of every character."""
+    """The joined, rejoined and hyphen-kept forms of a text, with the line of every character."""
     folded, lines = _fold_with_lines(text)
     joined = _collapse(folded, lines)
     rejoined = _collapse(*_rejoin(folded, lines))
-    return joined, rejoined
+    kept = _collapse(*_keep_hyphen(folded, lines))
+    return joined, rejoined, kept
 
 
 def _count(entry, form):
@@ -161,7 +190,7 @@ def _count(entry, form):
 
 
 def _match(entry, forms):
-    """(count, line) over both forms: the larger count, the earlier line."""
+    """(count, line) over all three forms: the larger count, the earlier line."""
     best = 0
     line = None
     for form in forms:
@@ -302,7 +331,7 @@ def _check_file(position, path, entries, controls, strip, min_chars, list_path):
     try:
         try:
             text = _read_text(path, strip)
-            joined, rejoined = _forms(text)
+            joined, rejoined, kept = _forms(text)
         except _Dead:
             raise
         except Exception:
@@ -316,7 +345,7 @@ def _check_file(position, path, entries, controls, strip, min_chars, list_path):
         return "DEAD", ["DEAD  %s: %s" % (label, dead.args[0])]
     found = []
     for entry in entries:
-        count, line = _match(entry, (joined, rejoined))
+        count, line = _match(entry, (joined, rejoined, kept))
         if count > 0:
             found.append((entry.number, line, count))
     if not name_hits and not found:

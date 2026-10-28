@@ -30,6 +30,10 @@ L2 = (
     "fix\tWORD\n"
     "café\n"
 )
+L3 = (
+    "# a third invented list\n"
+    "zebra-word\n"
+)
 
 
 def padded(block, eol="\n"):
@@ -56,9 +60,9 @@ TEXT_FILES = {
         + "".join(PAD_LINE + "\n" for _ in range(12))
     ),
     "hyphsp.txt": padded(["a turnkey syn-  ", "ergy plan"]),
-    "soft.txt": padded(["turnkey syn­ergy"]),
-    "zw.txt": padded(["turnkey​ synergy"]),
-    "nbsp.txt": padded(["turnkey synergy"]),
+    "soft.txt": padded(["turnkey syn\u00adergy"]),
+    "zw.txt": padded(["turnkey\u200b synergy"]),
+    "nbsp.txt": padded(["turnkey\u00a0synergy"]),
     "lig.txt": padded(["weﬁx it fast"]),
     "emdash.txt": padded(["fast — and more"]),
     "clean.txt": CLEAN,
@@ -91,18 +95,22 @@ TEXT_FILES = {
     "word.txt": padded(["we fix bugs; prefix and fixes do not count; fix."]),
     "word2.txt": padded(["fix_it and fix2"]),
     "decomp.txt": padded(["café menu"]),
-    "lrm.txt": padded(["gross‎weg"]),
+    "lrm.txt": padded(["gross\u200eweg"]),
     "canary.txt": padded(["barred-strings-canary-example0001"]),
     "moonshot-notes.txt": CLEAN,
     "moonshot-plain.txt": SUBSTR,
     "moonshot-short.txt": SHORT,
     "prefix-notes.txt": CLEAN,
+    "hyphkeep.txt": padded(["a zebra-", "word here"]),
+    "hyphff1.txt": padded(["a zebra-", "\fword here"]),
+    "hyphff2.txt": padded(["a zebra-\f", "word here"]),
+    "hyphkeepcrlf.txt": padded(["a zebra-", "word here"], eol="\r\n"),
+    "nokeep.txt": padded(["a zebra -", "word here"]),
 }
 
 
-def sample_pdf():
-    """A one-page PDF, built by hand, whose text is the padded test line of plain.txt."""
-    lines = [PAD_LINE] * 12 + ["We delivered a turnkey synergy for the team."] + [PAD_LINE] * 12
+def one_page_pdf(lines):
+    """A one-page PDF, built by hand, whose text is the given lines (ASCII only)."""
     stream = "BT\n/F1 11 Tf\n13 TL\n40 770 Td\n"
     stream += "".join("(%s) '\n" % line for line in lines)
     stream += "ET\n"
@@ -130,17 +138,30 @@ def sample_pdf():
     return out
 
 
+def sample_pdf():
+    """The PDF whose text is the padded test line of plain.txt."""
+    return one_page_pdf(
+        [PAD_LINE] * 12 + ["We delivered a turnkey synergy for the team."] + [PAD_LINE] * 12)
+
+
+def hyphmid_pdf():
+    """The PDF whose one page wraps `a zebra-` / `word here` inside the page."""
+    return one_page_pdf([PAD_LINE] * 12 + ["a zebra-", "word here"] + [PAD_LINE] * 12)
+
+
 def main(argv):
     if len(argv) != 2:
         sys.stderr.write("usage: make_fixtures.py OUTDIR\n")
         return 2
     outdir = argv[1]
     os.makedirs(outdir, exist_ok=True)
-    files = {"list-l1.txt": L1.encode("utf-8"), "list-l2.txt": L2.encode("utf-8")}
+    files = {"list-l1.txt": L1.encode("utf-8"), "list-l2.txt": L2.encode("utf-8"),
+             "list-l3.txt": L3.encode("utf-8")}
     for name, text in TEXT_FILES.items():
         files[name] = text.encode("utf-8")
     files["bom.txt"] = b"\xef\xbb\xbf" + PLAIN.encode("utf-8")
     files["sample.pdf"] = sample_pdf()
+    files["hyphmid.pdf"] = hyphmid_pdf()
     for name in sorted(files):
         with open(os.path.join(outdir, name), "wb") as handle:
             handle.write(files[name])

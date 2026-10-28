@@ -2,6 +2,8 @@
 
 Date: 2026-10-19
 
+> **Superseded 2026-10-27** by `2026-10-27-agents-md-is-the-only-instruction-file.md` (a `CLAUDE.md` anywhere in the folder chain turns off Claude Code's native `AGENTS.md` loading, so the bridge was removed).
+
 ## The rule
 
 > **`AGENTS.md` is the only instruction file. `CLAUDE.md` holds exactly one

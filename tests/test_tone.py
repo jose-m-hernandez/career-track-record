@@ -865,5 +865,160 @@ class FixtureCase(unittest.TestCase):
             read_bytes(os.path.join(FX, name)).decode("utf-8")
 
 
+class K12PinsCase(ToneCase):
+    """One pin per rule of docs/specs/tone-and-tells.md that a one-line mutant of
+    tone.py or the default rule file used to get past the whole suite."""
+
+    def checked(self, data, body, **options):
+        """Run a scratch rule file over one file holding body; return the Result."""
+        name = os.path.join(self.tmp, "pin.txt")
+        write_bytes(name, body.encode("utf-8"))
+        result = tone.run(rules_path=self.scratch(data), files=[name], **options)
+        return name, result
+
+    def test_the_default_rationales_are_the_ones_section_9_prints(self):
+        # Section 9, the default rule set: "This ships as the tool's default rule file."
+        # The rationale column is printed with every finding (section 3.1).
+        expected = [
+            ("results-driven", "A label the reader cannot check; show a result instead."),
+            ("team-player", "A claim every applicant makes; name what you did with the team."),
+            ("go-getter", "Hype that reads as filler."),
+            ("outside-the-box", "A cliché in place of the idea itself."),
+            ("detail-oriented", "Shows care better than it claims it."),
+            ("assisted-with", "Names a supporting role without saying what you did."),
+            ("various", "A vague quantity; name the things or the number."),
+            ("etc", "A trailing list hides the item that mattered."),
+        ]
+        data = load_json(DEFAULT_RULES)
+        self.assertEqual([(r["id"], r["rationale"]) for r in data["rules"]], expected)
+
+    def test_a_phrase_ending_inside_a_folded_character_is_not_whole(self):
+        # Section 4, phrase: "matched as whole words", with `case: insensitive` using
+        # "full Unicode case folding". U+00DF folds to "ss", so in the folded text "mas"
+        # (in Ma, U+00DF) is followed by the word character "s", and "sa" (in U+00DF, a)
+        # is preceded by one: neither has a boundary, so neither is a match.
+        sharp = "ß"
+        for text, body in (("mas", "Ma" + sharp + "\n"), ("sa", sharp + "a\n")):
+            with self.subTest(text=text):
+                data = {"rules": [{"id": "part", "level": "warn", "kind": "phrase",
+                                   "text": text, "rationale": WHY,
+                                   "must_fire": ["A %s." % text],
+                                   "must_not": ["A %sks." % text]}]}
+                name, result = self.checked(data, body)
+                self.assertEqual((result.exit_code, result.text),
+                                 (0, one_file(name)), result)
+
+    def test_a_zero_width_match_inside_the_text_is_no_finding(self):
+        # Section 4, regex: "An empty match is never a finding." The pattern does not
+        # match the empty string as a whole, but its lookahead matches with no width
+        # before the b of the file.
+        data = {"rules": [{"id": "zero", "level": "warn", "kind": "regex",
+                           "text": "x|(?=b)", "rationale": WHY,
+                           "must_fire": ["x"], "must_not": ["a"]}]}
+        self.assertEqual(tone.self_test(tone.load_rules(self.scratch(data))), [])
+        name, result = self.checked(data, "ab\n")
+        self.assertEqual((result.exit_code, result.text), (0, one_file(name)), result)
+
+    def test_a_char_rule_is_case_sensitive(self):
+        # Section 4, char: "the single code point in `text`, anywhere it occurs,
+        # case-sensitive." Only the upper-case Q is found, not the two q.
+        data = {"rules": [{"id": "big-q", "level": "warn", "kind": "char",
+                           "text": "Q", "rationale": WHY,
+                           "must_fire": ["Q"], "must_not": ["z"]}]}
+        name, result = self.checked(data, "q Q q\n")
+        self.assertEqual((result.exit_code, result.text), (0, one_file(
+            name, warnings=1, body=finding(name, 1, "warn", "big-q", "q Q q"))), result)
+
+    def test_a_sentence_end_needs_whitespace_or_the_end_of_the_file(self):
+        # Section 7: "A sentence end is a `.`, `!` or `?`, followed by any number of
+        # closing quotes or brackets ..., followed by whitespace or the end of the
+        # file." The dot in 3.5 is followed by a digit, so it ends nothing.
+        name = os.path.join(self.tmp, "version.txt")
+        write_bytes(name, b"A 3.5 turnkey plan.\n")
+        self.assertRun(["--rules", os.path.join(FX, R1), name], 1, one_file(
+            name, errors=1, body=finding(
+                name, 1, "error", "turnkey", "A 3.5 turnkey plan.")))
+
+    def test_stale_exemptions_print_in_exemption_order(self):
+        # Section 5, stale anchors: "one line per stale exemption, in exemption order".
+        # The exemptions name the rules in the reverse of the rule file's order.
+        data = self.r1()
+        data["exemptions"] = [
+            {"rule": "no-em-dash", "anchor": "an anchor found nowhere",
+             "reason": "invented reason"},
+            {"rule": "turnkey", "anchor": "another anchor found nowhere",
+             "reason": "invented reason"}]
+        name, result = self.checked(data, "No anchor here.\n", stale_check=True)
+        self.assertEqual((result.exit_code, result.text), (1, (
+            "%s: clean\nstale exemption: no-em-dash\nstale exemption: turnkey\n" % name
+            + summary(1, 2, 0))), result)
+
+
+TONE_HELP = """\
+usage: track-record tone [--rules FILE] [--warn-only] [--stale-check] FILE...
+       track-record tone --print-defaults
+
+Flag hype, hedges and filler in your copy.
+
+  --rules FILE      the rule file (default: the shipped rules)
+  --warn-only       run only warn rules
+  --stale-check     check exemptions for staleness
+  --print-defaults  write the shipped rule file and exit
+  -h, --help        show this summary and exit
+
+exit: 0 no errors, 1 errors found, 2 it cannot run
+"""
+
+
+class HelpCase(ToneCase):
+    """tone -h and --help: fixed text, read nothing, win over option errors (G1)."""
+
+    def in_process(self, args):
+        import io
+        from career_track_record import cli as cli_module
+        old = (sys.stdout, sys.stderr)
+        try:
+            sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+            code = cli_module.main(["tone"] + list(args), environ={})
+            return code, sys.stdout.getvalue(), sys.stderr.getvalue()
+        finally:
+            sys.stdout, sys.stderr = old
+
+    def assertHelp(self, args, cwd=FX):
+        self.assertEqual(run_cli(args, cwd=cwd), (0, TONE_HELP, ""))
+        self.assertEqual(self.in_process(args), (0, TONE_HELP, ""))
+
+    def test_help_text_is_the_fixed_summary(self):
+        for flag in ("--help", "-h"):
+            with self.subTest(flag=flag):
+                self.assertHelp([flag])
+
+    def test_help_reads_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            for args in [["--help"], ["-h"], ["--rules", missing, "--help"],
+                         ["--help", missing], ["--help", "--rules", missing]]:
+                with self.subTest(args=args):
+                    self.assertHelp(args, cwd=tmp)
+                    self.assertEqual(os.listdir(tmp), [])
+
+    def test_help_wins_over_option_errors(self):
+        for args in [["--bogus", "--help"], ["--print-defaults", "--help"],
+                     ["--help", "--print-defaults"], ["--rules", "a", "--rules", "b", "--help"]]:
+            with self.subTest(args=args):
+                self.assertHelp(args)
+
+    def test_help_edge_table(self):
+        rows = [
+            (["--rules", "--help"], (0, TONE_HELP, "")),
+            (["--", "--help"], (2, "", "cannot run: cannot read --help\n")),
+            (["--help=1"], (2, "", "cannot run: unknown option --help\n")),
+        ]
+        for args, expected in rows:
+            with self.subTest(args=args):
+                self.assertEqual(run_cli(args), expected)
+                self.assertEqual(self.in_process(args), expected)
+
+
 if __name__ == "__main__":
     unittest.main()

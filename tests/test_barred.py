@@ -9,6 +9,7 @@ import ast
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -24,6 +25,7 @@ from career_track_record import barred, cli  # noqa: E402
 
 L1 = "list-l1.txt"
 L2 = "list-l2.txt"
+L3 = "list-l3.txt"
 CTRL = ["--control", "Example Corp"]
 PAD = "Example Corp shipped a reporting tool for teams."
 PAD_LINE = PAD + "\n"
@@ -33,6 +35,7 @@ L1_ENTRIES = ["turnkey synergy", "rockstar ninja", "—", "moonshot", "fix it"]
 L2_ENTRIES = ["barred-strings-canary-example0001", "grossweg", "padded phrase", "fix",
               "café"]
 L2_WORD = [False, False, False, True, False]
+L3_ENTRIES = ["zebra-word"]
 
 
 def clean_env(extra=None):
@@ -248,7 +251,7 @@ class DeadAndCannotRunCase(RunCase):
                         "clean.txt"], 0, OK_CLEAN)
 
     def test_a_control_that_folds_to_nothing_proves_nothing(self):
-        self.assertCannot(["--list", L1, "--control", "​", "clean.txt"],
+        self.assertCannot(["--list", L1, "--control", "\u200b", "clean.txt"],
                           "no usable --control given")
 
     def test_no_input_file(self):
@@ -289,9 +292,9 @@ class DeadAndCannotRunCase(RunCase):
 
     def test_empty_entries(self):
         self.assertListCannot("   \tnote\n", "entry 1 is empty")
-        self.assertListCannot("​\n", "entry 1 is empty")
-        self.assertListCannot("moonshot\n  ​ \n", "entry 2 is empty")
-        self.assertListCannot("# c\nmoonshot\n\nfix it\n​‍\n", "entry 3 is empty")
+        self.assertListCannot("\u200b\n", "entry 1 is empty")
+        self.assertListCannot("moonshot\n  \u200b \n", "entry 2 is empty")
+        self.assertListCannot("# c\nmoonshot\n\nfix it\n\u200b\u200d\n", "entry 3 is empty")
 
     def test_canary_cannot_carry_the_word_flag(self):
         with open(os.path.join(FX, L2), encoding="utf-8") as handle:
@@ -319,7 +322,7 @@ class DeadAndCannotRunCase(RunCase):
         with tempfile.TemporaryDirectory() as tmp:
             base = ["--list", os.path.join(FX, L1)] + CTRL
             write(os.path.join(tmp, "ff.txt"), padded(["page\fturnkey synergy"]))
-            write(os.path.join(tmp, "ls.txt"), padded(["x turnkey synergy y"]))
+            write(os.path.join(tmp, "ls.txt"), padded(["x\u2028turnkey synergy\u2029y"]))
             write(os.path.join(tmp, "cr.txt"), padded(["turnkey synergy"], eol="\r"))
             for name in ("ff.txt", "ls.txt", "cr.txt"):
                 with self.subTest(name):
@@ -473,7 +476,7 @@ class ListFormatCase(RunCase):
         with open(os.path.join(FX, L1), encoding="utf-8", newline="") as handle:
             text = handle.read()
         self.assertIn("# an invented list\n", text)
-        variant = "﻿" + text.replace("# an invented list", "  # an invented list")
+        variant = "\ufeff" + text.replace("# an invented list", "  # an invented list")
         variant = variant.replace("\n", "\r\n")
         names = ["plain.txt", "clean.txt"]
         with tempfile.TemporaryDirectory() as tmp:
@@ -496,7 +499,7 @@ class ListFormatCase(RunCase):
                                   "two.txt:13: entry #2 (1 x)\n")
             # U+2028 is not a line break, so this is still one entry; it is whitespace,
             # so the entry prepares to the phrase "turnkey synergy" and matches plain.txt.
-            write(path, "turnkey synergy\n")
+            write(path, "turnkey\u2028synergy\n")
             code, out, err = run_cli(["--list", path] + CTRL + ["plain.txt"])
             self.assertEqual((code, err), (1, ""))
             self.assertEqual(out, "FAIL  plain.txt: 1 entries\nplain.txt:13: entry #1 (1 x)\n")
@@ -504,7 +507,7 @@ class ListFormatCase(RunCase):
     def test_load_list_numbers_and_flags(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = os.path.join(tmp, "l.txt")
-            write(path, "﻿# c\n\nAlpha\tWoRd\tnote\r\n  # d\n Beta \tnote: word\n")
+            write(path, "\ufeff# c\n\nAlpha\tWoRd\tnote\r\n  # d\n Beta \tnote: word\n")
             entries = barred.load_list(path)
         self.assertEqual([(e.number, e.folded, e.word) for e in entries],
                          [(1, "alpha", True), (2, "beta", False)])
@@ -546,11 +549,11 @@ class PreparedCase(RunCase):
                         "clean.txt"], 0, OK_CLEAN)
 
     def test_an_entry_of_format_characters_and_a_space_is_empty(self):
-        code, out, err = self.run_list("​ ​\n", CTRL + ["clean.txt"])
+        code, out, err = self.run_list("\u200b \u200b\n", CTRL + ["clean.txt"])
         self.assertEqual((code, out, err), (2, "", "cannot run: entry 1 is empty\n"))
 
     def test_preparing_trims_what_folding_leaves(self):
-        code, out, err = self.run_list("​turnkey synergy\n", CTRL + ["plain.txt"])
+        code, out, err = self.run_list("\u200bturnkey synergy\n", CTRL + ["plain.txt"])
         self.assertEqual((code, err), (1, ""))
         self.assertEqual(out, "FAIL  plain.txt: 1 entries\nplain.txt:13: entry #1 (1 x)\n")
 
@@ -620,6 +623,8 @@ SWEEP = [
     (L1, ["moonshot-notes.txt", "clean.txt", "moonshot-plain.txt", "moonshot-short.txt"], []),
     (L2, ["fold.txt", "trim.txt", "word.txt", "word2.txt", "decomp.txt", "lrm.txt",
           "canary.txt", "clean.txt", "prefix-notes.txt", "moonshot-notes.txt"], []),
+    (L3, ["hyphkeep.txt", "hyphff1.txt", "hyphff2.txt", "hyphkeepcrlf.txt", "nokeep.txt"],
+     []),
 ]
 
 
@@ -629,7 +634,7 @@ class NothingBarredIsPrintedCase(RunCase):
                       if n != "make_fixtures.py" and not n.startswith("__"))
 
     def test_the_search_finds_each_entry_in_the_list_files(self):
-        for listing, entries in ((L1, L1_ENTRIES), (L2, L2_ENTRIES)):
+        for listing, entries in ((L1, L1_ENTRIES), (L2, L2_ENTRIES), (L3, L3_ENTRIES)):
             with open(os.path.join(FX, listing), encoding="utf-8") as handle:
                 text = handle.read()
             for entry in entries:
@@ -637,7 +642,8 @@ class NothingBarredIsPrintedCase(RunCase):
 
     def test_no_run_prints_an_entry_a_name_that_matches_or_a_list_path(self):
         by_list = {L1: [(e, False) for e in L1_ENTRIES],
-                   L2: list(zip(L2_ENTRIES, L2_WORD))}
+                   L2: list(zip(L2_ENTRIES, L2_WORD)),
+                   L3: [(e, False) for e in L3_ENTRIES]}
         runs = 0
         for listing, names, extra in SWEEP:
             checks = by_list[listing]
@@ -648,7 +654,7 @@ class NothingBarredIsPrintedCase(RunCase):
                         matching_names.add(name)
             if listing == L1:
                 self.assertIn("moonshot-notes.txt", matching_names)
-            else:
+            elif listing == L2:
                 # Named like the word entry `fix`, but not as a whole word: not a match.
                 self.assertNotIn("prefix-notes.txt", matching_names)
             captured = run_cli(["--list", listing] + CTRL + extra + names)
@@ -661,8 +667,28 @@ class NothingBarredIsPrintedCase(RunCase):
                 self.assertNotIn(name, captured_text)
             self.assertNotIn(L1, captured_text)
             self.assertNotIn(L2, captured_text)
+            self.assertNotIn(L3, captured_text)
             self.assertNotIn(FX, captured_text)
         self.assertEqual(runs, len(SWEEP))
+
+    def test_the_hyphmid_pdf_run_prints_no_entry(self):
+        if shutil.which("pdftotext") is None:
+            self.skipTest("pdftotext is not installed")
+        matching_names = set()
+        for name in self.fixture_names():
+            for entry in L3_ENTRIES:
+                if contains_entry(name.lower(), entry, False):
+                    matching_names.add(name)
+        captured = run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"])
+        captured_text = captured[1] + captured[2]
+        for entry in L3_ENTRIES:
+            self.assertFalse(contains_entry(captured_text.lower(), entry, False), entry)
+        for name in matching_names:
+            self.assertNotIn(name, captured_text)
+        self.assertNotIn(L1, captured_text)
+        self.assertNotIn(L2, captured_text)
+        self.assertNotIn(L3, captured_text)
+        self.assertNotIn(FX, captured_text)
 
     def test_the_badutf8_run_prints_no_entry(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -885,7 +911,7 @@ class RuleGapCase(RunCase):
 
     def test_09_every_cf_character_is_removed(self):
         self.expect("turnkey synergy\n", "cf2064.txt",
-                    padded(["turn⁤key synergy"]), 1, self.fail_text("cf2064.txt", 1))
+                    padded(["turn\u2064key synergy"]), 1, self.fail_text("cf2064.txt", 1))
 
     def test_10_a_near_canary_may_carry_the_word_flag(self):
         self.expect("barred-strings-canary-example0001!\tword\n", "clean.txt",
@@ -976,7 +1002,7 @@ class RuleGapCase(RunCase):
 
     def test_27_the_control_is_matched_after_folding(self):
         self.expect(self.l1(), "nbspctl.txt",
-                    FILLER_LINE * 12 + "Example Corp shipped it.\n", 0,
+                    FILLER_LINE * 12 + "Example\u00a0Corp shipped it.\n", 0,
                     self.ok("nbspctl.txt", 5, 757))
 
     def test_28_min_chars_with_leading_zeros_is_read_by_value(self):
@@ -1026,13 +1052,14 @@ class FixturesCase(unittest.TestCase):
         names = ("plain case wrap hyph hyphcrlf hyphcr hyphsp soft zw nbsp lig emdash clean "
                  "endash compound note nbhyph two substr early bom short nocontrol "
                  "fold trim word word2 decomp lrm canary moonshot-notes moonshot-plain "
-                 "moonshot-short prefix-notes strip").split()
+                 "moonshot-short prefix-notes strip hyphkeep hyphff1 hyphff2 hyphkeepcrlf "
+                 "nokeep").split()
         for name in names:
             self.assertTrue(os.path.isfile(os.path.join(FX, name + ".txt")), name)
         for name in ("src lines nlnote url footnote spcolon single unterm strblock "
                      "value").split():
             self.assertTrue(os.path.isfile(os.path.join(FX, name + ".ts")), name)
-        for name in (L1, L2, "sample.pdf"):
+        for name in (L1, L2, L3, "sample.pdf", "hyphmid.pdf"):
             self.assertTrue(os.path.isfile(os.path.join(FX, name)), name)
 
     def test_every_committed_fixture_is_utf8(self):
@@ -1085,6 +1112,7 @@ def missing_run(name):
 
 
 L1_TEXT = read(L1_PATH).decode("utf-8")
+L3_TEXT = read(os.path.join(FX, L3)).decode("utf-8")
 SIXTH_ENTRY_LIST = L1_TEXT + "e\\np\n"
 
 
@@ -1207,6 +1235,48 @@ class Revision4MinCharsCase(RunCase):
             (0, OK_CLEAN, ""))
 
 
+class HyphenKeptCase(RunCase):
+    """Spec section 4 form 3 and section 10.9: a line-end hyphen is kept, the break goes."""
+
+    def assertOkRun(self, name, content, list_text):
+        code, out, err = temp_run([(name, content)], list_text=list_text)
+        self.assertEqual((code, err), (0, ""))
+        self.assertRegex(out, r"\AOK    %s: 0 of 1 entries \(control found; "
+                              r"[0-9]+ chars\)\n\Z" % re.escape(name))
+
+    def test_each_hyphen_kept_fixture_fails_on_line_13(self):
+        for name in ("hyphkeep.txt", "hyphff1.txt", "hyphff2.txt", "hyphkeepcrlf.txt"):
+            with self.subTest(name):
+                self.one(name, L3, [(13, 1, 1)])
+
+    def test_nokeep_is_ok(self):
+        self.assertRun(["--list", L3] + CTRL + ["nokeep.txt"], 0,
+                       "OK    nokeep.txt: 0 of 1 entries (control found; 1196 chars)\n")
+
+    def test_a_name_wrapped_at_its_hyphen_matches(self):
+        self.assertEqual(
+            temp_run([("zebra-\nword.txt", CLEAN)], list_text=L3_TEXT),
+            (1, "FAIL  file #1: 1 entries\nfile #1:0: entry #1 (file name)\n", ""))
+
+    def test_the_hyphen_must_follow_a_word_character(self):
+        self.assertOkRun("h4.txt", padded(["a zebra -", "word here"]), "zebra -word\n")
+
+    def test_a_word_character_must_follow_the_break(self):
+        self.assertOkRun("h5.txt", padded(["a zebra-", "(word here"]), "zebra-(word\n")
+
+    def test_only_the_hyphen_minus_is_kept(self):
+        self.assertOkRun("h6.txt", padded(["a zebra\u2013", "word here"]),
+                         "zebra\u2013word\n")
+
+    def test_a_pdf_wrap_inside_a_page_is_the_stated_limit(self):
+        if shutil.which("pdftotext") is None:
+            self.skipTest("pdftotext is not installed")
+        code, out, err = run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"])
+        self.assertEqual((code, err), (0, ""))
+        self.assertRegex(out, r"\AOK    hyphmid.pdf: 0 of 1 entries \(control found; "
+                              r"[0-9]+ chars\)\n\Z")
+
+
 class LayoutCase(unittest.TestCase):
     def test_the_main_guard_is_the_last_statement(self):
         with open(os.path.abspath(__file__), encoding="utf-8") as handle:
@@ -1215,6 +1285,111 @@ class LayoutCase(unittest.TestCase):
         guards = [i for i, node in enumerate(tree.body)
                   if isinstance(node, ast.If) and ast.dump(node.test) == guard]
         self.assertEqual(guards, [len(tree.body) - 1])
+
+
+BARRED_HELP = """\
+usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
+    [--min-chars N] FILE...
+
+Report wording from your own barred list, by entry number only.
+
+  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
+  --control TEXT    a string each file must hold (repeatable, any one counts)
+  --strip-comments  strip comments and note values before matching
+  --min-chars N     the minimum length of each file (default 500)
+  -h, --help        show this summary and exit
+
+exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
+"""
+
+
+class HelpCase(RunCase):
+    """barred -h and --help: fixed text, read nothing, win over option errors (G1)."""
+
+    def in_process(self, args):
+        from career_track_record import cli as cli_module
+        old = (sys.stdout, sys.stderr)
+        try:
+            sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+            code = cli_module.main(["barred"] + list(args), environ={})
+            return code, sys.stdout.getvalue(), sys.stderr.getvalue()
+        finally:
+            sys.stdout, sys.stderr = old
+
+    def assertHelp(self, args, cwd=FX):
+        self.assertEqual(run_cli(args, cwd=cwd), (0, BARRED_HELP, ""))
+        self.assertEqual(self.in_process(args), (0, BARRED_HELP, ""))
+
+    def test_help_text_is_the_fixed_summary(self):
+        for flag in ("--help", "-h"):
+            with self.subTest(flag=flag):
+                self.assertHelp([flag])
+
+    def test_help_reads_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            for args in [["--help"], ["-h"], ["--list", missing, "--help"],
+                         ["--help", "--list", missing]]:
+                with self.subTest(args=args):
+                    self.assertHelp(args, cwd=tmp)
+                    self.assertEqual(os.listdir(tmp), [])
+
+    def test_help_reads_no_list_from_the_environment(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            missing = os.path.join(tmp, "missing")
+            got = run_cli(["--help"], cwd=tmp, env_extra={"BARRED_STRINGS_PATH": missing})
+            self.assertEqual(got, (0, BARRED_HELP, ""))
+            old = (sys.stdout, sys.stderr)
+            try:
+                sys.stdout, sys.stderr = io.StringIO(), io.StringIO()
+                code = cli.main(["barred", "-h"], environ={"BARRED_STRINGS_PATH": missing})
+                got = (code, sys.stdout.getvalue(), sys.stderr.getvalue())
+            finally:
+                sys.stdout, sys.stderr = old
+            self.assertEqual(got, (0, BARRED_HELP, ""))
+            self.assertEqual(os.listdir(tmp), [])
+
+    def test_help_wins_over_option_errors(self):
+        for args in [["--frobnicate", "--help"], ["--min-chars", "x", "--help"],
+                     ["--strip-comments=yes", "--help"], ["--help", "--frobnicate"]]:
+            with self.subTest(args=args):
+                self.assertHelp(args)
+
+    def test_help_edge_table(self):
+        rows = [
+            (["--list", "--help"], (0, BARRED_HELP, "")),
+            (["--control", "--help"], (0, BARRED_HELP, "")),
+            (["--min-chars", "--help"], (0, BARRED_HELP, "")),
+            (["--", "--help"], (2, "", "cannot run: no --control given\n")),
+            (["--help=1"], (2, "", "cannot run: unknown option\n")),
+        ]
+        for args, expected in rows:
+            with self.subTest(args=args):
+                self.assertEqual(run_cli(args), expected)
+                self.assertEqual(self.in_process(args), expected)
+
+    def test_help_after_a_dash_dash_that_is_an_options_value(self):
+        # A `--` where a value-taking option's value goes is that value, not the end marker.
+        help_rows = [
+            ["--list", "--", "--help"],
+            ["--control", "--", "--help"],
+            ["--min-chars", "--", "--help"],
+            ["--list", "--", "-h"],
+            ["--list", "--help", "--", "x"],
+            ["--list", "--min-chars", "--", "--help"],
+        ]
+        for args in help_rows:
+            with self.subTest(args=args):
+                self.assertHelp(args)
+        # A `--` where no value is expected still ends the options.
+        rows = [
+            (["--list=x", "--", "--help"], (2, "", "cannot run: no --control given\n")),
+            (["--strip-comments", "--", "--help"], (2, "", "cannot run: no --control given\n")),
+        ]
+        for args, expected in rows:
+            with self.subTest(args=args):
+                self.assertEqual(run_cli(args), expected)
+                self.assertEqual(self.in_process(args), expected)
 
 
 if __name__ == "__main__":

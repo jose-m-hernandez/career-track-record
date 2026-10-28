@@ -217,6 +217,22 @@ class PdfCase(unittest.TestCase):
                 self.assertEqual(ours.encode("utf-8"), theirs.encode("utf-8"))
                 self.assertIn("Page" if "feed" in label else "Plain", ours)
 
+    def test_pdf_error_lines_print_the_name_escaped(self):
+        odd = "a\nb.pdf"
+        self.write(odd, b"not really a pdf\n")
+        with self.subTest("failed"):
+            self.assertEqual(self.run_with("exit 1\n", [], name=odd), (
+                2, "", "cannot run: cannot read a\\nb.pdf: pdftotext failed or timed out\n"))
+        with self.subTest("not found"):
+            self.assertEqual(self.run_empty([odd]), (
+                2, "", "cannot run: cannot read a\\nb.pdf: pdftotext not found\n"))
+        with self.subTest("not UTF-8"):
+            self.assertEqual(self.run_with("printf 'ok \\377\\n'\n", [], name=odd), (
+                2, "", "cannot run: a\\nb.pdf is not valid UTF-8\n"))
+        with self.subTest("missing"):
+            self.assertEqual(self.run_with(prints("Fine.\n"), [], name="c\nd.pdf"), (
+                2, "", "cannot run: cannot read c\\nd.pdf\n"))
+
     def test_known_answers_from_rev6(self):
         r3 = self.scratch("r3.json", r3_rules())
         # 11.55 and 11.56 (regex `$`), text files.
