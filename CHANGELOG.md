@@ -6,6 +6,25 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-30
+
+### Added
+
+- `track-record ab`, Reader A/B: it compares two versions of your copy by asking test readers which reads better, under a plan you freeze by hash before the first read. Every run includes an A/A control (the same version in both slots), checks that the two versions differ only where the plan says, and scores the replies against the frozen rules. The subcommands are `freeze`, `run` and `score`. A live reader is a command you name, and it runs only when you add `--live`. Spec: docs/specs/reader-ab.md.
+- A decision record, `docs/decisions/2026-10-29-a-reader-command-is-the-one-outside-program-a-user-names.md`, and a matching CONTRIBUTING line explain why a reader command a user names may start an outside program.
+
+### Changed
+
+- The no-network test now lets a second module, `ab_reader_command.py`, import `subprocess`, and checks that it makes exactly one `subprocess.run` call, with an argument list and no shell. The only keyword it adds to `pdf_text.py`'s call is `cwd`.
+- CI installs `poppler-utils`, so the test that reads a PDF version with the real `pdftotext` runs there.
+- The command-line spec, docs/specs/cli.md, is revision 2: it names `ab` and its fixed help text.
+- The README's statement that the tools cannot send anything now names the reader command as the one exception.
+
+### Fixed
+
+- An offline install on a stock Python 3.9 failed with `invalid command 'bdist_wheel'`. The package now asks for setuptools 70.1 or later to build, and the README says how to install offline.
+- The packaging test failed, rather than skipping, on a Python without `bdist_wheel`.
+
 ## [0.2.2] - 2026-10-27
 
 ### Added

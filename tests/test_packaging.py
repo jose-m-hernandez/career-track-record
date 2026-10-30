@@ -23,6 +23,18 @@ def read_version():
     raise AssertionError("no __version__ in src/career_track_record/__init__.py")
 
 
+def bdist_wheel_found(find_spec=importlib.util.find_spec):
+    """True when setuptools is importable and so is a provider of the ``bdist_wheel`` command:
+    the ``wheel`` package, or setuptools' own command (setuptools 70.1 and later)."""
+    def has(name):
+        try:
+            return find_spec(name) is not None
+        except (ImportError, ValueError):
+            return False
+
+    return has("setuptools") and (has("wheel") or has("setuptools.command.bdist_wheel"))
+
+
 def setuptools_gate(found, environ):
     if found:
         return "run"
@@ -33,14 +45,15 @@ def setuptools_gate(found, environ):
 
 class PackagingCase(unittest.TestCase):
     def test_offline_wheel_has_right_name_and_version(self):
-        gate = setuptools_gate(
-            importlib.util.find_spec("setuptools") is not None, os.environ
-        )
+        gate = setuptools_gate(bdist_wheel_found(), os.environ)
         if gate == "skip":
-            self.skipTest("setuptools is not installed")
+            self.skipTest(
+                "no bdist_wheel provider: setuptools 70.1 or later, "
+                "or setuptools plus wheel, is not installed"
+            )
         if gate == "fail":
             self.fail(
-                "setuptools is not installed in CI; "
+                "no bdist_wheel provider is installed in CI; "
                 "install ci/requirements-build.txt so the wheel test runs"
             )
         version = read_version()
@@ -98,6 +111,45 @@ class SetuptoolsGateCase(unittest.TestCase):
 
     def test_fails_in_ci_without_setuptools(self):
         self.assertEqual(setuptools_gate(False, {"GITHUB_ACTIONS": "true"}), "fail")
+
+
+class BdistWheelProbeCase(unittest.TestCase):
+    @staticmethod
+    def finder(*present):
+        def find_spec(name):
+            if name in present:
+                return object()
+            if "." in name and name.split(".")[0] not in present:
+                raise ModuleNotFoundError("No module named %r" % name.split(".")[0])
+            return None
+        return find_spec
+
+    def test_found_with_both_providers_or_either_one(self):
+        command = "setuptools.command.bdist_wheel"
+        for present in (("setuptools", "wheel", command), ("setuptools", "wheel"),
+                        ("setuptools", command)):
+            self.assertTrue(bdist_wheel_found(self.finder(*present)), present)
+
+    def test_not_found_with_neither_provider(self):
+        self.assertFalse(bdist_wheel_found(self.finder("setuptools")))
+        self.assertFalse(bdist_wheel_found(self.finder()))
+
+    def test_not_found_without_setuptools_even_with_wheel(self):
+        self.assertFalse(bdist_wheel_found(self.finder("wheel")))
+
+    def test_the_real_probe_agrees_with_what_can_be_imported(self):
+        try:
+            import setuptools  # noqa: F401
+            try:
+                import setuptools.command.bdist_wheel  # noqa: F401
+                has_command = True
+            except ImportError:
+                has_command = False
+            has_wheel = importlib.util.find_spec("wheel") is not None
+            expected = has_command or has_wheel
+        except ImportError:
+            expected = False
+        self.assertEqual(bdist_wheel_found(), expected)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,25 @@
+Senior Platform Engineer
+Velvetquarry Systems, remote
+
+About the role
+Velvetquarry Systems builds scheduling software for small warehouses.
+We are looking for a platform engineer to own our deployment pipeline
+and the services that run customer jobs.
+
+What you will do
+- Own the deployment pipeline and its reliability.
+- Design and run the job scheduler that customers rely on.
+- Improve build times and the release process.
+- Write runbooks and take part in the on-call rotation.
+- Mentor engineers on the team.
+
+What we look for
+- Seven or more years of experience in platform or infrastructure work.
+- Strong skills in Python or Go.
+- Experience with containers and an orchestration system.
+- A habit of writing tests and documentation.
+- Clear written communication.
+
+Nice to have
+- Experience with batch processing.
+- Experience leading a small team.

@@ -1,0 +1,90 @@
+Marlow Quenby
+Senior Platform Engineer
+marlow.quenby@example.com | 555-0100 | Lakeside City
+
+Summary
+Platform engineer with ten years of experience building batch pipelines,
+internal tooling and deployment systems. Prefers small, well-tested services
+and clear runbooks. Has led teams of three to six engineers.
+Comfortable owning a system from design through on-call. Writes short
+design notes before large changes and keeps them with the code.
+Looking for a platform role on a small, steady team.
+
+At a glance
+Languages: Python, Go, shell, SQL
+Tools: Kubernetes, Terraform, Postgres, Prometheus
+Practices: code review, incident response, runbooks, mentoring
+
+Experience
+
+Senior Platform Engineer, Glimmerpine Labs (2021 - Present)
+Owns the platform group's scheduler, build farm and release process.
+Stack: Go, Python, containers, a managed database
+- Designed a job scheduler that
+  replaced three hand-run cron
+  hosts.
+- Cut nightly batch time from five
+  hours to ninety minutes by
+  splitting work by tenant.
+- Wrote the on-call guide used by
+  all four platform teams.
+- Led a team of five through a move
+  from VM images to containers.
+- Introduced contract tests between
+  the scheduler and its clients.
+- Mentored two engineers who were
+  later promoted to senior.
+- Ran quarterly game days to
+  practise restoring from backups.
+- Replaced a hand-edited config
+  repository with generated,
+  reviewed files.
+
+Senior Engineer, Tallowmere Software (2017 - 2021)
+Worked on deployment, logging and build systems for a product group.
+Stack: Python, shell, a message queue, a build farm
+- Built a deployment service that
+  rolled out changes to forty
+  services.
+- Reduced failed deploys by a third
+  by adding a pre-flight check
+  stage.
+- Moved the log pipeline to a
+  queue-based design with replay.
+- Wrote a small command-line tool
+  for creating new service
+  skeletons.
+- Owned the build farm and kept
+  median build time under eight
+  minutes.
+- Ran the weekly reliability review
+  for the platform group.
+- Trained new hires on the release
+  process during their first month.
+- Cleaned up a backlog of two
+  hundred stale alerts and kept the
+  rest useful.
+
+Engineer, Copperwhistle Data (2014 - 2017)
+First engineering job; worked on data ingest and reporting.
+Stack: Java, SQL, cron, flat files
+- Maintained the ingest service for
+  partner data files.
+- Replaced a fragile parser with a
+  table-driven one and added
+  fixtures.
+- Added metrics and alerts to the
+  nightly import jobs.
+- Fixed a long-running memory leak
+  in the report generator.
+- Documented the import formats for
+  the support team.
+- Wrote a checklist for onboarding a
+  new partner feed in under a day.
+
+Education
+BSc Computer Science, Fernquill University, 2010 - 2014
+Relevant coursework: operating systems, databases, networks.
+Graduated with honours; member of the robotics club.
+Thesis: a scheduler for shared lab equipment.
+Volunteer teaching assistant for first-year programming.
