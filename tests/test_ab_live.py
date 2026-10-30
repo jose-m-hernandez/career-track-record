@@ -45,6 +45,7 @@ def reply_stub(**fields):
     return "import sys\nsys.stdout.write(%r)\n" % text
 
 
+# Known limit: a reader's standard output and standard error are held in memory with no size limit; read-timeout bounds time only, so no test covers a reader that prints without end.
 class LiveReaderCase(unittest.TestCase):
     def live(self, source, extra="", cost=None, **overrides):
         """A setup with a fake reader first and the stub second (one read each per arm)."""

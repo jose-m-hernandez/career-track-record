@@ -253,5 +253,36 @@ class StopReasonAndInterruptCase(unittest.TestCase):
         self._interrupt_in("score")
 
 
+    def test_vr5_a_relative_reader_program_is_refused_at_freeze(self):
+        cases = [("./stub.py", "./stub.py", True), ("sub/stub.py", "sub/stub.py", True),
+                 ("../stub.py", "../stub.py", False),
+                 ("./stub.py --model small", "./stub.py", True)]
+        for command, program, write_stub in cases:
+            with self.subTest(command=command):
+                s = Setup(self, readers=["r1 | fake", "r2 | " + command])
+                if write_stub:
+                    os.makedirs(os.path.dirname(s.path(program)), exist_ok=True)
+                    s.write(program, "#!%s\nopen(%r, 'w').close()\n"
+                            % (sys.executable, s.path("RAN")))
+                    os.chmod(s.path(program), 0o755)
+                result = s.freeze()
+                self.assertEqual(result.exit_code, 2, result.error)
+                number = s.line_of("r2 | ")
+                self.assertIn("plan line %d: the reader program must be an absolute path or "
+                              "a name looked up on PATH: %s" % (number, program),
+                              result.error.splitlines())
+                self.assertFalse(s.exists("plan.txt.freeze"))
+                self.assertFalse(s.exists(ab.READS_DIR))
+                again = s.run(live=True)
+                self.assertEqual(again.exit_code, 2, again.error)
+                self.assertFalse(s.exists("RAN"))
+
+    def test_vr5_only_the_program_word_is_checked(self):
+        s = Setup(self, readers=["r1 | fake", "r2 | python3 sub/stub.py --out ./x"])
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
+        self.assertEqual(result.error, "")
+
+
 if __name__ == "__main__":
     unittest.main()

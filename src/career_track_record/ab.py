@@ -504,11 +504,17 @@ def parse_text(text):
                 ok = False
         if command != FAKE:
             try:
-                if not shlex.split(command):
+                words = shlex.split(command)
+                if not words:
                     raise ValueError("empty")
             except ValueError:
                 state.bad(number, "the reader command cannot be split into words")
                 ok = False
+            else:
+                if "/" in words[0] and not os.path.isabs(words[0]):
+                    state.bad(number, "the reader program must be an absolute path or a "
+                              "name looked up on PATH: %s" % _short(words[0]))
+                    ok = False
         if ok:
             reader_names.add(name)
             readers.append(Reader(name, command, not_blind, cost if command != FAKE else 1))

@@ -392,7 +392,7 @@ comparisons:
   base vs skills-top
 readers:
   reader-1 | fake
-  reader-2 | ./my-reader.sh --model small | not-blind | cost 3
+  reader-2 | /path/to/my-reader.sh --model small | not-blind | cost 3
 hypotheses:
   base vs skills-top | SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE
 mechanisms:
@@ -422,7 +422,7 @@ class PlanFileCase(unittest.TestCase):
         self.assertEqual([(r.name, r.command, r.not_blind, r.cost, r.kind)
                           for r in plan.readers],
                          [("reader-1", "fake", False, 1, "fake"),
-                          ("reader-2", "./my-reader.sh --model small", True, 3, "live")])
+                          ("reader-2", "/path/to/my-reader.sh --model small", True, 3, "live")])
         hyp = plan.hypotheses[0]
         self.assertEqual((hyp.name, hyp.comparison), ("h1", 1))
         self.assertEqual([(kind, c.version, c.k, c.n) for kind, c in hyp.clauses],
