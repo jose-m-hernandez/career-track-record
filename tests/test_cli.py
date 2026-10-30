@@ -10,7 +10,8 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from career_track_record import posting_file  # noqa: E402
+from career_track_record import cli, posting_file  # noqa: E402
+from tests.test_ab import Setup, items, reword, SIX, PREFER_GLANCE, TWO  # noqa: E402
 
 K = os.path.join("tests", "fixtures", "keywords")
 T1 = os.path.join(K, "terms-t1.tsv")
@@ -289,15 +290,135 @@ class CannotRunCli(CliBase):
 
 
 class TopLevelHelpListsToolsCli(CliBase):
-    def test_top_level_help_lists_barred_and_tone(self):
+    def test_top_level_help_lists_barred_tone_and_ab(self):
         code, out, err = track("--help")
         self.assertEqual((code, err), (0, ""))
         lines = out.splitlines()
         for line in (
                 "    barred    report wording from your own barred list",
-                "    tone      flag hype, hedges and filler in your copy"):
+                "    tone      flag hype, hedges and filler in your copy",
+                "    ab        compare two versions of your copy with test readers"):
             with self.subTest(line=line):
                 self.assertIn(line, lines)
+
+
+def track_with_broken_stdout(*args):
+    """Run with standard output a pipe whose reader is already gone."""
+    env = dict(os.environ, PYTHONPATH="src", PYTHONDONTWRITEBYTECODE="1")
+    r, w = os.pipe()
+    os.close(r)
+    try:
+        with open(os.devnull, "rb") as devnull:
+            proc = subprocess.run(
+                [sys.executable, "-m", "career_track_record"] + list(args),
+                cwd=ROOT, env=env, stdin=devnull, stdout=w, stderr=subprocess.PIPE)
+    finally:
+        os.close(w)
+    return proc.returncode, proc.stderr.decode("utf-8")
+
+
+class AbCli(CliBase):
+    HELPS = [["ab", "-h"], ["ab", "--help"], ["ab", "freeze", "-h"], ["ab", "run", "-h"],
+             ["ab", "score", "-h"]]
+
+    def test_r1_help_at_ab_and_at_each_subcommand(self):
+        seen = set()
+        for args in self.HELPS:
+            with self.subTest(args=args):
+                code, out, err = track(*args)
+                self.assertEqual((code, err), (0, ""))
+                self.assertTrue(out.startswith("usage: track-record ab"), out)
+                self.assertTrue(out.endswith("\n"))
+                seen.add(out)
+        # Three subcommands and the ab summary: four different texts.
+        self.assertEqual(len(seen), 4)
+        self.assertEqual(track("ab", "-h"), track("ab", "--help"))
+        _code, out, _err = track("ab", "-h")
+        self.assertEqual(out, cli._AB_HELP)
+        for name in ("freeze", "run", "score"):
+            self.assertEqual(track("ab", name, "-h")[1], cli._AB_HELPS[name])
+
+    def test_help_wins_over_every_other_argument_and_reads_nothing(self):
+        for args in (["ab", "run", "nowhere.txt", "--live", "-h"], ["ab", "freeze", "a", "b", "-h"],
+                     ["ab", "bogus", "--help"], ["ab", "-h", "--bogus"], ["ab", "score", "--x", "-h"]):
+            with self.subTest(args=args):
+                code, out, err = track(*args)
+                self.assertEqual((code, err), (0, ""))
+                self.assertTrue(out.startswith("usage: track-record ab"), out)
+        # After "--" a "-h" is a file name, not a request for help.
+        code, out, err = track("ab", "freeze", "--", "-h")
+        self.assertEqual((code, out), (2, ""))
+        self.assertIn("cannot read the plan: -h", err)
+
+    def test_usage_errors_exit_2_with_one_line_and_no_output(self):
+        for args, needle in (
+                ([], "ab needs a subcommand"), (["bogus"], "unknown ab subcommand bogus"),
+                (["--live"], "unknown option --live"), (["freeze"], "ab freeze needs a PLAN"),
+                (["run"], "ab run needs a PLAN"), (["score"], "ab score needs a PLAN"),
+                (["freeze", "a", "b"], "takes one PLAN file"),
+                (["run", "a", "b", "--live"], "takes one PLAN file"),
+                (["freeze", "a", "--live"], "unknown option --live"),
+                (["score", "a", "--live"], "unknown option --live"),
+                (["run", "a", "--bogus"], "unknown option --bogus"),
+                (["run", "--live"], "ab run needs a PLAN"),
+                (["run", "a", "--live=1"], "--live takes no value"),
+                (["freeze", "--"], "ab freeze needs a PLAN")):
+            with self.subTest(args=args):
+                self.assertCannotRun(["ab"] + args, needle)
+
+    def test_r5_output_that_cannot_be_written_exits_2_with_one_line(self):
+        s = Setup(self)
+        for args in (["ab", "-h"], ["ab", "freeze", s.plan_path]):
+            with self.subTest(args=args[:2]):
+                code, err = track_with_broken_stdout(*args)
+                self.assertEqual((code, err), (2, "cannot run: cannot write output\n"))
+
+    def test_end_to_end_10_1_exits_0(self):
+        s = Setup(self, fake_reader=[PREFER_GLANCE], hypotheses=[SIX])
+        code, out, err = track("ab", "freeze", s.plan_path)
+        self.assertEqual((code, out, err), (0, "freeze written: plan.txt.freeze\n", ""))
+        code, out, err = track("ab", "run", s.plan_path)
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn("hypothesis h1 verdict: SUPPORTED\n", out)
+        self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
+                      "non-TIE; threshold 1/2)\n", out)
+        self.assertEqual(out, s.read("result-1.txt"))
+        code, out, err = track("ab", "score", s.plan_path)
+        self.assertEqual((code, err), (0, ""))
+        self.assertEqual(out, s.read("result-2.txt"))
+
+    def test_end_to_end_10_12_exits_1(self):
+        s = Setup(self, comparisons=TWO, spend_ceiling="8", fake_reader=[PREFER_GLANCE])
+        self.assertEqual(track("ab", "freeze", s.plan_path)[0], 0)
+        code, out, err = track("ab", "run", s.plan_path)
+        self.assertEqual((code, err), (1, ""))
+        self.assertIn("cut: ran 8 of 18 planned reads at spend ceiling 8\n", out)
+        self.assertIn("exit status: 1\n", out)
+
+    def test_end_to_end_10_4_exits_2(self):
+        s = Setup(self)
+        reworded, old, new = reword(s.read("skills-top.txt"))
+        s.write("skills-top.txt", reworded)
+        self.assertEqual(track("ab", "freeze", s.plan_path)[0], 0)
+        code, out, err = track("ab", "run", s.plan_path)
+        self.assertEqual((code, out), (2, ""))
+        self.assertEqual(err.splitlines(), [
+            "cannot run: c1: changed line outside the change scope: - " + old,
+            "cannot run: c1: changed line outside the change scope: + " + new])
+        self.assertFalse(s.exists("reads"))
+
+    def test_a_plan_error_is_one_line_per_problem_and_writes_no_freeze(self):
+        s = Setup(self, fake_reader=items("prefer slot A", reads=[9]))
+        code, out, err = track("ab", "freeze", s.plan_path)
+        self.assertEqual((code, out), (2, ""))
+        self.assertEqual(err, "cannot run: plan line %d: read 9 is outside the arm's reads "
+                              "(1 to 6)\n" % s.line_of("read 9"))
+        self.assertFalse(s.exists("plan.txt.freeze"))
+
+    def test_run_without_a_freeze_exits_2(self):
+        s = Setup(self)
+        code, out, err = track("ab", "run", s.plan_path)
+        self.assertEqual((code, out, err), (2, "", "cannot run: no freeze file: plan.txt.freeze\n"))
 
 
 if __name__ == "__main__":

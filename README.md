@@ -1,12 +1,13 @@
 # career-track-record
 
-Tools for people managing their own career. Three ship:
+Tools for people managing their own career. Four ship:
 
 - **The barred-wording check** finds wording you've barred in files you're about to send.
 - **The keyword scan** shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says.
 - **The voice and tone check** flags hype, hedges and filler in that copy.
+- **Reader A/B** compares two versions of your copy by asking test readers which reads better, under a plan you freeze first.
 
-These tools are safe to leave running. They import no network or mail library: a [test](tests/test_no_network.py) fails if any of them does, and the only outside program a tool starts is `pdftotext`. So they can't apply for a job, publish a post, or send a message for you. That holds for these tools only, not for what your AI agent does on its own or what you share with your AI provider.
+No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does. The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` only, a reader command you name yourself. That command runs only when you add `--live`, and none ships with the tool. A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't apply for a job, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
 
 The method behind them, and which parts are built so far, is in [METHOD.md](METHOD.md).
 
@@ -18,7 +19,11 @@ Python 3.9 or later, with no other dependencies. Reading a PDF also needs `pdfto
     cd career-track-record
     python3 -m pip install .
 
-This installs the `track-record` command. If your shell can't find it, run `python3 -m career_track_record` instead. To check it works:
+To install with no network, first make sure setuptools 70.1 or later is already installed. Then run:
+
+    python3 -m pip install --no-build-isolation .
+
+This installs the `track-record` command. If your shell can't find it, or you haven't installed it, run `PYTHONPATH=src python3 -m career_track_record` from the clone's top folder instead. To check it works:
 
     track-record --help
 
@@ -34,6 +39,7 @@ Every run names a control phrase, such as your own name, that must appear in eac
 
 From a clone, in the repository's own test fixtures (`tests/fixtures/barred/`), the check gives:
 
+    cd tests/fixtures/barred
     track-record barred --list list-l1.txt --control Example\ Corp clean.txt two.txt nocontrol.txt
     OK    clean.txt: 0 of 5 entries (control found; 1209 chars)
     FAIL  two.txt: 2 entries
@@ -74,9 +80,48 @@ Before any file is read, each rule is tested against its own examples, so a brok
 
 Add `--warn-only` to run only the `warn` rules, and `--stale-check` to report exemptions whose wording appears in none of the files you name; a stale exemption counts as an error. Exit 0 means no errors (warnings allowed), 1 means at least one error, and 2 means the check couldn't run. Spec: [docs/specs/tone-and-tells.md](docs/specs/tone-and-tells.md).
 
+### `track-record ab`
+
+Compare two versions of a résumé, or any career document, by asking test readers which reads better. A reader is a command you name, such as one that calls a language model, or the built-in `fake`, which tests a plan. You write a plan first: the posting, the versions, where they may differ and what counts as a win. The tool hashes the plan and every file it names, and a run refuses anything that has changed since, so the rules can't quietly move after you see the answer. Every run also reads one version against itself, as a control, so you can see how often a reader picks a side when there is no difference. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote. This plan is invented:
+
+```
+posting: posting.txt
+versions:
+  base | resume-base.txt
+  skills-top | resume-skills-top.txt
+comparisons:
+  base vs skills-top
+readers:
+  reader-1 | fake
+  reader-2 | ./my-reader.sh | not-blind | cost 3
+reads-per-reader: 3
+hypotheses:
+  SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE
+change-scope:
+  ^Skills$
+  ^At a glance$
+  ^(Languages|Tools|Practices):
+fake-reader:
+  prefer containing "At a glance"
+```
+
+`not-blind` marks a reader you know gets your identity from its own setup, so its reads are also reported separately. `cost 3` is what one read costs, in a unit you choose; it feeds the spend estimate. Two readers with three reads each make six reads per comparison, which is what `6 of 6` counts. This plan has a live reader, so without `--live` it prints the commands and runs nothing, the fake reader included.
+
+The tool has three subcommands:
+
+    track-record ab freeze plan.txt
+    track-record ab run plan.txt [--live]
+    track-record ab score plan.txt
+
+`freeze` finds every problem in the plan and writes a freeze file beside it. `run` checks the hashes and that the versions differ only where the plan says, runs the readers and writes a result. `score` scores the replies again into a new result and never overwrites an earlier one. The `fake` reader answers by the rules in the plan's `fake-reader` block, so it tests the plan and says nothing about your copy. A live reader is a command you name, run without a shell in a folder holding the two versions, the posting and the prompt; it inherits your environment. A plan with a live reader prints its commands and a spend estimate, and starts nothing, until you add `--live`. What a live reader does with your files is up to that reader.
+
+Exit 0 means the run completed and was scored, whatever the verdicts, or it only printed the commands because `--live` was absent. Exit 1 means it finished but a read failed, or the spend ceiling cut it short. Exit 2 means it couldn't run: a plan error, a changed file, a failed check on the versions, or an interrupt. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md).
+
 ## Coming
 
-Building and reviewing a résumé from one source file, tracking applications and contacts, and keeping a dated record of what you did each week. Each arrives with its own spec and tests.
+Planned for 0.4.0: a claim gate, a check that fails when a sentence in your career copy has no matching entry in a claims list you approve.
+
+Later: building and reviewing a résumé from one source file, tracking applications and contacts, and keeping a dated record of what you did each week. Each arrives with its own spec and tests.
 
 ## Licence
 

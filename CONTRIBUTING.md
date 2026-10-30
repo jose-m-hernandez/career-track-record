@@ -1,6 +1,6 @@
 # Contributing
 
-**Pull requests are not being accepted yet.** Before any outside code can be
+**Pull requests from outside contributors are not being accepted yet.** Before any outside code can be
 merged, a contributor licence agreement has to be in place, because the project
 is offered under the AGPL and under a commercial licence. Until then, please
 open an issue to report a bug or suggest a change, except for a security problem
@@ -19,6 +19,7 @@ open an issue to report a bug or suggest a change, except for a security problem
 - Outside README § Development, when you mean `ci/barred_strings.py`, write "the maintainer barred-strings scan" at its first mention in a bullet or paragraph; later in that bullet or paragraph "the scan" is enough, and "barred-strings" is never written alone. A "barred entry" is a line in a private list, and "entry" alone is not used for anything else in the same bullet.
 - A limit that is accepted rather than fixed gets a one-line `# Known limit:` comment beside the nearest test, not a separate doc file. A limit that a user of a tool can meet is also stated in that tool's spec or the README.
 - A module that must start an outside program is the only module that starts it, makes one call, and is excused in the `ALLOW_LIST` of `tests/test_no_network.py` for importing `subprocess` and nothing else.
+- A reader command is the one outside program a user names: `ab_reader_command.py` is the only module that starts it, in one `subprocess.run` call with an argument list and never a shell, with `cwd` as the one keyword added to `pdf_text.py`'s call shape.
 - Every committed file is valid UTF-8. A test that needs invalid bytes writes them at run time.
 - A test module's `if __name__ == "__main__":` guard is its last statement.
 

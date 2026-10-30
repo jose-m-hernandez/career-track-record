@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-from career_track_record import barred, keywords, tone
+from career_track_record import ab, barred, keywords, tone
 
 
 class _Parser(argparse.ArgumentParser):
@@ -46,6 +46,9 @@ def _build_parser():
                    add_help=False)
     # Listed for --help only: main() hands "tone" to its own parser (_parse_tone).
     top.add_parser("tone", help="flag hype, hedges and filler in your copy",
+                   add_help=False)
+    # Listed for --help only: main() hands "ab" to its own parser (_parse_ab).
+    top.add_parser("ab", help="compare two versions of your copy with test readers",
                    add_help=False)
     return parser
 
@@ -138,6 +141,63 @@ Flag hype, hedges and filler in your copy.
 
 exit: 0 no errors, 1 errors found, 2 it cannot run
 """
+
+
+_AB_SUBCOMMANDS = ("freeze", "run", "score")
+
+_AB_HELP = """\
+usage: track-record ab freeze PLAN
+       track-record ab run PLAN [--live]
+       track-record ab score PLAN
+
+Compare two versions of your copy with test readers, under a plan you freeze first.
+
+  freeze PLAN        check the plan and hash it with every file it names
+  run PLAN [--live]  check the hashes, run the readers and write a result
+  score PLAN         score the replies again and write a new result
+  -h, --help         show this summary and exit
+
+Each subcommand also takes -h.
+
+exit: 0 it completed, 1 a read failed or the run was cut, 2 it cannot run
+"""
+
+_AB_FREEZE_HELP = """\
+usage: track-record ab freeze PLAN
+
+Read the plan, check every file it names, and write the freeze file beside it. Every
+plan problem is found here, and no reader runs.
+
+  -h, --help  show this summary and exit
+
+exit: 0 the freeze was written, 2 it cannot run
+"""
+
+_AB_RUN_HELP = """\
+usage: track-record ab run PLAN [--live]
+
+Check the freeze and the versions, run the readers and score their replies. A plan with a
+live reader (a command you name) only prints that command and the spend estimate, and
+starts nothing, until you add --live.
+
+  --live      start the live readers
+  -h, --help  show this summary and exit
+
+exit: 0 it completed, 1 a read failed or the run was cut, 2 it cannot run
+"""
+
+_AB_SCORE_HELP = """\
+usage: track-record ab score PLAN
+
+Check the freeze and score the replies in the run folder again, into a new result file.
+
+  -h, --help  show this summary and exit
+
+exit: 0 it completed, 1 a read failed or the run was cut, 2 it cannot run
+"""
+
+_AB_HELPS = {"ab": _AB_HELP, "freeze": _AB_FREEZE_HELP, "run": _AB_RUN_HELP,
+             "score": _AB_SCORE_HELP}
 
 
 def _asks_for_help(args, value_options=(), not_values=()):
@@ -308,6 +368,75 @@ def _main_tone(args):
     return result.exit_code
 
 
+def _parse_ab(args):
+    """Parse the command line of ``ab``. Returns a dict, or raises _OptionError with the
+    first problem."""
+    sub = args[0] if args and args[0] in _AB_SUBCOMMANDS else None
+    if _asks_for_help(args[1:] if sub else args):
+        return {"help": sub or "ab"}
+    if not args:
+        raise _OptionError("ab needs a subcommand: freeze, run or score")
+    if sub is None:
+        if args[0].startswith("-") and args[0] != "-":
+            raise _OptionError("unknown option %s"
+                               % barred.printed_path(args[0].partition("=")[0]))
+        raise _OptionError("unknown ab subcommand %s" % barred.printed_path(args[0]))
+    live = False
+    plans = []
+    rest = args[1:]
+    i = 0
+    while i < len(rest):
+        arg = rest[i]
+        i += 1
+        if arg == "--":
+            plans.extend(rest[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            plans.append(arg)
+            continue
+        name, equals, _value = arg.partition("=")
+        if sub != "run" or name != "--live":
+            raise _OptionError("unknown option %s" % barred.printed_path(name))
+        if equals:
+            raise _OptionError("--live takes no value")
+        live = True
+    if not plans:
+        raise _OptionError("ab %s needs a PLAN file" % sub)
+    if len(plans) > 1:
+        raise _OptionError("ab %s takes one PLAN file, not several" % sub)
+    return {"sub": sub, "plan": plans[0], "live": live}
+
+
+def _main_ab(args):
+    try:
+        opts = _parse_ab(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if "help" in opts:
+        _out(_AB_HELPS[opts["help"]])
+        return 0
+    try:
+        if opts["sub"] == "freeze":
+            result = ab.freeze(opts["plan"])
+        elif opts["sub"] == "run":
+            result = ab.run(opts["plan"], live=opts["live"])
+        else:
+            result = ab.score(opts["plan"])
+    except KeyboardInterrupt:
+        # An interrupt ends any ab command with exit 2 and one line, never a traceback.
+        # ab.run has already put "stopped: interrupted" at the end of its run log.
+        _err("cannot run: stopped: interrupted\n")
+        return 2
+    if not result.ran:
+        _err("".join("cannot run: %s\n" % line for line in result.error.split("\n")))
+        return result.exit_code
+    _out(result.text)
+    if result.stopped is not None:
+        _err("cannot run: stopped: %s\n" % result.stopped)
+    return result.exit_code
+
+
 def main(argv=None, environ=None):
     try:
         return _main(argv, environ)
@@ -324,6 +453,8 @@ def _main(argv, environ):
         return _main_barred(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "tone":
         return _main_tone(argv[1:])
+    if argv and argv[0] == "ab":
+        return _main_ab(argv[1:])
     return _main_keywords(_build_parser().parse_args(argv))
 
 

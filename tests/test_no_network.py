@@ -1,6 +1,7 @@
 """Structural test: no tool module imports a network or mail capability, loads code
 from a string or file, looks up names by string, or starts a program. The one
-exception is pdf_text.py, which may run pdftotext.
+exception is pdf_text.py, which may run pdftotext; the second is ab_reader_command.py,
+which may run the reader command a user names, in one call with an argument list.
 
 This is a tripwire on literal forms: it checks names as written. It does not track
 aliases, chains of getattr or other lookups, or names built from strings. getattr
@@ -38,7 +39,10 @@ BARRED_CALLED_ATTRIBUTES = frozenset(["system", "popen"])
 # the tests below check that it makes exactly one such call.
 ALLOWED_SUBPROCESS_ATTRIBUTES = frozenset(["run", "DEVNULL", "TimeoutExpired"])
 ALLOWED_RUN_KEYWORDS = frozenset(["stdin", "capture_output", "timeout", "check"])
-ALLOW_LIST = {"pdf_text.py": frozenset(["imports subprocess"])}
+# ab_reader_command.py is also given a working folder, so cwd is the one added keyword.
+READER_COMMAND_RUN_KEYWORDS = ALLOWED_RUN_KEYWORDS | frozenset(["cwd"])
+ALLOW_LIST = {"pdf_text.py": frozenset(["imports subprocess"]),
+              "ab_reader_command.py": frozenset(["imports subprocess"])}
 
 
 def python_files(directory=SRC):
@@ -123,8 +127,9 @@ def pdftotext_call_problems(source):
     return []
 
 
-def subprocess_use_problems(source):
-    """Empty only when subprocess is used in the one known shape (pdf_text.py's)."""
+def subprocess_use_problems(source, allowed_keywords=ALLOWED_RUN_KEYWORDS):
+    """Empty only when subprocess is used in the one known shape (pdf_text.py's), with
+    keywords only from allowed_keywords."""
     tree = ast.parse(source)
     parents = {}
     for node in ast.walk(tree):
@@ -169,14 +174,19 @@ def subprocess_use_problems(source):
     for call in runs:
         if any(k.arg is None or k.arg == "shell" for k in call.keywords):
             found.append("subprocess.run is given shell or **keywords")
-        if any(k.arg not in ALLOWED_RUN_KEYWORDS for k in call.keywords):
-            found.append("subprocess.run is given a keyword outside "
-                         "stdin, capture_output, timeout and check")
+        if any(k.arg not in allowed_keywords for k in call.keywords):
+            found.append("subprocess.run is given a keyword outside %s"
+                         % ", ".join(sorted(allowed_keywords)))
     return found
 
 
 def pdf_text_source():
     with open(os.path.join(SRC, "pdf_text.py"), encoding="utf-8") as handle:
+        return handle.read()
+
+
+def reader_command_source():
+    with open(os.path.join(SRC, "ab_reader_command.py"), encoding="utf-8") as handle:
         return handle.read()
 
 
@@ -317,6 +327,48 @@ class NoNetworkCase(unittest.TestCase):
         self.assertIn("check=False)", source)
         planted = source.replace("check=False)", "check=False, env={})", 1)
         self.assertNotEqual(subprocess_use_problems(planted), [])
+
+    def test_pdf_text_does_not_get_the_working_folder_keyword(self):
+        source = pdf_text_source()
+        self.assertIn("check=False)", source)
+        planted = source.replace("check=False)", "check=False, cwd='.')", 1)
+        self.assertNotEqual(subprocess_use_problems(planted), [])
+        self.assertEqual(subprocess_use_problems(planted, READER_COMMAND_RUN_KEYWORDS), [])
+
+    def test_the_reader_command_module_is_excused_only_for_importing_subprocess(self):
+        self.assertEqual(ALLOW_LIST["ab_reader_command.py"], frozenset(["imports subprocess"]))
+        found = problems_in_source(reader_command_source())
+        self.assertEqual(found, ["imports subprocess"])
+        planted = reader_command_source() + "\nimport socket\n"
+        self.assertEqual(unexcused("ab_reader_command.py", problems_in_source(planted)),
+                         ["imports socket"])
+
+    def test_the_reader_command_module_uses_subprocess_in_the_one_known_shape(self):
+        source = reader_command_source()
+        self.assertEqual(subprocess_use_problems(source, READER_COMMAND_RUN_KEYWORDS), [])
+        calls = subprocess_calls(source)
+        self.assertEqual([c.func.attr for c in calls], ["run"])
+        self.assertEqual(sorted(k.arg for k in calls[0].keywords),
+                         sorted(READER_COMMAND_RUN_KEYWORDS))
+
+    def test_reader_command_mutants_are_caught(self):
+        source = reader_command_source()
+        self.assertIn("cwd=folder)", source)
+        mutants = {
+            "a second call": source + "\nsubprocess.run(['sh'], cwd='.')\n",
+            "Popen": source + "\nsubprocess.Popen(['sh'])\n",
+            "an alias import": source + "\nimport subprocess as sp\nsp.Popen(['sh'])\n",
+            "getattr": source + "\ngetattr(subprocess, 'Popen')(['sh'])\n",
+            "shell=True": source.replace("cwd=folder)", "cwd=folder, shell=True)", 1),
+            "env=": source.replace("cwd=folder)", "cwd=folder, env={})", 1),
+            "executable=": source.replace("cwd=folder)", "cwd=folder, executable='/bin/sh')", 1),
+            "a stored run": source + "\nr = subprocess.run\nr(['sh'])\n",
+            "a mapped run": source + "\nlist(map(subprocess.run, [['sh']]))\n",
+        }
+        for label, planted in mutants.items():
+            with self.subTest(label):
+                self.assertNotEqual(
+                    subprocess_use_problems(planted, READER_COMMAND_RUN_KEYWORDS), [])
 
     def _check_imports(self, modules):
         for module in modules:
