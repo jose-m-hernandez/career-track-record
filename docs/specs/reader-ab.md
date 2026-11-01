@@ -2,14 +2,15 @@
 
 Status: accepted.
 Date: 2026-10-29.
-Revision: 1. The signed spec (sha256 810a739956b054d5df05c9d3cd421b17816b00c2c4ce2f7be3def7a11226e1a1) is reproduced below verbatim, and the build interpretations follow it.
+Revision: 1.2. The signed spec (sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53) is reproduced below verbatim, and the build interpretations follow it.
+Revision 1.2: status line reworded 2026-11-01; re-signed by the owner.
 
 ## Signed spec
 
-<!-- signed spec begins: sha256 810a739956b054d5df05c9d3cd421b17816b00c2c4ce2f7be3def7a11226e1a1 -->
+<!-- signed spec begins: sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53 -->
 # Reader A/B harness: behaviour spec
 
-Status: accepted. All six decisions (§ 9) are settled: 1 to 5 by the owner on 2026-10-28, and 6 by legal review on 2026-10-28.
+Status: accepted. All six decisions (§ 9) are settled: 1 to 5 by the owner on 2026-10-28, and 6 by the owner on 2026-10-29.
 Date: 2026-10-29.
 Revision: draft 3. It replaces draft 2 (2026-10-28). Draft 3 makes the fixtures' change a neutral one (a skills block moved above the experience section), uses neutral reader comments as the mechanism strings in 10.11 and 10.15, renames the versions in the tests to match, and settles decision 6. Draft 2's changes to draft 1 (2026-10-27) stand: the noise threshold becomes a plan field stated as a share; the fake reader's behaviour is defined on the A/A arm; slot alternation runs over the arm; failed reads leave the denominators; mechanism checks count replies per arm against the A/A floor; and the arms run in a fixed order. Tests 10.17 to 10.31 are new.
 
@@ -234,7 +235,7 @@ Unless a test says otherwise, the plan has one comparison (`base vs skills-top`)
 
 ## Build interpretations (maintainer, 2026-10-29)
 
-Revision 1.1 completes the signed spec, which is not edited. It adds plan keys, fake-reader rules, live-reader rules, the reply format and causes of exit `2`, and it reads three sentences of the signed spec as stated in "Readings of signed sentences" below. This section states those rules, then the tests that revision 1.1 adds.
+Revision 1.1 completes the signed spec and does not edit it. It adds plan keys, fake-reader rules, live-reader rules, the reply format and causes of exit `2`, and it reads three sentences of the signed spec as stated in "Readings of signed sentences" below. This section states those rules, then the tests that revision 1.1 adds.
 
 ### Readings of signed sentences
 

@@ -33,7 +33,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/specs/barred.md | not recorded | not recorded | not recorded |
 | docs/specs/cli.md | not recorded | not recorded | not recorded |
 | docs/specs/keyword-scan.md | not recorded | not recorded | not recorded |
-| docs/specs/reader-ab.md | not recorded | not recorded | not recorded |
+| docs/specs/reader-ab.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | docs/specs/tone-and-tells.md | not recorded | not recorded | not recorded |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | not recorded | not recorded | not recorded |
@@ -192,6 +192,6 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_posting_file.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_provenance.py | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | tests/test_source_hygiene.py | not recorded | not recorded | not recorded |
-| tests/test_spec_revisions.py | not recorded | not recorded | not recorded |
+| tests/test_spec_revisions.py | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-10-21 |
 | tests/test_tone_pdf.py | not recorded | not recorded | not recorded |

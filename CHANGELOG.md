@@ -13,6 +13,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - The README now opens with what each tool does for you, adds a First run section that tries the barred-wording check on the shipped test fixtures and a section on why you can trust a result, and names the maintainer and the copyright holder.
+- The Reader A/B spec is revision 1.2: its status line now records that the owner settled decision 6 on 2026-10-29, and the owner re-signed it.
 
 ## [0.3.0] - 2026-10-30
 
