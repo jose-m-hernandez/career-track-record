@@ -1,15 +1,17 @@
 # career-track-record
 
-Tools for people managing their own career. Four ship:
+Four checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
 
-- **The barred-wording check** finds wording you've barred in files you're about to send.
-- **The keyword scan** shows what job postings ask for that your own copy (a résumé, a cover letter, a profile) never says.
-- **The voice and tone check** flags hype, hedges and filler in that copy.
-- **Reader A/B** compares two versions of your copy by asking test readers which reads better, under a plan you freeze first.
+- **Did any wording I ruled out get into this file?** The barred-wording check (`track-record barred`) finds it, whatever the case, ligature or invisible character around it, and reports which entry it was, never the wording itself.
+- **What do the postings I saved ask for that my copy never says?** The keyword scan (`track-record keywords`) lists the gaps. It never rewrites your copy or sets a score to chase.
+- **Does this sound like hype?** The voice and tone check (`track-record tone`) flags hype, hedges and filler, names the sentence and says why. It never edits.
+- **Which of these two drafts reads better?** Reader A/B (`track-record ab`) asks test readers, under a plan you freeze first. A control that reads one draft against itself shows how often a reader picks a side when the drafts are the same. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote.
 
-No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does. The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` only, a reader command you name yourself. That command runs only when you add `--live`, and none ships with the tool. A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't apply for a job, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
+Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
 
-The method behind them, and which parts are built so far, is in [METHOD.md](METHOD.md).
+Designed and directed by José Miguel Hernandez, built with AI coding agents.
+
+The method behind the tools, and which parts are built so far, is in [METHOD.md](METHOD.md). To try one now, go to [First run](#first-run).
 
 ## Install
 
@@ -27,7 +29,36 @@ This installs the `track-record` command. If your shell can't find it, or you ha
 
     track-record --help
 
+## First run
+
+The repository ships invented files to try the tools on. From the top folder of your clone:
+
+    cd tests/fixtures/barred
+    track-record barred --list list-l1.txt --control Example\ Corp clean.txt two.txt nocontrol.txt
+
+You should see this:
+
+    OK    clean.txt: 0 of 5 entries (control found; 1209 chars)
+    FAIL  two.txt: 2 entries
+    two.txt:13: entry #1 (2 x)
+    two.txt:13: entry #2 (1 x)
+    DEAD  nocontrol.txt: control not found
+
+`clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
+
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other three tools are under [The tools](#the-tools).
+
+## Why you can trust a result
+
+- **No network library.** No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does.
+- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run.
+- **The rules are fixed before the answer.** A Reader A/B plan is frozen by hash before the first read, and a run refuses anything that has changed since.
+
+The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
+
 ## The tools
+
+Each tool below has its own spec in `docs/specs/`. The commands and options here are the full reference; start with First run above.
 
 ### `track-record barred`
 
@@ -123,7 +154,15 @@ Planned for 0.4.0: a claim gate, a check that fails when a sentence in your care
 
 Later: building and reviewing a résumé from one source file, tracking applications and contacts, and keeping a dated record of what you did each week. Each arrives with its own spec and tests.
 
+## Maintainer
+
+Maintainer: José Miguel Hernandez (@jose-m-hernandez) · https://jose.io
+
+Designed and directed by José Miguel Hernandez, built with AI coding agents.
+
 ## Licence
+
+Copyright (c) 2026 José Miguel Hernandez.
 
 GNU Affero General Public License v3.0 or later; see [LICENSE](LICENSE).
 A commercial licence is also available from the copyright holder.

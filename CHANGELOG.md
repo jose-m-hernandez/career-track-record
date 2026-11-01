@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The README now opens with what each tool does for you, adds a First run section that tries the barred-wording check on the shipped test fixtures and a section on why you can trust a result, and names the maintainer and the copyright holder.
+
 ## [0.3.0] - 2026-10-30
 
 ### Added
