@@ -9,7 +9,7 @@ Four checks for the career copy you send. Open the repository in your own AI age
 
 Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
 
-Designed and directed by José Miguel Hernandez, built with AI coding agents.
+Designed and directed by José Miguel Hernandez, built with AI coding agents. Where it was recorded, [docs/provenance.md](docs/provenance.md) names the harness and model that wrote each file.
 
 The method behind the tools, and which parts are built so far, is in [METHOD.md](METHOD.md). To try one now, go to [First run](#first-run).
 

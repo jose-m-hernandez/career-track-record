@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `docs/provenance.md`, a ledger with one row per file in the repository: the harness and model recorded writing to it, and the day of the latest recorded write. A test fails if a file has no row or a row has no file.
+
 ### Changed
 
 - The README now opens with what each tool does for you, adds a First run section that tries the barred-wording check on the shipped test fixtures and a section on why you can trust a result, and names the maintainer and the copyright holder.
