@@ -6,6 +6,8 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
 ### Added
 
 - `docs/provenance.md`, a ledger with one row per file in the repository: the harness and model recorded writing to it, and the day of the latest recorded write. A test fails if a file has no row or a row has no file.

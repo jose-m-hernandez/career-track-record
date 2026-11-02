@@ -9,7 +9,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | .github/workflows/ci.yml | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | .gitignore | not recorded | not recorded | not recorded |
 | AGENTS.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
-| CHANGELOG.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| CHANGELOG.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-02 |
 | CONTRIBUTING.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | LICENSE | not recorded | not recorded | not recorded |
 | LICENSE-COMMERCIAL.md | not recorded | not recorded | not recorded |
@@ -29,7 +29,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/decisions/2026-10-27-one-module-per-outside-program.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-29-a-reader-command-is-the-one-outside-program-a-user-names.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-11-01-every-file-has-a-provenance-row.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
-| docs/provenance.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| docs/provenance.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-02 |
 | docs/specs/barred.md | not recorded | not recorded | not recorded |
 | docs/specs/claims.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
 | docs/specs/cli.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
@@ -38,7 +38,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/specs/tone-and-tells.md | not recorded | not recorded | not recorded |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | not recorded | not recorded | not recorded |
-| src/career_track_record/__init__.py | claude-code | claude-sonnet-5-5 | 2026-10-21 |
+| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-02 |
 | src/career_track_record/__main__.py | not recorded | not recorded | not recorded |
 | src/career_track_record/ab.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
 | src/career_track_record/ab_reader_command.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
