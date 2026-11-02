@@ -2,7 +2,7 @@
 
 A career record is assembled from sources that disagree: two résumés with different start dates, a title that changed mid-year, a number remembered one way and printed another. The method is how the record stays useful when that happens. It's six rules.
 
-Status: the barred-wording check, the keyword scan, the voice and tone check and Reader A/B run rule 6. The other rules are not built into a tool yet.
+Status: the barred-wording check, the keyword scan, the voice and tone check, Reader A/B and the claim gate run rule 6. The claim gate stores a source for each claim and does not check it, so rule 5 is not built yet. Rules 1 to 4 are not built into a tool yet.
 
 ## 1. Never overwrite
 

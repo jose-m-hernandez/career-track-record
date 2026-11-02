@@ -971,7 +971,7 @@ exit: 0 no errors, 1 errors found, 2 it cannot run
 
 
 class HelpCase(ToneCase):
-    """tone -h and --help: fixed text, read nothing, win over option errors (G1)."""
+    """tone -h and --help: fixed text, read nothing, win over option errors."""
 
     def in_process(self, args):
         import io

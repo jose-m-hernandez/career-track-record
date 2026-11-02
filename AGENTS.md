@@ -5,9 +5,10 @@ repository. This file is your instructions. It applies to every task here.
 
 ## Status
 
-Four tools ship: `track-record barred`, `track-record keywords`,
-`track-record tone` and `track-record ab` (see README.md). If the person asks
-for something these tools don't do, say so plainly instead of improvising it.
+Five tools ship: `track-record barred`, `track-record keywords`,
+`track-record tone`, `track-record ab` and `track-record claims` (see
+README.md). If the person asks for something these tools don't do, say so
+plainly instead of improvising it.
 
 ## Standing orders
 

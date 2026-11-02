@@ -1,0 +1,339 @@
+"""Claim gate: fail on any sentence your claims list has not approved.
+
+The behaviour is stated in docs/specs/claims.md. In short: read the claims list, cut each
+input file into blocks and sentences, and call a sentence approved only when an entry with
+the status ``approved`` equals it, exactly, after folding. A file is called clean only when
+it was read in full, held a control and held at least one sentence to check.
+
+Output names an entry only by its number. It never holds a source, a note, the list's
+path or the sentence of an entry that covered nothing.
+"""
+
+import bisect
+import re
+import unicodedata
+
+from career_track_record import barred
+from career_track_record.barred import (
+    _Dead, _is_the_list, _keep_hyphen, _read_text, fold, printed_path,
+)
+from career_track_record.tone import _CLOSERS, _line_starts, _sentence_ends
+
+_STATUSES = ("approved", "proposed", "refused")
+_LINE_BREAK = re.compile(r"\r\n|\r|\n")
+_MARKER = re.compile(r"[ \t]*(?:[-*+\u2022]|[0-9]{1,3}[.)]|#{1,6})[ \t]+")
+_EXTRA_FOLDS = {0x2010: "-", 0x2011: "-", 0x2018: "'", 0x2019: "'",
+                0x201C: '"', 0x201D: '"'}
+
+
+class ListError(Exception):
+    """The list cannot be used. The message is safe to print: no entry text, no path."""
+
+
+def _cannot(message):
+    return barred.Result(2, False, text="", error="cannot run: " + message)
+
+
+# ---------------------------------------------------------------- preparing text
+
+def _fold(text):
+    """Barred's folding, then the two further steps of spec section 4."""
+    return fold(text).translate(_EXTRA_FOLDS)
+
+
+def _squash(text):
+    """Fold, join line-end hyphens (barred form 3), turn whitespace runs into one space, trim.
+
+    Line breaks of every kind count as one LF before the join looks for them."""
+    text = _LINE_BREAK.sub("\n", text)
+    folded = _fold(text)
+    joined, _ = _keep_hyphen(folded, [0] * len(folded))
+    return " ".join(joined.split())
+
+
+def _drop_final(text):
+    """Remove one final ``.``, ``!`` or ``?`` and any closing characters after it."""
+    end = len(text)
+    while end > 0 and text[end - 1] in _CLOSERS:
+        end -= 1
+    if end > 0 and text[end - 1] in ".!?":
+        return text[:end - 1]
+    return text
+
+
+def prepare(text):
+    """The prepared form of a run or of an entry's sentence."""
+    return _drop_final(_squash(text))
+
+
+def prepare_control(text):
+    """The prepared form of a control: the same, without the final full stop removed."""
+    return _squash(text)
+
+
+# ---------------------------------------------------------------- the list
+
+def load_list(path):
+    """Read the list file; return its entries as (number, status, prepared sentence)."""
+    try:
+        with open(path, "rb") as handle:
+            data = handle.read()
+    except (OSError, ValueError, TypeError):
+        raise ListError("the list file cannot be read")
+    try:
+        text = data.decode("utf-8")
+    except UnicodeDecodeError:
+        raise ListError("the list is not valid UTF-8")
+    if text.startswith("\ufeff"):
+        text = text[1:]
+    entries = []
+    for line in _LINE_BREAK.split(text):
+        stripped = line.strip()
+        if stripped == "" or stripped[0] == "#":
+            continue
+        number = len(entries) + 1
+        fields = line.split("\t")
+        status = fields[0].strip().lower()
+        if status not in _STATUSES:
+            raise ListError("unknown status in entry #%d" % number)
+        prepared = prepare(fields[1]) if len(fields) > 1 else ""
+        if prepared == "":
+            raise ListError("entry #%d has no sentence" % number)
+        entries.append((number, status, prepared))
+    first = {}
+    for number, _status, prepared in entries:
+        if prepared in first:
+            raise ListError("entries #%d and #%d are the same sentence"
+                            % (first[prepared], number))
+        first[prepared] = number
+    return entries
+
+
+# ---------------------------------------------------------------- one file's text
+
+def _working(text):
+    """Fold a file's text for finding blocks and sentences.
+
+    Folding is done one character at a time, with the combining marks after it, so that each
+    folded character knows the span of the source it came from. Every line break (CRLF, lone
+    CR, LF) becomes one LF with the span of the break. Returns (folded text, spans)."""
+    chars = []
+    spans = []
+    size = len(text)
+    i = 0
+    while i < size:
+        ch = text[i]
+        if ch == "\r":
+            j = i + 2 if text.startswith("\r\n", i) else i + 1
+            chars.append("\n")
+            spans.append((i, j))
+            i = j
+            continue
+        if ch == "\n":
+            chars.append("\n")
+            spans.append((i, i + 1))
+            i += 1
+            continue
+        j = i + 1
+        while j < size and unicodedata.combining(text[j]) != 0:
+            j += 1
+        if j == i + 1 and ch.isascii():
+            folded = ch.lower()
+        else:
+            folded = _fold(text[i:j])
+        for item in folded:
+            chars.append(item)
+            spans.append((i, j))
+        i = j
+    return "".join(chars), spans
+
+
+def _blocks(text):
+    """The (start, end) of each block of the joined text; line markers are left out."""
+    blocks = []
+    current = None
+    size = len(text)
+    pos = 0
+    while True:
+        newline = text.find("\n", pos)
+        end = size if newline < 0 else newline
+        line = text[pos:end]
+        if line.strip(" \t") == "":
+            if current is not None:
+                blocks.append(tuple(current))
+            current = None
+        else:
+            marker = _MARKER.match(line)
+            if marker:
+                if current is not None:
+                    blocks.append(tuple(current))
+                current = [pos + marker.end(), end]
+            elif current is None:
+                current = [pos, end]
+            else:
+                current[1] = end
+        if newline < 0:
+            break
+        pos = newline + 1
+    if current is not None:
+        blocks.append(tuple(current))
+    return blocks
+
+
+def _has_letter_or_digit(text):
+    for ch in text:
+        category = unicodedata.category(ch)
+        if category[0] == "L" or category == "Nd":
+            return True
+    return False
+
+
+def _sentences(text, start, end):
+    """The checked sentences of one block, as trimmed (start, end) pairs of the joined text."""
+    block = text[start:end]
+    cuts = _sentence_ends(block)
+    if not cuts or cuts[-1] != len(block):
+        cuts.append(len(block))
+    found = []
+    previous = 0
+    for cut in cuts:
+        a = previous
+        b = cut
+        previous = cut
+        while a < b and block[a].isspace():
+            a += 1
+        while b > a and block[b - 1].isspace():
+            b -= 1
+        if a < b and _has_letter_or_digit(block[a:b]):
+            found.append((start + a, start + b))
+    return found
+
+
+class _Used(object):
+    """What one file produced: sentences checked, sentences not approved, findings, entries used."""
+
+    def __init__(self):
+        self.checked = 0
+        self.failed = 0
+        self.findings = []
+        self.used = set()
+
+
+def _check_text(text, by_sentence, longest):
+    work, spans = _working(text)
+    joined, joined_spans = _keep_hyphen(work, spans)
+    starts = _line_starts(text)
+    result = _Used()
+    for block_start, block_end in _blocks(joined):
+        sentences = _sentences(joined, block_start, block_end)
+        result.checked += len(sentences)
+        i = 0
+        while i < len(sentences):
+            first = sentences[i][0]
+            source_start = joined_spans[first][0]
+            line = bisect.bisect_right(starts, source_start)
+            covered = None
+            for j in range(i, len(sentences)):
+                source_end = joined_spans[sentences[j][1] - 1][1]
+                prepared = prepare(text[source_start:source_end])
+                if len(prepared) > longest:
+                    break
+                if prepared in by_sentence:
+                    covered = (j, by_sentence[prepared])
+            if covered is None:
+                result.failed += 1
+                result.findings.append(
+                    (line, "unlisted", _shown(text, source_start,
+                                              joined_spans[sentences[i][1] - 1][1])))
+                i += 1
+                continue
+            j, (number, status) = covered
+            if status == "approved":
+                result.used.add(number)
+            else:
+                result.failed += j - i + 1
+                result.findings.append(
+                    (line, "%s, entry #%d" % (status, number),
+                     _shown(text, source_start, joined_spans[sentences[j][1] - 1][1])))
+            i = j + 1
+    return result
+
+
+def _shown(text, start, end):
+    """A run as it stands in the file: whitespace runs as one space, escaped like a path."""
+    return printed_path(" ".join(text[start:end].split()))
+
+
+# ---------------------------------------------------------------- the run
+
+def _check_file(path, by_sentence, longest, controls):
+    label = printed_path(path)
+    try:
+        text = _read_text(path, False)
+        found = _check_text(text, by_sentence, longest)
+    except _Dead as dead:
+        return "DEAD", ["DEAD  %s: %s" % (label, dead.args[0])], set()
+    except Exception:
+        return "DEAD", ["DEAD  %s: cannot read" % label], set()
+    prepared_text = _squash(text)
+    if not any(control in prepared_text for control in controls):
+        return "DEAD", ["DEAD  %s: control not found" % label], set()
+    if found.checked == 0:
+        return "DEAD", ["DEAD  %s: no checked sentence" % label], set()
+    if not found.findings:
+        return "OK", ["OK    %s: %d sentences, all approved (control found)"
+                      % (label, found.checked)], found.used
+    out = ["FAIL  %s: %d of %d sentences not approved" % (label, found.failed, found.checked)]
+    for line, kind, shown in found.findings:
+        out.append("%s:%d: %s: %s" % (label, line, kind, shown))
+    return "FAIL", out, found.used
+
+
+def run(*, list_path, files, controls, stale_check=False):
+    try:
+        return _run(list_path, list(files), list(controls), stale_check)
+    except Exception:
+        return _cannot("internal error")
+
+
+def _run(list_path, files, controls, stale_check):
+    if not files:
+        return _cannot("no input file")
+    if not controls:
+        return _cannot("no --control given")
+    prepared_controls = [c for c in (prepare_control(c) for c in controls) if c != ""]
+    if not prepared_controls:
+        return _cannot("no usable --control given")
+    if not list_path:
+        return _cannot("no list (give --list)")
+    try:
+        entries = load_list(list_path)
+    except ListError as exc:
+        return _cannot(str(exc))
+    by_sentence = dict((prepared, (number, status)) for number, status, prepared in entries)
+    longest = max([len(prepared) for _n, _s, prepared in entries] or [0])
+    lines = []
+    kinds = set()
+    used = set()
+    for position, path in enumerate(files, 1):
+        if _is_the_list(path, list_path):
+            kinds.add("DEAD")
+            lines.append("DEAD  file #%d: is the list" % position)
+            continue
+        kind, out, used_here = _check_file(path, by_sentence, longest, prepared_controls)
+        kinds.add(kind)
+        lines.extend(out)
+        used |= used_here
+    stale = 0
+    if stale_check and "DEAD" not in kinds:
+        for number, status, _prepared in entries:
+            if status == "approved" and number not in used:
+                lines.append("stale entry #%d" % number)
+                stale += 1
+    if "DEAD" in kinds:
+        code = 2
+    elif "FAIL" in kinds or stale:
+        code = 1
+    else:
+        code = 0
+    return barred.Result(code, True, text="".join(line + "\n" for line in lines))
