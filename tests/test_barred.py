@@ -1304,7 +1304,7 @@ exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
 
 
 class HelpCase(RunCase):
-    """barred -h and --help: fixed text, read nothing, win over option errors (G1)."""
+    """barred -h and --help: fixed text, read nothing, win over option errors."""
 
     def in_process(self, args):
         from career_track_record import cli as cli_module

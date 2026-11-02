@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-from career_track_record import ab, barred, keywords, tone
+from career_track_record import ab, barred, claims, keywords, tone
 
 
 class _Parser(argparse.ArgumentParser):
@@ -49,6 +49,9 @@ def _build_parser():
                    add_help=False)
     # Listed for --help only: main() hands "ab" to its own parser (_parse_ab).
     top.add_parser("ab", help="compare two versions of your copy with test readers",
+                   add_help=False)
+    # Listed for --help only: main() hands "claims" to its own parser (_parse_claims).
+    top.add_parser("claims", help="fail on sentences your claims list hasn't approved",
                    add_help=False)
     return parser
 
@@ -110,6 +113,8 @@ class _OptionError(Exception):
 
 _BARRED_VALUE_OPTIONS = ("--list", "--control", "--min-chars")
 _BARRED_OPTIONS = _BARRED_VALUE_OPTIONS + ("--strip-comments",)
+_CLAIMS_VALUE_OPTIONS = ("--list", "--control")
+_CLAIMS_OPTIONS = _CLAIMS_VALUE_OPTIONS + ("--stale-check",)
 _TONE_OPTIONS = ("--rules", "--warn-only", "--stale-check", "--print-defaults")
 
 _BARRED_HELP = """\
@@ -140,6 +145,21 @@ Flag hype, hedges and filler in your copy.
   -h, --help        show this summary and exit
 
 exit: 0 no errors, 1 errors found, 2 it cannot run
+"""
+
+
+_CLAIMS_HELP = """\
+usage: track-record claims --list FILE --control TEXT [--control TEXT]...
+    [--stale-check] FILE...
+
+Fail on any sentence your claims list has not approved.
+
+  --list FILE      the claims list (required)
+  --control TEXT   a string each file must hold (repeatable, any one counts)
+  --stale-check    also report approved entries no file uses
+  -h, --help       show this summary and exit
+
+exit: 0 every sentence approved, 1 a sentence not approved, 2 a DEAD file or cannot run
 """
 
 
@@ -283,6 +303,61 @@ def _main_barred(args, environ):
     result = barred.run(list_path=list_path, files=opts["files"],
                         controls=opts["controls"], strip_comments=opts["strip"],
                         min_chars=opts["min_chars"])
+    if not result.ran:
+        _err(result.error + "\n")
+        return result.exit_code
+    _out(result.text)
+    return result.exit_code
+
+
+def _parse_claims(args):
+    """Parse the options of ``claims``. Raises _OptionError on any problem."""
+    if _asks_for_help(args, _CLAIMS_VALUE_OPTIONS, _CLAIMS_OPTIONS):
+        return {"help": True}
+    found = {"list": None, "controls": [], "stale_check": False, "files": []}
+    list_given = False
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            found["files"].extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            found["files"].append(arg)
+            continue
+        name, equals, value = arg.partition("=")
+        if name == "--stale-check" and not equals:
+            found["stale_check"] = True
+            continue
+        if name not in _CLAIMS_VALUE_OPTIONS:
+            raise _OptionError("unknown option %s" % barred.printed_path(arg))
+        if not equals:
+            if i >= len(args) or args[i] in _CLAIMS_OPTIONS:
+                raise _OptionError("%s needs a value" % name)
+            value = args[i]
+            i += 1
+        if name == "--list":
+            if list_given:
+                raise _OptionError("--list given twice")
+            list_given = True
+            found["list"] = value
+        else:
+            found["controls"].append(value)
+    return found
+
+
+def _main_claims(args):
+    try:
+        opts = _parse_claims(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_CLAIMS_HELP)
+        return 0
+    result = claims.run(list_path=opts["list"], files=opts["files"],
+                        controls=opts["controls"], stale_check=opts["stale_check"])
     if not result.ran:
         _err(result.error + "\n")
         return result.exit_code
@@ -455,6 +530,8 @@ def _main(argv, environ):
         return _main_tone(argv[1:])
     if argv and argv[0] == "ab":
         return _main_ab(argv[1:])
+    if argv and argv[0] == "claims":
+        return _main_claims(argv[1:])
     return _main_keywords(_build_parser().parse_args(argv))
 
 

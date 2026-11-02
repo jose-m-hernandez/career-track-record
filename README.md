@@ -1,11 +1,12 @@
 # career-track-record
 
-Four checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
+Five checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
 
 - **Did any wording I ruled out get into this file?** The barred-wording check (`track-record barred`) finds it, whatever the case, ligature or invisible character around it, and reports which entry it was, never the wording itself.
 - **What do the postings I saved ask for that my copy never says?** The keyword scan (`track-record keywords`) lists the gaps. It never rewrites your copy or sets a score to chase.
 - **Does this sound like hype?** The voice and tone check (`track-record tone`) flags hype, hedges and filler, names the sentence and says why. It never edits.
 - **Which of these two drafts reads better?** Reader A/B (`track-record ab`) asks test readers, under a plan you freeze first. A control that reads one draft against itself shows how often a reader picks a side when the drafts are the same. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote.
+- **Is every sentence in this file one I approved?** The claim gate (`track-record claims`) fails on any sentence your claims list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. It never decides whether a claim is true.
 
 Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
 
@@ -46,12 +47,12 @@ You should see this:
 
 `clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
 
-Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other three tools are under [The tools](#the-tools).
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other four tools are under [The tools](#the-tools).
 
 ## Why you can trust a result
 
 - **No network library.** No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does.
-- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run.
+- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run.
 - **The rules are fixed before the answer.** A Reader A/B plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
 The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
@@ -148,9 +149,47 @@ The tool has three subcommands:
 
 Exit 0 means the run completed and was scored, whatever the verdicts, or it only printed the commands because `--live` was absent. Exit 1 means it finished but a read failed, or the spend ceiling cut it short. Exit 2 means it couldn't run: a plan error, a changed file, a failed check on the versions, or an interrupt. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md).
 
+### `track-record claims`
+
+Keep a claims list: the sentences you have approved for your copy. The claim gate reads each file you name and fails on any sentence the list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. The gate never decides whether a claim is true. Approving it is yours.
+
+The list is a UTF-8 text file with one entry per line. Each entry has tab-separated fields: a status, the sentence, and, if you like, a source. The status is `approved`, `proposed` or `refused`. `proposed` lists a sentence you have not decided on, and it does not pass. `refused` records a claim you turned down, so the sentence fails with that reason if it comes back. A source can be a file path, a URL or a record id; this release stores it and never reads, checks or prints it. Anything after a third tab is a note, which is never matched or printed. A line starting with `#` is a comment. This list is invented, with a tab between fields:
+
+```text
+# invented list
+approved	Led a team of six engineers at Example Corp.	notes/offer-letter.txt
+approved	Shipped the Example importer in 2021.
+approved	Joined Example Corp. in 2019.	notes/start.txt	invented note
+approved	Built an end-to-end import pipeline.
+proposed	Cut build times by forty percent.	notes/draft.txt
+refused	Increased revenue tenfold.
+```
+
+Every sentence is checked, short ones and contact lines included, because a short sentence can carry a claim. Each bullet and each heading starts a new sentence, with or without a final full stop. Matching is exact after folding, so case, ligatures, invisible characters, curly quotes, the hyphens U+2010 and U+2011 and one final full stop make no difference. An entry never matches part of a sentence, and a sentence that holds an entry plus more words is not covered by it.
+
+Every run names a control phrase that must appear in each file. Give `--control` more than once and any one counts. A file without the control, or with no sentence to check, is reported DEAD, never OK. If a file you name is the list itself (a pattern such as `*.txt` can pick it up), it is also reported DEAD: the list is never checked as text, and the line names it by its position, such as `file #2`, never by its path.
+
+    track-record claims --list claims.txt --control "Your Name" profile.md letter.md
+
+Add `--stale-check` to also report approved entries that no file uses.
+
+For each file the gate prints one line, OK, FAIL or DEAD. After a FAIL line comes one line for each unapproved sentence, or each run of sentences that one entry covers: the file, the line number, the reason (`unlisted`, or `proposed` or `refused` with the entry number) and the sentence as it stands in the file. A stale entry prints as `stale entry #N`. The output prints only text from the file you check. It never prints a source, a note, the path of your list or the sentence of an entry your files never used, and it names an entry only by its number. The gate knows your list by the file itself, not by what it holds: a copy of the list under another name is checked like any file, and its findings can print the sources and notes it holds.
+
+Take the list above and a file `copy.txt` that holds one line, `Led a team of seven engineers at Example Corp.`:
+
+    track-record claims --list claims.txt --control example copy.txt
+    FAIL  copy.txt: 1 of 1 sentences not approved
+    copy.txt:1: unlisted: Led a team of seven engineers at Example Corp.
+
+The list approves a team of six, so the changed sentence is a new one and fails. The run exits 1.
+
+Markdown marks such as `**` count as ordinary text. A word that layout split with a hyphen at a line end fails until you fix it or approve it with the hyphen.
+
+Exit 0 means every file is OK. Exit 1 means a sentence is not approved or, with `--stale-check`, an approved entry no file uses. Exit 2 means a file is DEAD or the gate couldn't run, for example because no file or control was named, or the list has an unknown status or two entries for one sentence. Spec: [docs/specs/claims.md](docs/specs/claims.md).
+
 ## Coming
 
-Planned for 0.4.0: a claim gate, a check that fails when a sentence in your career copy has no matching entry in a claims list you approve.
+Planned for 0.5.0: more default rules for the voice and tone check.
 
 Later: building and reviewing a résumé from one source file, tracking applications and contacts, and keeping a dated record of what you did each week. Each arrives with its own spec and tests.
 

@@ -6,14 +6,20 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-02
+
 ### Added
 
 - `docs/provenance.md`, a ledger with one row per file in the repository: the harness and model recorded writing to it, and the day of the latest recorded write. A test fails if a file has no row or a row has no file.
+- `track-record claims`, the claim gate: it fails on any sentence in your copy that your claims list has not approved. A sentence you change is a new sentence and fails until you approve it again. Every run names a control phrase that each file must hold, or the file is DEAD. Output prints only text from the file you check. `--stale-check` also reports approved entries that no file uses. Spec: docs/specs/claims.md.
 
 ### Changed
 
 - The README now opens with what each tool does for you, adds a First run section that tries the barred-wording check on the shipped test fixtures and a section on why you can trust a result, and names the maintainer and the copyright holder.
 - The Reader A/B spec is revision 1.2: its status line now records that the owner settled decision 6 on 2026-10-29, and the owner re-signed it.
+- The command-line spec, docs/specs/cli.md, is revision 3: it names `claims` and its fixed help text.
+- The README now opens with five checks, adds a `track-record claims` section, and plans 0.5.0 where it planned 0.4.0. AGENTS.md now names five tools. METHOD.md now lists the claim gate as running rule 6, and says it stores a source for each claim without checking it.
+- Two test docstrings no longer carry an internal label. Tests only.
 
 ## [0.3.0] - 2026-10-30
 
