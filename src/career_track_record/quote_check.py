@@ -31,28 +31,35 @@ DEAD = "dead"
 def _search(q, s):
     """True when ``q`` occurs in ``s`` with the boundaries of rule 4 holding.
 
-    After a failed occurrence the search resumes at the next position where a start boundary
-    can hold, so a long run of word characters is scanned once, not once per position."""
+    One Knuth-Morris-Pratt scan: the prefix function of ``q`` is built once and ``s`` is read
+    once, and each full match tests its two boundaries in constant time, so the cost is linear
+    in ``len(q) + len(s)`` however densely the occurrences overlap."""
     is_word = barred._is_word_char
     need_start = is_word(q[0])
     need_end = is_word(q[-1])
     size = len(q)
     total = len(s)
-    p = s.find(q)
-    while p >= 0:
-        start_ok = (not need_start) or p == 0 or not is_word(s[p - 1])
-        if start_ok:
-            end = p + size
-            if (not need_end) or end == total or not is_word(s[end]):
-                return True
-        nxt = p + 1
-        if need_start:
-            # A start boundary needs a non-word character just before the position.
-            j = p
-            while j < total and is_word(s[j]):
-                j += 1
-            nxt = j + 1
-        p = s.find(q, nxt)
+    fail = [0] * size
+    k = 0
+    for i in range(1, size):
+        while k and q[i] != q[k]:
+            k = fail[k - 1]
+        if q[i] == q[k]:
+            k += 1
+        fail[i] = k
+    k = 0
+    for i in range(total):
+        c = s[i]
+        while k and c != q[k]:
+            k = fail[k - 1]
+        if c == q[k]:
+            k += 1
+        if k == size:
+            start = i - size + 1
+            if (not need_start) or start == 0 or not is_word(s[start - 1]):
+                if (not need_end) or i + 1 == total or not is_word(s[i + 1]):
+                    return True
+            k = fail[k - 1]
     return False
 
 

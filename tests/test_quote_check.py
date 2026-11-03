@@ -9,6 +9,7 @@ escapes, never raw. The timing pins each run in a fresh interpreter with a ten s
 import contextlib
 import io
 import os
+import random
 import stat
 import subprocess
 import sys
@@ -20,7 +21,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
 sys.path.insert(0, SRC)
 
-from career_track_record import quote_check  # noqa: E402
+from career_track_record import barred, quote_check  # noqa: E402
 from career_track_record.quote_check import DEAD, FOUND, NOT_FOUND, check_quote  # noqa: E402
 
 FOUND_T = (FOUND, "")
@@ -193,22 +194,20 @@ class QuoteCase(unittest.TestCase):
     def run_pin(self, setup, expected):
         code = (
             "from career_track_record.quote_check import check_quote\n"
-            "import os, sys, tempfile\n"
+            "import os, sys\n"
             + setup +
-            "d = tempfile.mkdtemp()\n"
-            "p = os.path.join(d, 's.txt')\n"
+            "p = os.path.join(sys.argv[1], 's.txt')\n"
             "open(p, 'w', encoding='utf-8').write(s)\n"
             "r = check_quote(q, p)\n"
-            "os.remove(p)\n"
-            "os.rmdir(d)\n"
             "print(r[0])\n"
         )
-        try:
-            done = subprocess.run(
-                [sys.executable, "-c", code], timeout=10,
-                env=dict(os.environ, PYTHONPATH=SRC), capture_output=True)
-        except subprocess.TimeoutExpired:
-            self.fail("the search did not finish within 10 seconds")
+        with tempfile.TemporaryDirectory() as folder:
+            try:
+                done = subprocess.run(
+                    [sys.executable, "-c", code, folder], timeout=10,
+                    env=dict(os.environ, PYTHONPATH=SRC), capture_output=True)
+            except subprocess.TimeoutExpired:
+                self.fail("the search did not finish within 10 seconds")
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(done.stdout.decode().strip(), expected)
 
@@ -224,6 +223,12 @@ class QuoteCase(unittest.TestCase):
     def test_timing_late_match_in_long_source(self):
         self.run_pin(
             "s = 'word ' * 400_000 + 'Example importer'\nq = 'Example importer'\n", FOUND)
+
+    def test_timing_overlapping_occurrences_failing_the_end(self):
+        self.run_pin("q = ('-aa' * 3333) + '-a'\ns = '-aa' * 700000\n", NOT_FOUND)
+
+    def test_timing_overlapping_word_starts_failing_the_end(self):
+        self.run_pin("q = ('ab-' * 3333) + 'a'\ns = 'ab-' * 700000\n", NOT_FOUND)
 
     # ----------------------------------------------------------- E. quiet
 
@@ -252,6 +257,40 @@ class QuoteCase(unittest.TestCase):
         self.assertEqual(
             self.check("led a team", b"PK\x03\x04\x14\x00\x06\x00\x80\x81", name="source.docx"),
             (DEAD, "not UTF-8"))
+
+
+def reference_search(q, s):
+    """Brute-force oracle for the search: every position, boundary rules written plainly."""
+    for p in range(len(s) - len(q) + 1):
+        if not s.startswith(q, p):
+            continue
+        end = p + len(q)
+        start_ok = True
+        if barred._is_word_char(q[0]):
+            start_ok = p == 0 or not barred._is_word_char(s[p - 1])
+        end_ok = True
+        if barred._is_word_char(q[-1]):
+            end_ok = end == len(s) or not barred._is_word_char(s[end])
+        if start_ok and end_ok:
+            return True
+    return False
+
+
+class SearchParity(unittest.TestCase):
+    def test_search_matches_the_brute_force_oracle(self):
+        rng = random.Random(20261103)
+        alphabet = "ab- ."
+        for _ in range(20000):
+            s = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 30)))
+            if s and rng.random() < 0.5:
+                a = rng.randint(0, len(s) - 1)
+                q = s[a:a + rng.randint(1, 6)]
+            else:
+                q = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 6)))
+            if not q:
+                continue
+            self.assertEqual(
+                quote_check._search(q, s), reference_search(q, s), "q=%r s=%r" % (q, s))
 
 
 if __name__ == "__main__":
