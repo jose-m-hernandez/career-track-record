@@ -225,10 +225,10 @@ class QuoteCase(unittest.TestCase):
             "s = 'word ' * 400_000 + 'Example importer'\nq = 'Example importer'\n", FOUND)
 
     def test_timing_overlapping_occurrences_failing_the_end(self):
-        self.run_pin("q = ('-aa' * 3333) + '-a'\ns = '-aa' * 700000\n", NOT_FOUND)
+        self.run_pin("q = ('-aa' * 6666) + '-a'\ns = '-aa' * 1400000\n", NOT_FOUND)
 
     def test_timing_overlapping_word_starts_failing_the_end(self):
-        self.run_pin("q = ('ab-' * 3333) + 'a'\ns = 'ab-' * 700000\n", NOT_FOUND)
+        self.run_pin("q = ('ab-' * 6666) + 'a'\ns = 'ab-' * 1400000\n", NOT_FOUND)
 
     # ----------------------------------------------------------- E. quiet
 
