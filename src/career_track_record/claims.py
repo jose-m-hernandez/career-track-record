@@ -233,7 +233,8 @@ def _check_text(text, by_sentence, longest, most_stops):
             source_start = joined_spans[first][0]
             line = bisect.bisect_right(starts, source_start)
             covered = None
-            # A run of k+1 sentences holds at least k of .!? , so no entry covers a longer one.
+            # A run of k + 1 sentences holds at least k of the characters . ! and ?,
+            # so no entry covers a longer run.
             for j in range(i, min(len(sentences), i + most_stops + 1)):
                 source_end = joined_spans[sentences[j][1] - 1][1]
                 prepared = prepare(text[source_start:source_end])

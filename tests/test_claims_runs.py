@@ -65,7 +65,6 @@ def reference_check_text(text, by_sentence, longest):
     return result
 
 
-
 STATUSES = ("approved", "proposed", "refused")
 
 
@@ -147,7 +146,8 @@ class ParityTests(unittest.TestCase):
         pieces = [
             "Led a team.", "Shipped it!", "Did it work?", "Wait...", "Really?!",
             "He said \"go.\"", "Done (mostly.)", "Built b.", "Cut costs.", "Ran c.",
-            "Fixed d!", "A … B.", "One․ two.", "Rate ㎏ here.",
+            "Fixed d!", "A \u2026 B.", "One\u2024 two.", "Rate \u338f here.",
+            "Met at 9 \u33c2 sharp.",
             "- a bullet.", "1. A numbered line.", "# A heading", "",
             "cross-\nfunctional work.", "Plain words", "Led a.", "Led b.",
         ]
@@ -203,11 +203,29 @@ class BoundTests(unittest.TestCase):
         result = self.check("Led a! Led b? Led c.", "Led a! Led b? Led c.")
         self.assertEqual(result.exit_code, 0)
 
+    def test_bound_counts_stops_in_every_status(self):
+        with tempfile.TemporaryDirectory() as folder:
+            lst = os.path.join(folder, "list.tsv")
+            copy = os.path.join(folder, "copy.txt")
+            with open(lst, "w", encoding="utf-8") as handle:
+                handle.write("approved\tExample.\napproved\tLed a.\n"
+                             "proposed\tLed b. Led c.\nrefused\tLed d. Led e. Led f.\n")
+            with open(copy, "w", encoding="utf-8") as handle:
+                handle.write("Example. Led a. Led b. Led c. Led d. Led e. Led f.")
+            result = claims.run(list_path=lst, files=[copy], controls=["Example"])
+            label = claims.printed_path(copy)
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.text.splitlines(), [
+            "FAIL  %s: 5 of 7 sentences not approved" % label,
+            "%s:1: proposed, entry #3: Led b. Led c." % label,
+            "%s:1: refused, entry #4: Led d. Led e. Led f." % label,
+        ])
+
 
 CODE = """
-import os, sys, tempfile
+import os, sys
 from career_track_record import claims
-d = tempfile.mkdtemp()
+d = sys.argv[1]
 lst = os.path.join(d, "list.txt"); cp = os.path.join(d, "copy.txt")
 open(lst, "w").write("approved\\t%s\\n" % (("word " * 480).strip() + "."))
 open(cp, "w").write("Example. " + "Led a. " * 2000)
@@ -219,11 +237,12 @@ print(r.exit_code)
 class TimingTests(unittest.TestCase):
     def test_long_file_with_one_long_entry_finishes(self):
         env = dict(os.environ, PYTHONPATH=SRC)
-        try:
-            done = subprocess.run([sys.executable, "-c", CODE], timeout=10, env=env,
-                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        except subprocess.TimeoutExpired:
-            self.fail("the claim gate took more than 10 s on 2000 short sentences")
+        with tempfile.TemporaryDirectory() as folder:
+            try:
+                done = subprocess.run([sys.executable, "-c", CODE, folder], timeout=10,
+                                      env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            except subprocess.TimeoutExpired:
+                self.fail("the claim gate took more than 10 s on 2000 short sentences")
         self.assertEqual(done.stdout.decode().strip(), "1", done.stderr.decode())
 
 
