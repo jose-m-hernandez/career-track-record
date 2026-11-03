@@ -14,12 +14,15 @@ check has found it, word for word, in the source it cites. No command calls this
   in ``.pdf`` in any case, a PDF read with ``pdftotext`` through ``barred._read_text``. It is
   prepared the same way, without the final-stop drop.
 * FOUND needs the quote inside the source with a word boundary at each end that is a word
-  character; an edge that is not a word character needs no boundary there (``.NET`` is found in
+  character, and a combining mark that folding leaves uncomposed counts as a word character for
+  this test; an edge that is not a word character needs no boundary there (``.NET`` is found in
   ``ASP.NET``). Otherwise NOT_FOUND.
 * Anything that cannot be checked is DEAD with a reason: "no quote", "cannot read", "not UTF-8",
   "pdftotext not found", "pdftotext failed", or "cannot check" for an unexpected error.
 * It never raises and never prints.
 """
+
+import unicodedata
 
 from career_track_record import barred, claims
 
@@ -28,13 +31,18 @@ NOT_FOUND = "not found"
 DEAD = "dead"
 
 
+def _is_word(ch):
+    """A word character for the boundary: a letter, number or underscore, or a combining mark."""
+    return barred._is_word_char(ch) or unicodedata.category(ch).startswith("M")
+
+
 def _search(q, s):
     """True when ``q`` occurs in ``s`` with the boundaries of rule 4 holding.
 
     One Knuth-Morris-Pratt scan: the prefix function of ``q`` is built once and ``s`` is read
     once, and each full match tests its two boundaries in constant time, so the cost is linear
     in ``len(q) + len(s)`` however densely the occurrences overlap."""
-    is_word = barred._is_word_char
+    is_word = _is_word
     need_start = is_word(q[0])
     need_end = is_word(q[-1])
     size = len(q)

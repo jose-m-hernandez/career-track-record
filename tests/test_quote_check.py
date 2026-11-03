@@ -132,6 +132,41 @@ class QuoteCase(unittest.TestCase):
     def test_not_found_empty_source(self):
         self.assertEqual(self.check("led a team", ""), NOT_FOUND_T)
 
+    # ---------------------------------------------- B2. combining marks, digits, underscore
+
+    MARK_CASES = (
+        ("ab", "ab\u20dd", "ab "),
+        ("b", "a b\u0301", "a b "),
+        ("\u0915", "\u0915\u093f", "\u0915 "),
+        ("\u0e01", "\u0e01\u0e34", "\u0e01 "),
+    )
+
+    def test_not_found_when_a_combining_mark_follows(self):
+        for quote, marked, _bare in self.MARK_CASES:
+            with self.subTest(quote=quote):
+                self.assertEqual(self.check(quote, marked), NOT_FOUND_T)
+
+    def test_found_when_the_bare_letters_are_followed_by_a_space(self):
+        for quote, _marked, bare in self.MARK_CASES:
+            with self.subTest(quote=quote):
+                self.assertEqual(self.check(quote, bare), FOUND_T)
+
+    def test_digit_and_underscore_are_word_characters(self):
+        self.assertEqual(self.check("v2", "v23"), NOT_FOUND_T)
+        self.assertEqual(self.check("foo", "foo_bar"), NOT_FOUND_T)
+        self.assertEqual(self.check("foo", "foo-bar"), FOUND_T)
+
+    # ------------------------------------------- B3. the catch-all and the NUL path
+
+    def test_dead_when_an_unexpected_error_is_raised(self):
+        path = self.write("source.txt", "She led a team of six.\n")
+        with mock.patch.object(quote_check.claims, "_squash", side_effect=RuntimeError):
+            self.assertEqual(check_quote("led a team", path), (DEAD, "cannot check"))
+
+    def test_dead_when_the_path_holds_a_nul(self):
+        path = os.path.join(self.dir, "a\x00.txt")
+        self.assertEqual(check_quote("led a team", path), (DEAD, "cannot read"))
+
     # ------------------------------------------------------------ C. dead
 
     def test_dead_empty_quote(self):
@@ -291,6 +326,24 @@ class SearchParity(unittest.TestCase):
                 continue
             self.assertEqual(
                 quote_check._search(q, s), reference_search(q, s), "q=%r s=%r" % (q, s))
+
+
+class SearchOverlap(unittest.TestCase):
+    ROWS = (
+        ("ab-ab", "xab-ab-ab", True),
+        ("--a----", "--a---a----", True),
+        ("aab", "aaab", False),
+        ("-aa-", "-aa-aa-", True),
+        ("ab-ab", "xab-ab", False),
+        ("ab-ab", "ab-aab-ab", False),
+        ("aab", "aabb", False),
+    )
+
+    def test_search_overlap_cases(self):
+        for q, s, expected in self.ROWS:
+            with self.subTest(q=q, s=s):
+                self.assertEqual(quote_check._search(q, s), expected)
+                self.assertEqual(reference_search(q, s), expected)
 
 
 if __name__ == "__main__":
