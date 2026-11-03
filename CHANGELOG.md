@@ -8,7 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-- `track-record claims` was slow on a long file when the claims list held one long entry (about 2,400 characters): its run time grew roughly with the cube of the number of sentences, so 200 short sentences took about 2.4 s, 400 took about 18 s, and a 14 KB file ran past 60 s. For each sentence the gate now tries only runs of at most as many sentences as the most any entry could cover, counted from the full stops, exclamation marks and question marks inside the entries, and the same file finishes in about a second. The output is byte for byte the same as before, and the command line and the list format are unchanged. Known limit: a list entry that is itself made of hundreds of short sentences still makes the gate slow on a long file.
+- `track-record claims` was slow on a long file when the claims list held one long entry (about 2,400 characters): its run time grew roughly with the cube of the number of sentences, so 200 short sentences took about 2.4 s, 400 took about 18 s, and a 14 KB file ran past 60 s. For each sentence the gate now tries only runs of at most as many sentences as the most any entry could cover, counted from the full stops, exclamation marks and question marks inside the entries, and the same file now finishes in well under a second (0.03 s measured). The output is byte for byte the same as before, and the command line and the list format are unchanged. Known limit: a list entry that is itself made of hundreds of short sentences can still make the gate slow, even on a short file (an entry of 800 sentences took about two minutes on a 3 KB file).
 
 ## [0.4.0] - 2026-11-02
 

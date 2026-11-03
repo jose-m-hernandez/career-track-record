@@ -14,7 +14,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | LICENSE | not recorded | not recorded | not recorded |
 | LICENSE-COMMERCIAL.md | not recorded | not recorded | not recorded |
 | METHOD.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
-| README.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| README.md | claude-code | claude-sonnet-5-5 | 2026-11-03 |
 | SECURITY.md | not recorded | not recorded | not recorded |
 | ci/__init__.py | not recorded | not recorded | not recorded |
 | ci/barred_strings.py | not recorded | not recorded | not recorded |

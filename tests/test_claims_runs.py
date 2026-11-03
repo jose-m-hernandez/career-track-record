@@ -248,7 +248,9 @@ class TimingTests(unittest.TestCase):
 
 class KnownLimitTests(unittest.TestCase):
     # Known limit: an entry made of N short sentences lets each start sentence try N + 1 runs,
-    # so a long file can still be slow (measured: 2.41 s at n=200 on Python 3.9).
+    # so a long file can still be slow. Measured on Python 3.9 with an entry of 800 short
+    # sentences, ("b. " * 800).strip(), against "Example. " + "a. " * n: 1.01 s at n=200 here;
+    # the reviewer measured 1.04 s at n=200 and 116 s at n=1000, a file of about 3 KB.
     def test_many_stop_entry_gives_correct_output(self):
         with tempfile.TemporaryDirectory() as folder:
             lst = os.path.join(folder, "list.tsv")
