@@ -29,7 +29,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/decisions/2026-10-27-one-module-per-outside-program.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-29-a-reader-command-is-the-one-outside-program-a-user-names.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-11-01-every-file-has-a-provenance-row.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
-| docs/provenance.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-03 |
+| docs/provenance.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-04 |
 | docs/specs/barred.md | not recorded | not recorded | not recorded |
 | docs/specs/claims.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
 | docs/specs/cli.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |
@@ -186,7 +186,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_barred.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
 | tests/test_barred_strings.py | not recorded | not recorded | not recorded |
 | tests/test_claims.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
-| tests/test_claims_runs.py | claude-code | claude-sonnet-5-5 | 2026-11-03 |
+| tests/test_claims_runs.py | claude-code | claude-sonnet-5-5 | 2026-11-04 |
 | tests/test_cli.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
 | tests/test_keywords.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_no_network.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |

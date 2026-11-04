@@ -221,6 +221,24 @@ class BoundTests(unittest.TestCase):
             "%s:1: refused, entry #4: Led d. Led e. Led f." % label,
         ])
 
+    def test_bound_counts_stops_when_a_proposed_entry_holds_the_most(self):
+        with tempfile.TemporaryDirectory() as folder:
+            lst = os.path.join(folder, "list.tsv")
+            copy = os.path.join(folder, "copy.txt")
+            with open(lst, "w", encoding="utf-8") as handle:
+                handle.write("approved\tExample.\napproved\tLed a.\n"
+                             "proposed\tLed b. Led c. Led d.\nrefused\tLed e. Led f.\n")
+            with open(copy, "w", encoding="utf-8") as handle:
+                handle.write("Example. Led a. Led b. Led c. Led d. Led e. Led f.")
+            result = claims.run(list_path=lst, files=[copy], controls=["Example"])
+            label = claims.printed_path(copy)
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.text.splitlines(), [
+            "FAIL  %s: 5 of 7 sentences not approved" % label,
+            "%s:1: proposed, entry #3: Led b. Led c. Led d." % label,
+            "%s:1: refused, entry #4: Led e. Led f." % label,
+        ])
+
 
 CODE = """
 import os, sys
