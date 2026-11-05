@@ -2,11 +2,11 @@
 
 Status: draft. Revision 6.4 below is not signed; its owner signs the text between the draft markers as it stands.
 Date: 2026-11-05.
-Revision: 6.4. A draft: the text between the markers below (sha256 29eaf47ab5efe1776f3c3590d3ae8588618cdac992ac7bf0adeefbd53c51f550) is revision 6.4 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
+Revision: 6.4. A draft: the text between the markers below (sha256 c97c5175890a8e974ed548a70d15ac78dabf498f9455906e9ff536c171f8bd2a) is revision 6.4 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
 
 ## Draft spec (revision 6.4, not signed)
 
-<!-- draft spec begins: sha256 29eaf47ab5efe1776f3c3590d3ae8588618cdac992ac7bf0adeefbd53c51f550 -->
+<!-- draft spec begins: sha256 c97c5175890a8e974ed548a70d15ac78dabf498f9455906e9ff536c171f8bd2a -->
 # Barred-wording check: behaviour spec
 
 Status: revision 6.4, drafted on 2026-11-05 for the owner's signature. Revision 6.4 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
@@ -442,10 +442,12 @@ A stand-in `pdftotext` answers the default read and the layout read with differe
 | [`a turnkey synergy here`] | [`nothing listed`] | `x.pdf:13: entry #1 (1 x)`. Exit 1: found in the default text only |
 | [`a turnkey synergy here`] | the padding line four times, `a turnkey synergy here`, then the padding line twenty times | `x.pdf:13: entry #1 (1 x)`. Exit 1: the default text's line wins over the layout text's line 5 |
 | [`a turnkey synergy here`] | [`a turnkey synergy and a turnkey synergy`] | `x.pdf:13: entry #1 (2 x)`. Exit 1: the larger count |
+| [`a turnkey synergy and a turnkey synergy`] | [`a turnkey synergy here`] | `x.pdf:13: entry #1 (2 x)`. Exit 1: the larger count, here the default text's |
 | [`nothing listed`] | [`nothing listed`], or the same with ten more padding lines | the same OK line both times. Exit 0: the length is the default text's |
 | [`nothing listed`], padded with `Another firm shipped a reporting tool for teams.` | [`nothing listed`] | `DEAD  x.pdf: control not found`. Exit 2: the control is the default text's |
 | [`nothing listed`] | [`a turnkey syn` and a soft hyphen, with or without spaces after it, then `ergy plan`] | `x.pdf:13: entry #1 (1 x)`. Exit 1: a line-end soft hyphen in the layout text is a hyphen |
 | [`nothing listed`] | [`a turnkey syn`, a space and a soft hyphen, then `ergy plan`] | OK. Exit 0: the soft hyphen does not follow a word character, so folding removes it, and `syn ergy` is not the entry |
+| [`nothing listed`] | [`a turnkey syn`, a space and a soft hyphen, then `ergy plan`] | not against L1 but against a list whose only entry is `syn - ergy`: `OK    x.pdf: 0 of 1 entries (control found; <c> chars)`. Exit 0: that soft hyphen is not turned into a hyphen, so no form holds `syn - ergy` |
 | [`a turnkey syn` and a soft hyphen, then `ergy plan`] | [`nothing listed`] | OK. Exit 0: the default text never gets the soft-hyphen rule |
 
 One run against that stand-in, logging its arguments, shows exactly two calls, in this order: `x.pdf -`, then `x.pdf - -layout`.

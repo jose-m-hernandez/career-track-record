@@ -364,6 +364,10 @@ class StandInCase(unittest.TestCase):
         layout = page(["a turnkey synergy and a turnkey synergy"])
         self.assertEqual(self.run_with(FOUND, layout), (1, fail_one("x.pdf", 13, 2), ""))
 
+    def test_c6b_the_default_count_can_be_the_larger(self):
+        default = page(["a turnkey synergy and a turnkey synergy"])
+        self.assertEqual(self.run_with(default, FOUND), (1, fail_one("x.pdf", 13, 2), ""))
+
     def test_c7_the_length_is_the_default_texts(self):
         same = self.run_with(NOTHING, NOTHING)
         longer = self.run_with(NOTHING, NOTHING + "".join(PAD + "\n" for _ in range(10)))
@@ -385,6 +389,20 @@ class StandInCase(unittest.TestCase):
     def test_c10_a_soft_hyphen_not_after_a_word_character_is_removed(self):
         self.assertOk(self.run_with(NOTHING, page(["a turnkey syn " + SOFT_HYPHEN,
                                                    "ergy plan"])))
+
+    def test_c10b_a_soft_hyphen_not_after_a_word_character_is_not_a_hyphen(self):
+        listing = os.path.join(self.work, "list-spaced.txt")
+        with open(listing, "w", encoding="utf-8") as handle:
+            handle.write("syn - ergy\n")
+        layout = page(["a turnkey syn " + SOFT_HYPHEN, "ergy plan"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        code, out, err = run_cli(["--list", listing] + CTRL + ["x.pdf"], cwd=self.work,
+                                 env_extra={"PATH": path})
+        self.assertEqual((code, err), (0, ""))
+        self.assertRegex(out, r"\AOK    x\.pdf: 0 of 1 entries \(control found; "
+                              r"[0-9]+ chars\)\n\Z")
 
     def test_c11_a_soft_hyphen_in_the_default_text_is_not_converted(self):
         self.assertOk(self.run_with(page(["a turnkey syn" + SOFT_HYPHEN, "ergy plan"]),
