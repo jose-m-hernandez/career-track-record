@@ -16,6 +16,7 @@ covered nothing.
 """
 
 import bisect
+import errno
 import os
 import re
 import stat
@@ -347,15 +348,26 @@ _QUOTE_UNVERIFIED = "unverified"
 def _check_one_source(list_path, source, quote):
     """(result, reason) for one quote: found, not found, unreadable with a reason, or unverified.
 
-    The source is a path relative to the list's folder. A source that is not there at all (a
-    URL, a record id, a missing path) is unverified and nothing is read. A source that is there
-    but is not a regular file (a directory, a FIFO, a device, a socket, or a symbolic link to one)
-    is unreadable, and its type is checked before anything opens it, so it cannot hang the run."""
+    The source is a path relative to the list's folder, looked up without following a final
+    symbolic link. When the lookup reports that nothing is at the path (no such file, or a part
+    of the path that is not a folder: a URL, a record id, a missing path), the quote is unverified
+    and nothing is read. Any other failure of the lookup (no permission to look, a loop of
+    symbolic links, a name too long, a character the system refuses) makes the source unreadable,
+    because a lookup that was refused never looked. A source that is there but is not a regular
+    file (a directory, a FIFO, a device, a socket, or a symbolic link to one) is unreadable, and
+    its type is checked before anything opens it, so it cannot hang the run. A dangling symbolic
+    link is there, so the lookup succeeds, following it fails, and it cannot be read."""
     # quote_check imports this module, so it is imported here, when a run needs it.
     from career_track_record import quote_check
     resolved = os.path.join(os.path.dirname(list_path), source)
-    if not os.path.lexists(resolved):
-        return _QUOTE_UNVERIFIED, ""
+    try:
+        os.lstat(resolved)
+    except OSError as error:
+        if error.errno in (errno.ENOENT, errno.ENOTDIR):
+            return _QUOTE_UNVERIFIED, ""
+        return _QUOTE_UNREADABLE, "cannot read"
+    except ValueError:
+        return _QUOTE_UNREADABLE, "cannot read"
     try:
         st = os.stat(resolved)
     except (OSError, ValueError):

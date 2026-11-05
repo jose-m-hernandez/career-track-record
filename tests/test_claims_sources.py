@@ -5,16 +5,21 @@ source it cites. Every list, quote, source and sentence below is made up (Exampl
 Example, example.com). Lists, inputs and sources are written into a temporary folder at run time;
 no fixture file is used. PDF cases put a small stand-in ``pdftotext`` alone on PATH. Invisible
 characters are written as escapes, never raw. Every run goes through the real command line in a
-subprocess, and every assertion checks the exit code, standard output and standard error whole.
+subprocess, and every assertion checks the exit code, standard output and standard error whole;
+the one exception calls the source lookup in-process, with ``os.lstat`` mocked, to pin how each
+lookup error is mapped.
 """
 
+import errno
 import os
 import subprocess
 import sys
 import unittest
+from unittest import mock
 
 from tests.test_claims import (  # noqa: F401
-    CASES, HELP, L1, LIST_NAME, SRC, SYSTEM_PATH, ClaimsCase, fail, finding, ok, stand_in,
+    CASES, HELP, L1, LIST_NAME, SRC, SYSTEM_PATH, ClaimsCase, claims, fail, finding, ok,
+    stand_in,
 )
 
 SIX = "Led a team of six engineers at Example Corp."
@@ -500,6 +505,83 @@ class NotRegularFiles(SourcesCase):
         self.assertEqual(self.timed(listed),
                          (0, ok("f.txt", 1) + line("proposed", 3, NOT_REGULAR)
                           + counts((1, 0, 0, 0), (0, 0, 1, 0)), ""))
+
+
+# ---------------------------------------------------------------- the lookup of a source
+
+CANNOT_READ = "source unreadable (cannot read)"
+UNVERIFIED = "source unverified"
+
+
+def added(status, source):
+    """L2 with a fifth entry, of the given status, citing source with a quote."""
+    return L2 + "%s\tJoined Example Corp. in 2019.\t%s\nquote\tjoined the team\n" % (status, source)
+
+
+class SourceLookup(SourcesCase):
+    """The source is looked up without following a final symbolic link (spec 9.35).
+
+    Nothing at the path (no such file, or a part of the path that is not a folder) is
+    unverified; any other failure of the lookup is unreadable, because a lookup that was
+    refused never looked."""
+
+    def wall(self):
+        """A folder at mode 000 under the list's folder, holding the quoted file."""
+        geteuid = getattr(os, "geteuid", None)
+        if geteuid is None:
+            self.skipTest("os.geteuid is not available")
+        if geteuid() == 0:
+            self.skipTest("root reads through mode 000")
+        self.put("locked/in.txt", "Dana Example joined the team at Example Corp.\n")
+        locked = os.path.join(self.dir, "locked")
+        os.chmod(locked, 0)
+        self.addCleanup(os.chmod, locked, 0o700)
+
+    def test_an_approved_source_behind_a_permission_wall_cannot_be_read(self):
+        self.wall()
+        self.assertEqual(self.sources(added("approved", "locked/in.txt")),
+                         (2, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, CANNOT_READ)
+                          + counts((1, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_a_proposed_source_behind_a_permission_wall_does_not_change_the_exit(self):
+        self.wall()
+        self.assertEqual(self.sources(added("proposed", "locked/in.txt")),
+                         (0, ok("f.txt", 1) + ENTRY_3 + line("proposed", 5, CANNOT_READ)
+                          + counts((1, 0, 0, 0), (0, 1, 1, 0)), ""))
+
+    def test_a_missing_file_inside_a_permission_wall_cannot_be_read(self):
+        self.wall()
+        self.assertEqual(self.sources(added("approved", "locked/none.txt")),
+                         (2, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, CANNOT_READ)
+                          + counts((1, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_nothing_at_the_path_is_unverified(self):
+        for source in ("missing.txt", "evidence/offer.txt/x"):
+            with self.subTest(source=source):
+                self.assertEqual(self.sources(added("approved", source)),
+                                 (0, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, UNVERIFIED)
+                                  + counts((1, 0, 0, 1), (0, 1, 0, 0)), ""))
+
+    def test_a_nul_in_the_source_cannot_be_read(self):
+        self.assertEqual(self.sources(added("approved", "evidence/off\x00er.txt")),
+                         (2, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, CANNOT_READ)
+                          + counts((1, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_the_lookup_errors_map_to_unverified_or_unreadable(self):
+        list_path = os.path.join(self.dir, L2_NAME)
+        cases = (
+            (OSError(errno.ENOENT, "invented"), (claims._QUOTE_UNVERIFIED, "")),
+            (OSError(errno.ENOTDIR, "invented"), (claims._QUOTE_UNVERIFIED, "")),
+            (OSError(errno.EACCES, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
+            (OSError(errno.ELOOP, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
+            (OSError(errno.ENAMETOOLONG, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
+            (ValueError("invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
+        )
+        for error, expected in cases:
+            with self.subTest(error=repr(error)):
+                with mock.patch.object(claims.os, "lstat", side_effect=error):
+                    got = claims._check_one_source(list_path, "any/source.txt", "a quote")
+                self.assertEqual(got, expected)
 
 
 if __name__ == "__main__":
