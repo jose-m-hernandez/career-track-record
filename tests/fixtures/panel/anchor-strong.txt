@@ -1,0 +1,45 @@
+Rowan Ashgrove
+Senior Platform Engineer
+rowan.ashgrove@example.com | 555-0199 | Harbourfield
+
+Summary
+Platform engineer with nine years of experience owning deployment
+pipelines, job schedulers and release processes for small product
+teams. Writes the runbook before the launch. Has led teams of four
+to six engineers through platform moves.
+
+Experience
+
+Senior Platform Engineer, Brightmoor Logistics (2020 - Present)
+Owns the deployment pipeline and the scheduler that runs customer jobs.
+Stack: Go, Python, containers, Kubernetes, Postgres
+- Designed the job scheduler that runs
+  twelve thousand customer jobs a day
+  with a published reliability target.
+- Cut median build time from eighteen
+  minutes to six by caching stages.
+- Wrote the on-call runbook and leads
+  the rotation of six engineers.
+- Led a team of five through a move
+  from hand-run hosts to containers.
+- Mentored three engineers, two of
+  whom now own their own services.
+
+Platform Engineer, Saltmarsh Tools (2016 - 2020)
+Built the release process and the build farm for a product group.
+Stack: Python, shell, a build farm, a message queue
+- Built a release service that rolled
+  out changes to fifty services with
+  a pre-flight check stage.
+- Reduced failed releases by half by
+  adding contract tests.
+- Documented every runbook the team
+  used and kept them current.
+
+Education
+BSc Computer Science, Larkspur University, 2012 - 2016
+
+Skills
+Languages: Go, Python, shell, SQL
+Tools: Kubernetes, Terraform, Postgres, Prometheus
+Practices: runbooks, incident response, code review, mentoring

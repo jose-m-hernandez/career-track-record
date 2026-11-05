@@ -1,12 +1,13 @@
 # career-track-record
 
-Five checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
+Six checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
 
 - **Did any wording I ruled out get into this file?** The barred-wording check (`track-record barred`) finds it, whatever the case, ligature or invisible character around it, and reports which entry it was, never the wording itself.
 - **What do the postings I saved ask for that my copy never says?** The keyword scan (`track-record keywords`) lists the gaps. It never rewrites your copy or sets a score to chase.
 - **Does this sound like hype?** The voice and tone check (`track-record tone`) flags hype, hedges and filler, names the sentence and says why. It never edits.
 - **Which of these two drafts reads better?** Reader A/B (`track-record ab`) asks test readers, under a plan you freeze first. A control that reads one draft against itself shows how often a reader picks a side when the drafts are the same. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote.
 - **Is every sentence in this file one I approved?** The claim gate (`track-record claims`) fails on any sentence your claims list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. It never decides whether a claim is true.
+- **How does this one draft read to a recruiter, and to the hiring manager?** The reader panel (`track-record panel`) reads one draft blind through lenses you name, each a reader in a role. Every lens also reads two planted anchors, one strong and one weak; a lens that cannot tell them apart is not counted. Each rule you wrote ends PASS, FAIL or INCONCLUSIVE.
 
 Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
 
@@ -47,15 +48,15 @@ You should see this:
 
 `clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
 
-Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other four tools are under [The tools](#the-tools).
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other five tools are under [The tools](#the-tools).
 
 ## Why you can trust a result
 
 - **No network library.** No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does.
-- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run.
-- **The rules are fixed before the answer.** A Reader A/B plan is frozen by hash before the first read, and a run refuses anything that has changed since.
+- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run. The reader panel reads a strong and a weak anchor through every lens in every run.
+- **The rules are fixed before the answer.** A Reader A/B or reader panel plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
-The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
+The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` and `track-record panel` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
 
 ## The tools
 
@@ -186,6 +187,46 @@ The list approves a team of six, so the changed sentence is a new one and fails.
 Markdown marks such as `**` count as ordinary text. A word that layout split with a hyphen at a line end fails until you fix it or approve it with the hyphen.
 
 Exit 0 means every file is OK. Exit 1 means a sentence is not approved or, with `--stale-check`, an approved entry no file uses. Exit 2 means a file is DEAD or the gate couldn't run, for example because no file or control was named, or the list has an unknown status or two entries for one sentence. Spec: [docs/specs/claims.md](docs/specs/claims.md).
+
+### `track-record panel`
+
+Read one version of a résumé, or any career document, through several lenses: each a reader in a role you name, such as a recruiter or the hiring manager, given as a plain-text prompt file you write. Readers are the same as in `track-record ab`: a command you name, or the built-in `fake`. The plan is frozen by hash before the first read, lens files included.
+
+Every lens also reads two anchors you supply: a document you wrote to be plainly strong for the posting, and one you wrote to be plainly weak. If a lens does not score the strong anchor at or above `anchor-strong-at-least` and the weak anchor at or below `anchor-weak-at-most`, on every anchor read, that lens's reads of your version are reported INCONCLUSIVE and not counted. The anchors do for the panel what the control read does for `ab`: a lens that shows nothing also shows whether it could see anything. This plan is invented:
+
+```
+posting: posting.txt
+version: resume.txt
+anchors:
+  strong | anchor-strong.txt
+  weak | anchor-weak.txt
+lenses:
+  recruiter | recruiter.lens.txt
+  hiring-manager | hiring-manager.lens.txt
+readers:
+  reader-1 | fake
+  reader-2 | /path/to/my-reader.sh | not-blind | cost 3
+anchor-strong-at-least: 7
+anchor-weak-at-most: 4
+rules:
+  recruiter | PASS if score at least 7 in 5 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
+  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE
+  overall | PASS if score at least 7 in 10 or more; otherwise INCONCLUSIVE
+fake-reader:
+  strong | score 9
+  weak | score 2
+  version | score 7
+```
+
+Each reader reads the version three times per lens and each anchor once, unless the plan says otherwise. A rule names its lens, or `overall` for every counted lens, and tests scores or flagged fields: a field such as `DOUBTS` is flagged when the reader wrote anything there but `none`. The reader sees the posting, the lens and one document, and nothing says whether that document is an anchor or your version.
+
+The tool has the same three subcommands as `ab`:
+
+    track-record panel freeze plan.txt
+    track-record panel run plan.txt [--live]
+    track-record panel score plan.txt
+
+The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 1). Spec: [docs/specs/reader-panel.md](docs/specs/reader-panel.md).
 
 ## Coming
 
