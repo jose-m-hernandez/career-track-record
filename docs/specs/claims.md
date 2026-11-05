@@ -1,12 +1,12 @@
 # Claim gate: behaviour spec
 
-Status: draft. Revision 2 below is not signed; its owner signs the text between the draft markers as it stands.
+Status: accepted.
 Date: 2026-11-05.
-Revision: 2. A draft: the text between the markers below (sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a) is revision 2 in full. It is revision 1's signed text (sha256 bedcdc2861b6a0990d629733fa4a262bc449b2a2a3c35f5cb39bb68922620ac4) with the quote check added. The build readings of revision 1 follow it and still apply.
+Revision: 2. The signed spec (sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a) is reproduced below verbatim. Its owner signed it on 2026-11-05. It revises revision 1's signed text (sha256 bedcdc2861b6a0990d629733fa4a262bc449b2a2a3c35f5cb39bb68922620ac4) and adds the quote check. The build readings of revision 1 follow it and still apply.
 
-## Draft spec (revision 2, not signed)
+## Signed spec
 
-<!-- draft spec begins: sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a -->
+<!-- signed spec begins: sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a -->
 # Claim gate: behaviour spec
 
 Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 2 adds a quote check, a port of an evidence-check method in which a quote must appear in the source it cites; nothing in it comes from any private tool or record.
@@ -270,7 +270,7 @@ cli.md revision 3 added `<cli> claims`: section 2 adds `<cli> claims`, run under
 and section 4's list of levels where `-h` and `--help` are accepted adds `<cli> claims`. Section 5 adds claims to the commands that promise fixed help text (this spec, section 3.4).
 
 cli.md revision 5 notes the quote check: section 2 ends with a sentence saying `claims` takes `--check-sources`, which also checks each quote in the claims list against the source its entry cites, and section 5 says that claims' summary lists `--check-sources` from this spec's revision 2. Section 4's help line for claims does not change. Nothing else in cli.md changes.
-<!-- draft spec ends -->
+<!-- signed spec ends -->
 
 ## Build readings (maintainer, 2026-11-01)
 
