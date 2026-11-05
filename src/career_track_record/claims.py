@@ -18,6 +18,7 @@ covered nothing.
 import bisect
 import os
 import re
+import stat
 import unicodedata
 
 from career_track_record import barred
@@ -347,12 +348,20 @@ def _check_one_source(list_path, source, quote):
     """(result, reason) for one quote: found, not found, unreadable with a reason, or unverified.
 
     The source is a path relative to the list's folder. A source that is not there at all (a
-    URL, a record id, a missing path) is unverified and nothing is read."""
+    URL, a record id, a missing path) is unverified and nothing is read. A source that is there
+    but is not a regular file (a directory, a FIFO, a device, a socket, or a symbolic link to one)
+    is unreadable, and its type is checked before anything opens it, so it cannot hang the run."""
     # quote_check imports this module, so it is imported here, when a run needs it.
     from career_track_record import quote_check
     resolved = os.path.join(os.path.dirname(list_path), source)
     if not os.path.lexists(resolved):
         return _QUOTE_UNVERIFIED, ""
+    try:
+        st = os.stat(resolved)
+    except (OSError, ValueError):
+        return _QUOTE_UNREADABLE, "cannot read"
+    if not stat.S_ISREG(st.st_mode):
+        return _QUOTE_UNREADABLE, "not a regular file"
     status, reason = quote_check.check_quote(quote, resolved)
     if status == quote_check.FOUND:
         return _QUOTE_FOUND, ""

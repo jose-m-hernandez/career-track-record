@@ -9,10 +9,12 @@ subprocess, and every assertion checks the exit code, standard output and standa
 """
 
 import os
+import subprocess
+import sys
 import unittest
 
 from tests.test_claims import (  # noqa: F401
-    CASES, HELP, L1, LIST_NAME, SYSTEM_PATH, ClaimsCase, fail, finding, ok, stand_in,
+    CASES, HELP, L1, LIST_NAME, SRC, SYSTEM_PATH, ClaimsCase, fail, finding, ok, stand_in,
 )
 
 SIX = "Led a team of six engineers at Example Corp."
@@ -75,25 +77,25 @@ KNOWN = {
          ok("f.txt", 1) + ENTRY_3 + line("approved", 5, "quote not found")
          + counts((1, 1, 0, 0), (0, 1, 0, 0)), 1),
     22: (L2 + JOINED_UNREADABLE, SIX, "example", [],
-         ok("f.txt", 1) + ENTRY_3 + line("approved", 5, "source unreadable (cannot read)")
+         ok("f.txt", 1) + ENTRY_3 + line("approved", 5, "source unreadable (not a regular file)")
          + counts((1, 0, 1, 0), (0, 1, 0, 0)), 2),
     23: (L2 + JOINED_UNVERIFIED, SIX, "example", [],
          ok("f.txt", 1) + ENTRY_3 + line("approved", 5, "source unverified")
          + counts((1, 0, 0, 1), (0, 1, 0, 0)), 0),
     24: (L2 + PROPOSED_UNREADABLE + PROPOSED_UNVERIFIED, SIX, "example", [],
-         ok("f.txt", 1) + ENTRY_3 + line("proposed", 5, "source unreadable (cannot read)")
+         ok("f.txt", 1) + ENTRY_3 + line("proposed", 5, "source unreadable (not a regular file)")
          + line("proposed", 6, "source unverified") + counts((1, 0, 0, 0), (0, 1, 1, 1)), 0),
     # 25 is the list in a subfolder: see test_9_25.
     "26a": (L2 + JOINED_UNREADABLE, SEVEN, "example", [],
             fail("f.txt", 1, 1) + finding("f.txt", 1, "unlisted", SEVEN) + ENTRY_3
-            + line("approved", 5, "source unreadable (cannot read)")
+            + line("approved", 5, "source unreadable (not a regular file)")
             + counts((1, 0, 1, 0), (0, 1, 0, 0)), 2),
     "26b": (L2 + JOINED_NOT_FOUND, SIX, "zebra", [],
             "DEAD  f.txt: control not found\n" + ENTRY_3 + line("approved", 5, "quote not found")
             + counts((1, 1, 0, 0), (0, 1, 0, 0)), 2),
     "26c": (L2 + JOINED_NOT_FOUND + BUILT_UNREADABLE, SIX, "example", [],
             ok("f.txt", 1) + ENTRY_3 + line("approved", 5, "quote not found")
-            + line("proposed", 6, "source unreadable (cannot read)")
+            + line("proposed", 6, "source unreadable (not a regular file)")
             + counts((1, 1, 0, 0), (0, 1, 1, 0)), 1),
     "27a": (L2 + JOINED_NOT_FOUND, SIX, "example", ["--stale-check"],
             ok("f.txt", 1) + "stale entry #2\nstale entry #5\n" + ENTRY_3
@@ -145,7 +147,7 @@ VARIANTS = {
                   ok("f.txt", 1) + line("approved", 1, "source unreadable (not UTF-8)")
                   + ENTRY_3 + counts((0, 0, 1, 0), (0, 1, 0, 0)), 2),
     "directory": (first_source("evidence"), None, False,
-                  ok("f.txt", 1) + line("approved", 1, "source unreadable (cannot read)")
+                  ok("f.txt", 1) + line("approved", 1, "source unreadable (not a regular file)")
                   + ENTRY_3 + counts((0, 0, 1, 0), (0, 1, 0, 0)), 2),
     "dangling link": (first_source("evidence/link.txt"), None, False,
                       ok("f.txt", 1) + line("approved", 1, "source unreadable (cannot read)")
@@ -429,6 +431,75 @@ class Variations(SourcesCase):
                          (2, "", "cannot run: entries #1 and #5 are the same sentence\n"))
         listed = L2 + "approved\n"
         self.assertEqual(self.sources(listed), (2, "", "cannot run: entry #5 has no sentence\n"))
+
+
+# ---------------------------------------------------------------- sources that are not files
+
+NOT_REGULAR = "source unreadable (not a regular file)"
+
+
+class NotRegularFiles(SourcesCase):
+    """A source that is not a regular file is unreadable, and nothing opens it.
+
+    Runs here carry a timeout, so a source that the engine opened and blocked on (a FIFO with
+    no writer) fails the test instead of hanging the suite."""
+
+    def timed(self, list_text):
+        """Write the list and f.txt and run the gate with --check-sources, at most 20 s."""
+        self.put(L2_NAME, list_text)
+        self.put("f.txt", SIX)
+        env = dict(os.environ, PYTHONPATH=SRC, PYTHONDONTWRITEBYTECODE="1", PATH=SYSTEM_PATH)
+        env.pop("BARRED_STRINGS_PATH", None)
+        args = ["--list", L2_NAME, "--control", "example", "--check-sources", "f.txt"]
+        try:
+            with open(os.devnull, "rb") as devnull:
+                proc = subprocess.run(
+                    [sys.executable, "-m", "career_track_record", "claims"] + args,
+                    cwd=self.dir, env=env, stdin=devnull, stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE, timeout=20)
+        except subprocess.TimeoutExpired:
+            self.fail("the run hung on a FIFO source")
+        return proc.returncode, proc.stdout.decode("utf-8"), proc.stderr.decode("utf-8")
+
+    def fifo(self, name):
+        if not hasattr(os, "mkfifo"):
+            self.skipTest("os.mkfifo is not available")
+        os.mkfifo(os.path.join(self.dir, name))
+
+    def test_an_approved_fifo_source_is_not_a_regular_file(self):
+        self.fifo("evidence/pipe")
+        self.assertEqual(self.timed(first_source("evidence/pipe")),
+                         (2, ok("f.txt", 1) + line("approved", 1, NOT_REGULAR) + ENTRY_3
+                          + counts((0, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_a_device_source_is_not_a_regular_file(self):
+        self.assertEqual(self.timed(first_source("/dev/null")),
+                         (2, ok("f.txt", 1) + line("approved", 1, NOT_REGULAR) + ENTRY_3
+                          + counts((0, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_a_directory_source_is_not_a_regular_file(self):
+        self.assertEqual(self.timed(first_source("evidence")),
+                         (2, ok("f.txt", 1) + line("approved", 1, NOT_REGULAR) + ENTRY_3
+                          + counts((0, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_a_symbolic_link_to_a_regular_file_reads_its_target(self):
+        os.symlink("offer.txt", os.path.join(self.dir, "evidence", "offer-link.txt"))
+        self.assertEqual(self.timed(first_source("evidence/offer-link.txt")),
+                         (0, KNOWN[20][4], ""))
+
+    def test_a_symbolic_link_to_a_directory_is_not_a_regular_file(self):
+        os.mkdir(os.path.join(self.dir, "evidence", "folder"))
+        os.symlink("folder", os.path.join(self.dir, "evidence", "folder-link"))
+        self.assertEqual(self.timed(first_source("evidence/folder-link")),
+                         (2, ok("f.txt", 1) + line("approved", 1, NOT_REGULAR) + ENTRY_3
+                          + counts((0, 0, 1, 0), (0, 1, 0, 0)), ""))
+
+    def test_a_proposed_fifo_source_does_not_change_the_exit(self):
+        self.fifo("evidence/pipe")
+        listed = L2.replace("\tevidence/review.txt\n", "\tevidence/pipe\n", 1)
+        self.assertEqual(self.timed(listed),
+                         (0, ok("f.txt", 1) + line("proposed", 3, NOT_REGULAR)
+                          + counts((1, 0, 0, 0), (0, 0, 1, 0)), ""))
 
 
 if __name__ == "__main__":
