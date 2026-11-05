@@ -350,10 +350,11 @@ def _check_one_source(list_path, source, quote):
 
     The source is a path relative to the list's folder, looked up without following a final
     symbolic link. When the lookup reports that nothing is at the path (no such file, or a part
-    of the path that is not a folder: a URL, a record id, a missing path), the quote is unverified
-    and nothing is read. Any other failure of the lookup (no permission to look, a loop of
-    symbolic links, a name too long, a character the system refuses) makes the source unreadable,
-    because a lookup that was refused never looked. A source that is there but is not a regular
+    of the path that is not a folder: a URL, a record id, a missing path), or that no file can
+    have that name (a name too long, a character the system refuses, including a NUL character),
+    the quote is unverified and nothing is read. Any other failure of the lookup (no permission
+    to look, a loop of symbolic links) makes the source unreadable, because a lookup that was
+    refused never looked. A source that is there but is not a regular
     file (a directory, a FIFO, a device, a socket, or a symbolic link to one) is unreadable, and
     its type is checked before anything opens it, so it cannot hang the run. A dangling symbolic
     link is there, so the lookup succeeds, following it fails, and it cannot be read."""
@@ -363,11 +364,11 @@ def _check_one_source(list_path, source, quote):
     try:
         os.lstat(resolved)
     except OSError as error:
-        if error.errno in (errno.ENOENT, errno.ENOTDIR):
+        if error.errno in (errno.ENOENT, errno.ENOTDIR, errno.ENAMETOOLONG, errno.EINVAL):
             return _QUOTE_UNVERIFIED, ""
         return _QUOTE_UNREADABLE, "cannot read"
     except ValueError:
-        return _QUOTE_UNREADABLE, "cannot read"
+        return _QUOTE_UNVERIFIED, ""
     try:
         st = os.stat(resolved)
     except (OSError, ValueError):

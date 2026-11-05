@@ -519,11 +519,11 @@ def added(status, source):
 
 
 class SourceLookup(SourcesCase):
-    """The source is looked up without following a final symbolic link (spec 9.35).
+    """The source is looked up without following a final symbolic link (spec 9.35, 9.36).
 
-    Nothing at the path (no such file, or a part of the path that is not a folder) is
-    unverified; any other failure of the lookup is unreadable, because a lookup that was
-    refused never looked."""
+    Nothing at the path (no such file, or a part of the path that is not a folder) and a name
+    no file can have (too long, or holding a character the system refuses) are unverified; any
+    other failure of the lookup is unreadable, because a lookup that was refused never looked."""
 
     def wall(self):
         """A folder at mode 000 under the list's folder, holding the quoted file."""
@@ -562,10 +562,19 @@ class SourceLookup(SourcesCase):
                                  (0, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, UNVERIFIED)
                                   + counts((1, 0, 0, 1), (0, 1, 0, 0)), ""))
 
-    def test_a_nul_in_the_source_cannot_be_read(self):
+    def test_a_nul_in_the_source_is_unverified(self):
         self.assertEqual(self.sources(added("approved", "evidence/off\x00er.txt")),
-                         (2, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, CANNOT_READ)
-                          + counts((1, 0, 1, 0), (0, 1, 0, 0)), ""))
+                         (0, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, UNVERIFIED)
+                          + counts((1, 0, 0, 1), (0, 1, 0, 0)), ""))
+
+    def test_a_source_longer_than_any_path_is_unverified(self):
+        source = "https://example.com/records/" + "part/" * 900
+        with self.assertRaises(OSError) as raised:
+            os.lstat(os.path.join(self.dir, source))
+        self.assertEqual(raised.exception.errno, errno.ENAMETOOLONG)
+        self.assertEqual(self.sources(added("approved", source)),
+                         (0, ok("f.txt", 1) + ENTRY_3 + line("approved", 5, UNVERIFIED)
+                          + counts((1, 0, 0, 1), (0, 1, 0, 0)), ""))
 
     def test_the_lookup_errors_map_to_unverified_or_unreadable(self):
         list_path = os.path.join(self.dir, L2_NAME)
@@ -574,8 +583,10 @@ class SourceLookup(SourcesCase):
             (OSError(errno.ENOTDIR, "invented"), (claims._QUOTE_UNVERIFIED, "")),
             (OSError(errno.EACCES, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
             (OSError(errno.ELOOP, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
-            (OSError(errno.ENAMETOOLONG, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
-            (ValueError("invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
+            (OSError(errno.ENAMETOOLONG, "invented"), (claims._QUOTE_UNVERIFIED, "")),
+            (OSError(errno.EINVAL, "invented"), (claims._QUOTE_UNVERIFIED, "")),
+            (OSError(errno.EPERM, "invented"), (claims._QUOTE_UNREADABLE, "cannot read")),
+            (ValueError("invented"), (claims._QUOTE_UNVERIFIED, "")),
         )
         for error, expected in cases:
             with self.subTest(error=repr(error)):
