@@ -230,9 +230,9 @@ The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are t
 
 ## Coming
 
-Planned for 0.5.0: more default rules for the voice and tone check.
+Planned next: the claim gate will check that a quoted phrase appears word for word in the source it cites, once the claims spec is revised.
 
-Later: building and reviewing a résumé from one source file, tracking applications and contacts, and keeping a dated record of what you did each week. Each arrives with its own spec and tests.
+Later: more default rules for the voice and tone check, building and reviewing a résumé from one source file, tracking applications and contacts, and keeping a dated record of what you did each week. Each arrives with its own spec and tests.
 
 ## Maintainer
 

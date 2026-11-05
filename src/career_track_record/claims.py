@@ -219,7 +219,7 @@ class _Used(object):
         self.used = set()
 
 
-def _check_text(text, by_sentence, longest):
+def _check_text(text, by_sentence, longest, most_stops):
     work, spans = _working(text)
     joined, joined_spans = _keep_hyphen(work, spans)
     starts = _line_starts(text)
@@ -233,7 +233,9 @@ def _check_text(text, by_sentence, longest):
             source_start = joined_spans[first][0]
             line = bisect.bisect_right(starts, source_start)
             covered = None
-            for j in range(i, len(sentences)):
+            # A run of k + 1 sentences holds at least k of the characters . ! and ?,
+            # so no entry covers a longer run.
+            for j in range(i, min(len(sentences), i + most_stops + 1)):
                 source_end = joined_spans[sentences[j][1] - 1][1]
                 prepared = prepare(text[source_start:source_end])
                 if len(prepared) > longest:
@@ -266,11 +268,11 @@ def _shown(text, start, end):
 
 # ---------------------------------------------------------------- the run
 
-def _check_file(path, by_sentence, longest, controls):
+def _check_file(path, by_sentence, longest, controls, most_stops):
     label = printed_path(path)
     try:
         text = _read_text(path, False)
-        found = _check_text(text, by_sentence, longest)
+        found = _check_text(text, by_sentence, longest, most_stops)
     except _Dead as dead:
         return "DEAD", ["DEAD  %s: %s" % (label, dead.args[0])], set()
     except Exception:
@@ -312,6 +314,8 @@ def _run(list_path, files, controls, stale_check):
         return _cannot(str(exc))
     by_sentence = dict((prepared, (number, status)) for number, status, prepared in entries)
     longest = max([len(prepared) for _n, _s, prepared in entries] or [0])
+    most_stops = max([sum(prepared.count(c) for c in ".!?") for _n, _s, prepared in entries]
+                     or [0])
     lines = []
     kinds = set()
     used = set()
@@ -320,7 +324,8 @@ def _run(list_path, files, controls, stale_check):
             kinds.add("DEAD")
             lines.append("DEAD  file #%d: is the list" % position)
             continue
-        kind, out, used_here = _check_file(path, by_sentence, longest, prepared_controls)
+        kind, out, used_here = _check_file(path, by_sentence, longest, prepared_controls,
+                                           most_stops)
         kinds.add(kind)
         lines.extend(out)
         used |= used_here
