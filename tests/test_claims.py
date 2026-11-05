@@ -36,17 +36,19 @@ L1 = (
 
 HELP = (
     "usage: track-record claims --list FILE --control TEXT [--control TEXT]...\n"
-    "    [--stale-check] FILE...\n"
+    "    [--stale-check] [--check-sources] FILE...\n"
     "\n"
     "Fail on any sentence your claims list has not approved.\n"
     "\n"
     "  --list FILE      the claims list (required)\n"
     "  --control TEXT   a string each file must hold (repeatable, any one counts)\n"
     "  --stale-check    also report approved entries no file uses\n"
+    "  --check-sources  also check each quote against the source file it cites\n"
     "  -h, --help       show this summary and exit\n"
     "\n"
     "exit: 0 every sentence approved, 1 a sentence not approved, "
-    "2 a DEAD file or cannot run\n"
+    "2 a DEAD file or cannot run;\n"
+    "    with --check-sources, also 1 a quote not found, 2 a source that cannot be read\n"
 )
 
 SIX = "Led a team of six engineers at Example Corp."

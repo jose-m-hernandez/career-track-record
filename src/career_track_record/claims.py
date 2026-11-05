@@ -5,11 +5,18 @@ input file into blocks and sentences, and call a sentence approved only when an 
 the status ``approved`` equals it, exactly, after folding. A file is called clean only when
 it was read in full, held a control and held at least one sentence to check.
 
-Output names an entry only by its number. It never holds a source, a note, the list's
-path or the sentence of an entry that covered nothing.
+With ``check_sources`` (``--check-sources``), each approved or proposed entry that has a quote
+line also has its quote checked, through ``quote_check``, against the source file it cites, a
+path relative to the list's folder. This ports an evidence-check method in which a quote must
+appear in the source it cites.
+
+Output names an entry only by its number. It never holds a source, a resolved source path,
+text read from a source, a quote, a note, the list's path or the sentence of an entry that
+covered nothing.
 """
 
 import bisect
+import os
 import re
 import unicodedata
 
@@ -75,6 +82,21 @@ def prepare_control(text):
 
 def load_list(path):
     """Read the list file; return its entries as (number, status, prepared sentence)."""
+    return _read_list(path)[0]
+
+
+def _read_list(path):
+    """Read the list file; return (entries, quotes).
+
+    ``entries`` is what ``load_list`` returns. ``quotes`` holds one (number, status, source,
+    quote) for each entry with a quote line, in entry order: the source is the entry's third
+    field trimmed, the quote the quote line's second field as written.
+
+    A quote is a line of its own, ``quote<TAB>text``, under the entry it belongs to, and not a
+    fourth field of the entry: anything after an entry's third tab has always been a note, so a
+    fourth-field quote would change the meaning of lists that already carry notes. ``quote`` is
+    an unknown status to a list reader without quote lines, so no list it accepted changes
+    meaning. A quote line takes no entry number."""
     try:
         with open(path, "rb") as handle:
             data = handle.read()
@@ -87,6 +109,8 @@ def load_list(path):
     if text.startswith("\ufeff"):
         text = text[1:]
     entries = []
+    sources = {}
+    quoted = {}
     for line in _LINE_BREAK.split(text):
         stripped = line.strip()
         if stripped == "" or stripped[0] == "#":
@@ -94,19 +118,34 @@ def load_list(path):
         number = len(entries) + 1
         fields = line.split("\t")
         status = fields[0].strip().lower()
+        if status == "quote":
+            owner = len(entries)
+            if owner == 0:
+                raise ListError("a quote line comes before the first entry")
+            if owner in quoted:
+                raise ListError("entry #%d has two quote lines" % owner)
+            if sources.get(owner, "") == "":
+                raise ListError("entry #%d has a quote but no source" % owner)
+            if len(fields) < 2 or not _has_letter_or_digit(prepare(fields[1])):
+                raise ListError("entry #%d has an empty quote" % owner)
+            quoted[owner] = fields[1]
+            continue
         if status not in _STATUSES:
             raise ListError("unknown status in entry #%d" % number)
         prepared = prepare(fields[1]) if len(fields) > 1 else ""
         if prepared == "":
             raise ListError("entry #%d has no sentence" % number)
         entries.append((number, status, prepared))
+        sources[number] = fields[2].strip() if len(fields) > 2 else ""
     first = {}
     for number, _status, prepared in entries:
         if prepared in first:
             raise ListError("entries #%d and #%d are the same sentence"
                             % (first[prepared], number))
         first[prepared] = number
-    return entries
+    quotes = [(number, status, sources[number], quoted[number])
+              for number, status, _prepared in entries if number in quoted]
+    return entries, quotes
 
 
 # ---------------------------------------------------------------- one file's text
@@ -291,14 +330,69 @@ def _check_file(path, by_sentence, longest, controls, most_stops):
     return "FAIL", out, found.used
 
 
-def run(*, list_path, files, controls, stale_check=False):
+def run(*, list_path, files, controls, stale_check=False, check_sources=False):
     try:
-        return _run(list_path, list(files), list(controls), stale_check)
+        return _run(list_path, list(files), list(controls), stale_check, check_sources)
     except Exception:
         return _cannot("internal error")
 
 
-def _run(list_path, files, controls, stale_check):
+_QUOTE_FOUND = "found"
+_QUOTE_NOT_FOUND = "not found"
+_QUOTE_UNREADABLE = "unreadable"
+_QUOTE_UNVERIFIED = "unverified"
+
+
+def _check_one_source(list_path, source, quote):
+    """(result, reason) for one quote: found, not found, unreadable with a reason, or unverified.
+
+    The source is a path relative to the list's folder. A source that is not there at all (a
+    URL, a record id, a missing path) is unverified and nothing is read."""
+    # quote_check imports this module, so it is imported here, when a run needs it.
+    from career_track_record import quote_check
+    resolved = os.path.join(os.path.dirname(list_path), source)
+    if not os.path.lexists(resolved):
+        return _QUOTE_UNVERIFIED, ""
+    status, reason = quote_check.check_quote(quote, resolved)
+    if status == quote_check.FOUND:
+        return _QUOTE_FOUND, ""
+    if status == quote_check.NOT_FOUND:
+        return _QUOTE_NOT_FOUND, ""
+    return _QUOTE_UNREADABLE, reason
+
+
+def _check_sources(list_path, quotes):
+    """The source lines, the two count lines, and what the quotes do to the exit status.
+
+    Lines name an entry only by its number; no quote, source or source text is printed.
+    Refused entries are never checked. A proposed entry, and an unverified quote, never change
+    the exit status."""
+    lines = []
+    counts = {"approved": [0, 0, 0, 0], "proposed": [0, 0, 0, 0]}
+    order = (_QUOTE_FOUND, _QUOTE_NOT_FOUND, _QUOTE_UNREADABLE, _QUOTE_UNVERIFIED)
+    least = 0
+    for number, status, source, quote in quotes:
+        if status not in counts:
+            continue
+        result, reason = _check_one_source(list_path, source, quote)
+        counts[status][order.index(result)] += 1
+        if result == _QUOTE_NOT_FOUND:
+            lines.append("%s, entry #%d: quote not found" % (status, number))
+            if status == "approved":
+                least = max(least, 1)
+        elif result == _QUOTE_UNREADABLE:
+            lines.append("%s, entry #%d: source unreadable (%s)" % (status, number, reason))
+            if status == "approved":
+                least = 2
+        elif result == _QUOTE_UNVERIFIED:
+            lines.append("%s, entry #%d: source unverified" % (status, number))
+    for status in ("approved", "proposed"):
+        lines.append("quotes, %s: %d found, %d not found, %d unreadable, %d unverified"
+                     % ((status,) + tuple(counts[status])))
+    return lines, least
+
+
+def _run(list_path, files, controls, stale_check, check_sources):
     if not files:
         return _cannot("no input file")
     if not controls:
@@ -309,7 +403,7 @@ def _run(list_path, files, controls, stale_check):
     if not list_path:
         return _cannot("no list (give --list)")
     try:
-        entries = load_list(list_path)
+        entries, quotes = _read_list(list_path)
     except ListError as exc:
         return _cannot(str(exc))
     by_sentence = dict((prepared, (number, status)) for number, status, prepared in entries)
@@ -341,4 +435,8 @@ def _run(list_path, files, controls, stale_check):
         code = 1
     else:
         code = 0
+    if check_sources:
+        source_lines, least = _check_sources(list_path, quotes)
+        lines.extend(source_lines)
+        code = max(code, least)
     return barred.Result(code, True, text="".join(line + "\n" for line in lines))
