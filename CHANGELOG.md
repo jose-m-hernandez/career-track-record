@@ -20,7 +20,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The claims spec, docs/specs/claims.md, is revision 2, signed by its owner: it adds the quote line, `--check-sources` and the number boundary. The build readings of revision 1 still apply.
 - The command-line spec, docs/specs/cli.md, is revision 5: it notes that `claims` takes `--check-sources` and lists it in its fixed help text.
 - The README's `track-record claims` section describes quote lines and `--check-sources`, and its Coming section no longer promises the quote check. METHOD.md's status line says the claim gate checks quotes on request, and does not yet flag a claim with no source.
-- The barred-check spec, docs/specs/barred.md, is revision 7, a draft its owner has not signed yet: it reads each PDF in layout mode too, and replaces the known limit for wraps inside a page with one for pages set in columns.
+- The barred-check spec, docs/specs/barred.md, is revision 7, signed by its owner: it reads each PDF in layout mode too, and replaces the known limit for wraps inside a page with one for pages set in columns.
 
 ### Fixed
 

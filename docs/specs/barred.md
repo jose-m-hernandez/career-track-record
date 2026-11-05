@@ -1,12 +1,12 @@
 # Barred-wording check: behaviour spec
 
-Status: draft. Revision 7 below is not signed; its owner signs the text between the draft markers as it stands.
+Status: accepted.
 Date: 2026-11-05.
-Revision: 7. A draft: the text between the markers below (sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3) is revision 7 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
+Revision: 7. The signed spec (sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3) is reproduced below verbatim. Its owner signed it on 2026-11-05. It revises revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before revision 7) and reads each PDF in layout mode too.
 
-## Draft spec (revision 7, not signed)
+## Signed spec
 
-<!-- draft spec begins: sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3 -->
+<!-- signed spec begins: sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3 -->
 # Barred-wording check: behaviour spec
 
 Status: revision 7, drafted on 2026-11-05 for the owner's signature. Revision 7 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
@@ -461,4 +461,4 @@ A stand-in `pdftotext` answers the default read and the layout read with differe
 | [`nothing listed`] | [`a turnkey syn-`, `ergy plan`] | not against L1 but against a list whose only entry is `syn- ergy`: `FAIL  x.pdf: 1 entries`, then `x.pdf:13: entry #1 (1 x)`. Exit 1: only the layout text's joined form holds `syn- ergy` |
 
 One run against that stand-in, logging its arguments, shows exactly two calls, in this order: `x.pdf -`, then `x.pdf - -layout`.
-<!-- draft spec ends -->
+<!-- signed spec ends -->
