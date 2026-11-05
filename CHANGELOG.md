@@ -6,6 +6,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `track-record panel`, the reader panel (draft): it reads one version of your copy blind through lenses you name, each a reader role given as a plain-text prompt file frozen with the plan. Every lens also reads a planted strong anchor and a planted weak anchor; a lens that does not rank them is not counted. Rules per lens and overall end PASS, FAIL or INCONCLUSIVE. The plan format, freeze, `--live` rule, spend ceiling and fake reader are those of `ab`. Its spec, docs/specs/reader-panel.md, is draft 1 and lists every open decision.
+- A decision record, `docs/decisions/2026-11-05-the-reader-commands-share-one-harness.md`: what `ab` and `panel` share lives in one module, `reader_harness.py`, which starts no program.
+
+### Changed
+
+- The parts of `ab` that `panel` also needs (the plan-file syntax, the freeze and its checks, the run folder, live reads, the read loop and the result's tail) moved from `ab.py` into `reader_harness.py`. `ab`'s behaviour, output and tests are unchanged.
+- The command-line spec, docs/specs/cli.md, is revision 4: it names `panel` and its fixed help text.
+- The README opens with six checks and adds a `track-record panel` section. AGENTS.md names six tools. METHOD.md lists the reader panel as running rule 6.
+
 ## [0.4.0] - 2026-11-02
 
 ### Added
