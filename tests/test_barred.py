@@ -1268,13 +1268,17 @@ class HyphenKeptCase(RunCase):
         self.assertOkRun("h6.txt", padded(["a zebra\u2013", "word here"]),
                          "zebra\u2013word\n")
 
-    def test_a_pdf_wrap_inside_a_page_is_the_stated_limit(self):
-        if shutil.which("pdftotext") is None:
+    def test_a_pdf_wrap_inside_a_page_is_found(self):
+        from tests.test_barred_pdf_layout import pdftotext_gate
+        gate = pdftotext_gate(shutil.which("pdftotext") is not None, os.environ)
+        if gate == "skip":
             self.skipTest("pdftotext is not installed")
-        code, out, err = run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"])
-        self.assertEqual((code, err), (0, ""))
-        self.assertRegex(out, r"\AOK    hyphmid.pdf: 0 of 1 entries \(control found; "
-                              r"[0-9]+ chars\)\n\Z")
+        if gate == "fail":
+            self.fail("pdftotext is not installed in CI; install poppler-utils so the "
+                      "positive control for PDF reading runs")
+        self.assertEqual(run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"]),
+                         (1, "FAIL  hyphmid.pdf: 1 entries\nhyphmid.pdf:13: entry #1 (1 x)\n",
+                          ""))
 
 
 class LayoutCase(unittest.TestCase):

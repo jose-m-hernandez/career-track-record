@@ -34,6 +34,12 @@ L3 = (
     "# a third invented list\n"
     "zebra-word\n"
 )
+L4 = (
+    "# a fourth invented list\n"
+    "zebra\tword\n"
+    "word\tword\n"
+)
+SHORT_LINE = "Example Corp wrote it."
 
 
 def padded(block, eol="\n"):
@@ -149,6 +155,83 @@ def hyphmid_pdf():
     return one_page_pdf([PAD_LINE] * 12 + ["a zebra-", "word here"] + [PAD_LINE] * 12)
 
 
+BLOCK_PLACES = ("40 770", "330 770")
+
+
+def pages_pdf(pages, encoding=None):
+    """A PDF, built by hand, with one page per item of ``pages`` (ASCII only).
+
+    Each page is a list of text blocks, each block a list of lines. The first block
+    starts at ``40 770``, the second at ``330 770``. Every block is written as
+    one_page_pdf writes its one block. ``encoding``, if given, is the font's
+    /Encoding value."""
+    font = b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica"
+    if encoding is not None:
+        font += b" /Encoding " + encoding.encode("latin-1")
+    font += b" >>"
+    count = len(pages)
+    kids = " ".join("%d 0 R" % (4 + 2 * i) for i in range(count))
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        ("<< /Type /Pages /Kids [%s] /Count %d >>" % (kids, count)).encode("latin-1"),
+        font,
+    ]
+    for index, blocks in enumerate(pages):
+        stream = ""
+        for place, lines in zip(BLOCK_PLACES, blocks):
+            stream += "BT\n/F1 11 Tf\n13 TL\n%s Td\n" % place
+            stream += "".join("(%s) '\n" % line for line in lines)
+            stream += "ET\n"
+        stream = stream.encode("latin-1")
+        objects.append(
+            b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 842] "
+            b"/Resources << /Font << /F1 3 0 R >> >> /Contents %d 0 R >>" % (5 + 2 * index))
+        objects.append(b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"endstream")
+    out = b"%PDF-1.4\n"
+    offsets = []
+    for number, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += b"%d 0 obj\n" % number + body + b"\nendobj\n"
+    start = len(out)
+    out += b"xref\n0 %d\n" % (len(objects) + 1)
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += b"%010d 00000 n \n" % offset
+    out += b"trailer\n<< /Size %d /Root 1 0 R >>\nstartxref\n%d\n%%%%EOF\n" % (
+        len(objects) + 1, start)
+    return out
+
+
+def twocol_pdf():
+    """One page in two columns; the left one wraps `a zebra-` / `word here`."""
+    left = ([SHORT_LINE] * 12 + ["a turnkey", "synergy plan", "a zebra-", "word here"]
+            + [SHORT_LINE] * 12)
+    right = ["Right column text line %d." % n for n in range(1, 29)]
+    return pages_pdf([[left, right]])
+
+
+SOFT_HYPHEN_ENCODING = (
+    "<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [173 /sfthyphen] >>")
+
+
+def softhyph_pdf():
+    """One page that wraps `a turnkey syn` / `ergy plan` at a soft hyphen (byte 0xAD)."""
+    lines = [PAD_LINE] * 12 + ["a turnkey syn\\255", "ergy plan"] + [PAD_LINE] * 12
+    return pages_pdf([[lines]], encoding=SOFT_HYPHEN_ENCODING)
+
+
+def pagewrap_pdf():
+    """Two pages: `a zebra-` ends page 1 and `word here` starts page 2."""
+    return pages_pdf([[[PAD_LINE] * 12 + ["a zebra-"]],
+                      [["word here"] + [PAD_LINE] * 12]])
+
+
+def page3wrap_pdf():
+    """Three pages; the wrap `a zebra-` / `word here` is inside page 3."""
+    return pages_pdf([[[PAD_LINE] * 12], [[PAD_LINE] * 12],
+                      [["a zebra-", "word here"] + [PAD_LINE] * 12]])
+
+
 def main(argv):
     if len(argv) != 2:
         sys.stderr.write("usage: make_fixtures.py OUTDIR\n")
@@ -156,12 +239,16 @@ def main(argv):
     outdir = argv[1]
     os.makedirs(outdir, exist_ok=True)
     files = {"list-l1.txt": L1.encode("utf-8"), "list-l2.txt": L2.encode("utf-8"),
-             "list-l3.txt": L3.encode("utf-8")}
+             "list-l3.txt": L3.encode("utf-8"), "list-l4.txt": L4.encode("utf-8")}
     for name, text in TEXT_FILES.items():
         files[name] = text.encode("utf-8")
     files["bom.txt"] = b"\xef\xbb\xbf" + PLAIN.encode("utf-8")
     files["sample.pdf"] = sample_pdf()
     files["hyphmid.pdf"] = hyphmid_pdf()
+    files["twocol.pdf"] = twocol_pdf()
+    files["softhyph.pdf"] = softhyph_pdf()
+    files["pagewrap.pdf"] = pagewrap_pdf()
+    files["page3wrap.pdf"] = page3wrap_pdf()
     for name in sorted(files):
         with open(os.path.join(outdir, name), "wb") as handle:
             handle.write(files[name])

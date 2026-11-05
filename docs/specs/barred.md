@@ -1,8 +1,17 @@
 # Barred-wording check: behaviour spec
 
-Status: accepted.
-Date: 2026-10-22.
-Revision: 6.3. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0).
+Status: draft. Revision 6.4 below is not signed; its owner signs the text between the draft markers as it stands.
+Date: 2026-11-05.
+Revision: 6.4. A draft: the text between the markers below (sha256 29eaf47ab5efe1776f3c3590d3ae8588618cdac992ac7bf0adeefbd53c51f550) is revision 6.4 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
+
+## Draft spec (revision 6.4, not signed)
+
+<!-- draft spec begins: sha256 29eaf47ab5efe1776f3c3590d3ae8588618cdac992ac7bf0adeefbd53c51f550 -->
+# Barred-wording check: behaviour spec
+
+Status: revision 6.4, drafted on 2026-11-05 for the owner's signature. Revision 6.4 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
+Date: 2026-11-05.
+Revision: 6.4. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0). Revision 6.4 reads each PDF in layout mode too, so a hyphenated entry wrapped at its hyphen inside a page is matched (sections 3.2, 4, 5, 6, 7, 9.3 and 10).
 
 The command is `<cli> barred`.
 
@@ -51,10 +60,16 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 
 ### 3.2 Input files
 
-- A file whose name ends in `.pdf` (any case) is read as the text that `pdftotext` writes for it, in its default (non-layout) mode.
-- **Known limit: PDF wraps inside a page.** In its default mode, `pdftotext` removes a line-end hyphen together with the line break wherever a line inside a page wraps after a letter or digit. So `zebra-`, a line break, then `word` reaches the check as `zebraword`. The hyphen-kept form (section 4, form 3) therefore never sees such a wrap. An entry `zebra-word` wrapped at its hyphen inside a page of a PDF is not matched, and neither is a `word`-flagged entry that is one half of it (`zebra` or `word`). A text file, and a PDF wrap at a page break (where `pdftotext` keeps the hyphen), are matched as section 4 states (10.9). The prior tool reads PDFs the same way, so it has the same miss. This is a stated limit, not a deliberate difference. Measured on poppler 26.07.0; earlier versions are not measured.
+- **A PDF is read twice.** A file whose name ends in `.pdf` (any case) is read twice: once as the text that `pdftotext` writes for it in its default (non-layout) mode, the **default text**, and once as the text it writes with `-layout`, the **layout text**. The default text is the text revision 6.3 read, and it keeps every job it had then, so nothing matched before is missed. Both reads name the file the same way: a path that starts with `-` is passed as `./` followed by the path. The default read runs first. If either read cannot start or fails, the file is DEAD (section 7, case 6), with the reason `pdftotext not found` or `pdftotext failed`. Both reads happen before the length and control checks. A file that is not a PDF is read once.
+- **Length and control.** A PDF's length (section 5) and its control (section 3.3) are taken from its default text only. So a PDF's OK line prints the same length as under revision 6.3.
+- **Six forms.** The layout text is compared in the same three forms as any text (section 4: joined, rejoined and hyphen-kept), after the soft-hyphen rule below. So a PDF is compared in six forms, three of each text, and an entry's count in a PDF is the largest of its counts in the six.
+- **Soft hyphens in the layout text.** Before folding, the layout text is split into lines at each line break (LF, CRLF or a lone CR). In each line, if the last character other than trailing spaces and tabs is a soft hyphen (U+00AD), and the character just before it is a word character (section 4), that one soft hyphen becomes a hyphen-minus (U+002D). Every line break is kept as it was, so no line number moves. Nothing else changes: a soft hyphen anywhere else is removed by folding, as before. The default text never gets this rule.
+- **Line numbers in a PDF.** If an entry matches in any form of the default text, its line is the earliest line on which a match begins in the default text's forms, as before. Only if it matches in no form of the default text is its line the earliest line on which a match begins in the layout text's forms, counted in the layout text. The two texts can count lines differently: the layout text has one line fewer per page than the default text, because default mode writes an empty line at the end of each page.
+- **What layout mode changes.** In layout mode `pdftotext` keeps a line-end hyphen and the line break after it. So `zebra-`, a line break, then `word` reaches the hyphen-kept form as written, and an entry `zebra-word` wrapped at its hyphen inside a page is matched, as is a `word`-flagged entry that is one half of it (`zebra` or `word`) (10.11). A wrap kept this way makes the layout text 2 characters longer than the default text in the joined form: the hyphen, and the space that the kept line break becomes (`hyphmid.pdf` is 1193 characters in default mode and 1195 in layout mode). Layout mode also pads lines with spaces to keep their place on the page; whitespace runs collapse to one space in every form, so the padding changes no match. Neither change reaches the length or the control, which come from the default text.
+- **Known limit: columns.** In layout mode `pdftotext` writes the lines of side-by-side columns on one line. So a wrap at a hyphen inside a column that has another column's text beside it is still missed: the layout line holds `a zebra-`, spaces, then the other column's text, so the hyphen does not end a line. And an entry can match across the gap between two columns, running from the end of a line in one column into the line beside it. The default text still finds everything it found before (10.11). This is a stated limit, not a deliberate difference.
+- **Versions.** Measured on poppler 26.07.0. `-layout` is an option in poppler 0.62.0 and every later release, and in 0.62.0 layout mode keeps a line-end hyphen too (read in its source, not run). The check uses no option added after that release.
 - Any other file is read as UTF-8. Each invalid byte sequence is replaced by U+FFFD and is not fatal. A replacement character is an ordinary character: it is counted in the length and it breaks a match that runs across it.
-- **Line breaks.** Everywhere in this spec, for input files and PDF text alike, LF, CRLF and a lone CR each count as one line break. A form feed, which `pdftotext` writes between pages, is whitespace and not a line break. So are U+2028 and U+2029. No other character is a line break: the vertical tab, U+001C to U+001E and U+0085 are whitespace only, in input files and in the list file alike.
+- **Line breaks.** Everywhere in this spec, for input files and PDF text alike, LF, CRLF and a lone CR each count as one line break. A form feed, which `pdftotext` writes between pages in both of its modes, is whitespace and not a line break. So are U+2028 and U+2029. No other character is a line break: the vertical tab, U+001C to U+001E and U+0085 are whitespace only, in input files and in the list file alike.
 - Lines are numbered from 1. A byte-order mark is not a line break, so it never changes a line number.
 - `--strip-comments` applies to every input file that is not a PDF, whatever its extension. It never applies to a PDF's text. It removes, in this order:
   1. every block comment, from `/*` to the next `*/`, across lines. This is a text rule, not a parser: a `/*` inside a string still opens a block. A `/*` with no later `*/` removes nothing;
@@ -97,7 +112,7 @@ exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
 Each file's text is compared in three forms:
 1. **Joined:** the folded text, with every run of whitespace, line breaks included, turned into one space. Nothing is trimmed from its ends.
 2. **Rejoined:** the folded text, in which a hyphen-minus (U+002D, and no other dash) is removed whenever all of the following hold: the character before it is a word character; after it come only spaces or tabs, then one line break, then any whitespace; and the next character after that is a word character. The hyphen is removed together with all that whitespace. Then whitespace runs collapse as in the joined form. A word split across lines by hyphenation is matched whole. A **word character** is a letter, a number (any Unicode category starting with L or N) or the underscore.
-3. **Hyphen-kept:** the folded text, in which a line-end hyphen-minus (U+002D, and no other dash) is kept and the whitespace after it is removed, whenever all of the following hold: the character before it is a word character; after it come only spaces, tabs or form feeds, then one line break, then any whitespace; and the next character after that is a word character. Then whitespace runs collapse as in the joined form. So `zebra-`, a line break, then `word` becomes `zebra-word`, and a hyphenated entry wrapped at its hyphen is matched whole (in a PDF, at a page break only; see the known limit in section 3.2). A form feed on either side of the line break (a page break, as `pdftotext` writes it) is removed in the same way. The joined and rejoined forms are unchanged by this form.
+3. **Hyphen-kept:** the folded text, in which a line-end hyphen-minus (U+002D, and no other dash) is kept and the whitespace after it is removed, whenever all of the following hold: the character before it is a word character; after it come only spaces, tabs or form feeds, then one line break, then any whitespace; and the next character after that is a word character. Then whitespace runs collapse as in the joined form. So `zebra-`, a line break, then `word` becomes `zebra-word`, and a hyphenated entry wrapped at its hyphen is matched whole (in a PDF, a wrap inside a page is matched through its layout text, section 3.2, except where the known limit for columns there applies). A form feed on either side of the line break (a page break, as `pdftotext` writes it) is removed in the same way. The joined and rejoined forms are unchanged by this form.
 
 Matching rules:
 - An entry matches wherever it occurs as a literal substring of any of the three forms. It is not limited to whole words: an entry `moonshot` also matches inside `moonshots`.
@@ -109,7 +124,7 @@ Matching rules:
 
 ## 5. The minimum length
 
-`<c>`, a file's length, is the number of Unicode code points in its joined form (section 4, form 1), after any stripping. Nothing is trimmed, so a final line feed counts as one space. A file whose length is less than the minimum fails its read (section 7, case 4). A short text proves nothing: a zero from it looks the same as a real zero. The minimum is 500 unless `--min-chars N` sets it. `--min-chars 0` is allowed; the control check still applies.
+`<c>`, a file's length, is the number of Unicode code points in its joined form (section 4, form 1), after any stripping. A PDF's length is that of its default text (section 3.2). Nothing is trimmed, so a final line feed counts as one space. A file whose length is less than the minimum fails its read (section 7, case 4). A short text proves nothing: a zero from it looks the same as a real zero. The minimum is 500 unless `--min-chars N` sets it. `--min-chars 0` is allowed; the control check still applies.
 
 ## 6. Output and exit status
 
@@ -128,7 +143,7 @@ One status line per input file, in argument order:
 - `FAIL  <label>: <k> entries`, where `<k>` is the number of distinct entries matched in the file's name or text. Next come the finding lines. First, one line per entry matched in the name, in entry order: `<label>:0: entry #<N> (file name)`. Then one line per entry matched in the text, in entry order: `<label>:<line>: entry #<N> (<count> x)`. An entry matched in both appears once in each group;
 - `DEAD  <label>: <reason>`, where the reason names the case from section 7, never an entry. A DEAD file gets no finding lines, even when its name matches.
 
-**The line number** of a text finding is the line on which that entry's earliest match begins, taking the earliest across all three forms. A match begins at the character in the file (or in the PDF's text) from which its first folded character came. For a match that runs across a line break, that is the line where it starts.
+**The line number** of a text finding is the line on which that entry's earliest match begins, taking the earliest across all three forms. A match begins at the character in the file (or in the PDF's text) from which its first folded character came. For a match that runs across a line break, that is the line where it starts. For a PDF, section 3.2 says which of its two texts the line is counted in.
 
 The output never contains a list entry, a note, a matching path, the list file's path, or text quoted from the input. A test greps the captured output for each entry and finds none.
 
@@ -145,7 +160,7 @@ A single file is DEAD, while the other files are still checked, when:
 
 4. its length is less than the minimum (section 5);
 5. none of its control strings is found;
-6. it cannot be read, or it is a PDF and `pdftotext` is missing or fails.
+6. it cannot be read, or it is a PDF and `pdftotext` is missing or fails on either of its two reads (section 3.2).
 
 The run also exits `2`, before any file is read, when:
 
@@ -178,7 +193,8 @@ A closed or failing standard error never changes the exit status. When a message
    - Entries are trimmed, an indented `#` line is a comment, a CR at a line end is never part of an entry, a leading byte-order mark is dropped, and the canary and the `word` flag are read. Before, edge spaces and a trailing CR stayed in the entry (so it could not match), an indented `#` line was an entry, and a `word` note was only a note.
    - A file name that matches an entry is a finding, and that name is never printed. Before, names were not checked and every path was printed. Names are checked in all three forms of section 4, so a name hyphenated across a line break is matched whole, with or without its hyphen.
    - A printed path has its backslashes, control characters, line and paragraph separators and format characters escaped (section 6). Before, every path was printed raw, so a line break in a file name could forge an output line.
-   - The prior tool's line-break handling, rejoin rule and comment stripping are kept as they were, including the text-rule limit in section 3.2, with one deliberate exception: the hyphen-kept form (section 4, form 3) is new. The prior tool turned `zebra-`, a line break, then `word` into `zebraword` and `zebra- word`, so it missed an entry `zebra-word` wrapped at its hyphen. This tool catches it (10.9). In a PDF this holds at a page break. A wrap inside a page is the known limit in section 3.2.
+   - The prior tool's line-break handling, rejoin rule and comment stripping are kept as they were, including the text-rule limit in section 3.2, with one deliberate exception: the hyphen-kept form (section 4, form 3) is new. The prior tool turned `zebra-`, a line break, then `word` into `zebraword` and `zebra- word`, so it missed an entry `zebra-word` wrapped at its hyphen. This tool catches it (10.9). In a PDF this holds inside a page too, through the layout text (section 3.2), except where the known limit for columns applies.
+   - A PDF is also read in layout mode (section 3.2), so a hyphenated entry wrapped at its hyphen inside a page is matched, and so is a `word`-flagged half of it. The prior tool read PDFs in default mode only and missed both.
 
 ## 10. Acceptance tests (known answers)
 
@@ -219,6 +235,16 @@ zebra-word
 ```
 
 L3 has one entry: 1 `zebra-word`.
+
+**List L4:**
+
+```text
+# a fourth invented list
+zebra	word
+word	word
+```
+
+L4 has two entries: 1 `zebra` and 2 `word`, each with the `word` flag.
 
 ### 10.1 Each evasion still matches (exit 1, entry 1, count 1)
 
@@ -344,7 +370,7 @@ L1 written with CRLF line endings, with a byte-order mark before its first line,
 
 ### 10.8 Nothing barred is ever printed
 
-Every run in 10.1 to 10.7 and 10.9 is captured. For each L1, L2 and L3 entry, and for each fixture name that contains an entry, a search of the captured output finds nothing. The search uses section 4's matching rules, so an entry with the `word` flag is searched as a whole word: `prefix-notes.txt` in an OK line is not a hit for `fix`. The same search on the list files finds each entry, which shows the search works.
+Every run in 10.1 to 10.7, 10.9 and 10.11 is captured. For each L1, L2, L3 and L4 entry, and for each fixture name that contains an entry, a search of the captured output finds nothing. The search uses section 4's matching rules, so an entry with the `word` flag is searched as a whole word: `prefix-notes.txt` in an OK line is not a hit for `fix`. The same search on the list files finds each entry, which shows the search works.
 
 ### 10.9 The hyphen-kept form (runs use `--list` naming L3)
 
@@ -357,7 +383,7 @@ Each file is the padding, the test lines, then the padding again, so the first t
 | `hyphff2.txt` | `a zebra-`, then a form feed, a line break and `word here` | FAIL, entry 1 on line 13, once: a page break before the line break |
 | `hyphkeepcrlf.txt` | as `hyphkeep.txt`, with CRLF line endings throughout | FAIL, entry 1 on line 13, once |
 | `nokeep.txt` | `a zebra -`, then a line break and `word here` | OK: the hyphen must follow a word character |
-| `hyphmid.pdf` | an invented PDF, padded to the minimum, whose text wraps `a zebra-` / `word here` inside a page | OK under default-mode extraction: the known limit in section 3.2. Skipped where `pdftotext` is absent. |
+| `hyphmid.pdf` | an invented PDF, padded to the minimum, whose text wraps `a zebra-` / `word here` inside a page | FAIL, entry 1 on line 13, once: the layout text keeps the wrap (section 3.2). This is the positive control for PDF reading, skipped where `pdftotext` is absent except in the repository's CI, where its absence fails the run. |
 
 `hyphkeep.txt` prints `FAIL  hyphkeep.txt: 1 entries`, then `hyphkeep.txt:13: entry #1 (1 x)`. Exit 1. `hyphff1.txt`, `hyphff2.txt` and `hyphkeepcrlf.txt` print the same two lines with their own names. Exit 1 each.
 
@@ -375,3 +401,52 @@ Against L1, the hyphen-kept form changes no result in 10.1 to 10.7: `hyph.txt` s
 - `--help` with an unknown option: exit 0, the summary.
 - `--list --help`: exit 0, the summary (help in a value's place).
 - `--help` with standard output closed: exit 2, and one line on standard error, `cannot run: cannot write output`.
+
+### 10.11 PDFs in layout mode
+
+Each PDF fixture is an invented PDF that the generator writes: Helvetica, 11 points, one line every 13 points, a text block starting 40 points from the left. Its padding is the padding line repeated twelve times, as in the text fixtures. Every run uses `--control "Example Corp"`. The tests that need the real `pdftotext` are skipped where it is absent, except in the repository's CI, where its absence fails the run. Measured on poppler 26.07.0.
+
+| File | Content |
+|---|---|
+| `twocol.pdf` | one page in two columns. The left column is `Example Corp wrote it.` twelve times, then `a turnkey`, `synergy plan`, `a zebra-` and `word here`, then `Example Corp wrote it.` twelve times. The right column starts 330 points from the left, beside it: `Right column text line 1.` to `Right column text line 28.` |
+| `softhyph.pdf` | one page: the padding, `a turnkey syn` and a soft hyphen (the font's encoding maps byte 0xAD to it), then `ergy plan`, then the padding |
+| `pagewrap.pdf` | two pages: page 1 is the padding, then `a zebra-`; page 2 is `word here`, then the padding |
+| `page3wrap.pdf` | three pages: the padding; the padding; then `a zebra-`, `word here` and the padding |
+
+The committed fixtures:
+
+| Run | Result |
+|---|---|
+| `hyphmid.pdf`, read by `pdftotext` itself | the default text holds `a zebraword here` and no `zebra-`; the layout text has a line ending `a zebra-`, followed by a line starting `word here`. This shows the positive control of 10.9 is a wrap inside a page |
+| `hyphmid.pdf`, L4 | `FAIL  hyphmid.pdf: 2 entries`, then `hyphmid.pdf:13: entry #1 (1 x)` and `hyphmid.pdf:14: entry #2 (1 x)`. Exit 1 |
+| `twocol.pdf`, L1 | `FAIL  twocol.pdf: 1 entries`, then `twocol.pdf:13: entry #1 (1 x)`. Exit 1. Found in the default text only: the layout text, with its whitespace collapsed, does not hold `turnkey synergy` |
+| `twocol.pdf`, L3 | `OK    twocol.pdf: 0 of 1 entries (control found; <c> chars)`. Exit 0: the known limit for columns (section 3.2) |
+| `twocol.pdf`, a list whose only entry is `turnkey right column` | `FAIL  twocol.pdf: 1 entries`, then `twocol.pdf:13: entry #1 (1 x)`. Exit 1: the known limit for columns, a match across the gap |
+| `softhyph.pdf`, L1 | `FAIL  softhyph.pdf: 1 entries`, then `softhyph.pdf:13: entry #1 (1 x)`. Exit 1 |
+| `pagewrap.pdf`, L3 | `FAIL  pagewrap.pdf: 1 entries`, then `pagewrap.pdf:13: entry #1 (1 x)`. Exit 1 |
+| `page3wrap.pdf`, L3 | FAIL, entry 1, once. Exit 1. The line is the line of the layout text that ends `a zebra-` (line 25), not the line of the default text that holds `zebraword` (line 27): the match is in the layout text only. The test takes both numbers from `pdftotext` itself, since another poppler release may count page ends differently |
+
+The layout run of 10.1 to 10.9. For each row below, a one-page PDF is built from the fixture's lines, named after the fixture with `.pdf` for `.txt`, and run with the same list:
+- its layout text, saved as the fixture's name, prints exactly what the fixture prints (exit status, standard output and standard error);
+- the PDF itself prints what the fixture prints, with `.pdf` for `.txt`, except `nokeep.pdf` against L3, which prints `OK    nokeep.pdf: 0 of 1 entries (control found; 1194 chars)`. Default mode removes that line-end hyphen and the line break, so the length is 2 less than the fixture's 1196.
+
+The rows are, against L1: `plain`, `case`, `wrap`, `hyph`, `hyphcrlf`, `hyphcr`, `hyphsp`, `clean`, `compound`, `note`, `two`, `substr`, `early` and `short`; against L2: `trim`, `word`, `word2`, `canary` and `clean`; against L3: `hyphkeep`, `hyphkeepcrlf`, `nokeep` and `clean`. Left out: the fixtures with characters the generator, which writes ASCII only, cannot carry (`soft`, `zw`, `nbsp`, `lig`, `emdash`, `endash`, `nbhyph`, `decomp`, `lrm`, `fold` and `bom`); `badutf8`, which is not UTF-8; `nocontrol`, whose one line is longer than the page; `hyphff1` and `hyphff2`, whose form feeds are page breaks in a PDF (`pagewrap.pdf` covers that); the source files and `strip.txt`, since stripping never applies to a PDF (10.4); the file-name cases (10.7); and the option and list cases with no text to extract (10.5, and the list-format runs of 10.6).
+
+A stand-in `pdftotext` answers the default read and the layout read with different texts, for a file `x.pdf`, against L1. Below, a block in brackets stands for the padding, the block's lines, then the padding, each line ending in a line feed, so the block's first line is line 13.
+
+| Default read | Layout read | Result |
+|---|---|---|
+| [`nothing listed`] | exits 1 | `DEAD  x.pdf: pdftotext failed`. Exit 2 |
+| exits 1 | [`a turnkey synergy here`] | `DEAD  x.pdf: pdftotext failed`. Exit 2 |
+| [`nothing listed`] | [`a turnkey syn-`, `ergy plan`] | `FAIL  x.pdf: 1 entries`, then `x.pdf:13: entry #1 (1 x)`. Exit 1: found in the layout text only |
+| [`a turnkey synergy here`] | [`nothing listed`] | `x.pdf:13: entry #1 (1 x)`. Exit 1: found in the default text only |
+| [`a turnkey synergy here`] | the padding line four times, `a turnkey synergy here`, then the padding line twenty times | `x.pdf:13: entry #1 (1 x)`. Exit 1: the default text's line wins over the layout text's line 5 |
+| [`a turnkey synergy here`] | [`a turnkey synergy and a turnkey synergy`] | `x.pdf:13: entry #1 (2 x)`. Exit 1: the larger count |
+| [`nothing listed`] | [`nothing listed`], or the same with ten more padding lines | the same OK line both times. Exit 0: the length is the default text's |
+| [`nothing listed`], padded with `Another firm shipped a reporting tool for teams.` | [`nothing listed`] | `DEAD  x.pdf: control not found`. Exit 2: the control is the default text's |
+| [`nothing listed`] | [`a turnkey syn` and a soft hyphen, with or without spaces after it, then `ergy plan`] | `x.pdf:13: entry #1 (1 x)`. Exit 1: a line-end soft hyphen in the layout text is a hyphen |
+| [`nothing listed`] | [`a turnkey syn`, a space and a soft hyphen, then `ergy plan`] | OK. Exit 0: the soft hyphen does not follow a word character, so folding removes it, and `syn ergy` is not the entry |
+| [`a turnkey syn` and a soft hyphen, then `ergy plan`] | [`nothing listed`] | OK. Exit 0: the default text never gets the soft-hyphen rule |
+
+One run against that stand-in, logging its arguments, shows exactly two calls, in this order: `x.pdf -`, then `x.pdf - -layout`.
+<!-- draft spec ends -->

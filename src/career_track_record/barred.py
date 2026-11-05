@@ -2,7 +2,10 @@
 
 The behaviour is stated in docs/specs/barred.md. In short: fold the list and each
 file's text (and name), compare in three forms, report entry numbers and line numbers
-only, and call a file clean only when it was read in full and passed its control.
+only, and call a file clean only when it was read in full and passed its control. A PDF
+is read twice, in pdftotext's default mode and in its layout mode, and compared in the
+three forms of each text, while its length, control and line numbers come from the
+default-mode text first (spec section 3.2).
 
 Nothing here prints an entry, a note, matched text, a matching path or the list's path.
 """
@@ -288,6 +291,41 @@ def _read_text(path, strip):
     return strip_comments(text) if strip else text
 
 
+def _read_layout_text(path):
+    """A PDF's text as pdftotext writes it in its layout mode (spec section 3.2)."""
+    try:
+        with open(path, "rb"):
+            pass
+    except (OSError, ValueError):
+        raise _Dead("cannot read")
+    target = "./" + path if path.startswith("-") else path
+    try:
+        return pdf_text.pdf_text(target, layout=True)
+    except pdf_text.PdfTextError as exc:
+        raise _Dead("pdftotext " + exc.reason)
+
+
+def _line_end_soft_hyphens(text):
+    """Turn a soft hyphen that ends a line after a word character into a hyphen-minus.
+
+    Spaces and tabs after it still count as the line's end. Every line break is kept,
+    so no line number moves. Used on a PDF's layout-mode text only (spec section 3.2)."""
+    pieces = []
+    start = 0
+    breaks = list(_LINE_BREAK.finditer(text))
+    for index in range(len(breaks) + 1):
+        end = breaks[index].start() if index < len(breaks) else len(text)
+        line = text[start:end]
+        body = line.rstrip(" \t")
+        if len(body) >= 2 and body[-1] == chr(0xAD) and _is_word_char(body[-2]):
+            line = body[:-1] + "-" + line[len(body):]
+        pieces.append(line)
+        if index < len(breaks):
+            pieces.append(breaks[index].group(0))
+            start = breaks[index].end()
+    return "".join(pieces)
+
+
 def _is_the_list(path, list_path):
     try:
         return os.path.samefile(path, list_path)
@@ -332,6 +370,9 @@ def _check_file(position, path, entries, controls, strip, min_chars, list_path):
         try:
             text = _read_text(path, strip)
             joined, rejoined, kept = _forms(text)
+            layout_forms = ()
+            if path.lower().endswith(".pdf"):
+                layout_forms = _forms(_line_end_soft_hyphens(_read_layout_text(path)))
         except _Dead:
             raise
         except Exception:
@@ -346,6 +387,11 @@ def _check_file(position, path, entries, controls, strip, min_chars, list_path):
     found = []
     for entry in entries:
         count, line = _match(entry, (joined, rejoined, kept))
+        if layout_forms:
+            layout_count, layout_line = _match(entry, layout_forms)
+            count = max(count, layout_count)
+            if line is None:
+                line = layout_line
         if count > 0:
             found.append((entry.number, line, count))
     if not name_hits and not found:
