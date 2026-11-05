@@ -25,7 +25,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/decisions/2026-10-27-a-test-modules-main-guard-is-last.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-27-agents-md-is-the-only-instruction-file.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-27-committed-files-are-utf-8.md | not recorded | not recorded | not recorded |
-| docs/decisions/2026-10-27-known-limits-sit-beside-their-tests.md | not recorded | not recorded | not recorded |
+| docs/decisions/2026-10-27-known-limits-sit-beside-their-tests.md | claude-code | claude-opus-5-5 | 2026-11-05 |
 | docs/decisions/2026-10-27-one-module-per-outside-program.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-29-a-reader-command-is-the-one-outside-program-a-user-names.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-11-01-every-file-has-a-provenance-row.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
@@ -37,7 +37,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/specs/keyword-scan.md | not recorded | not recorded | not recorded |
 | docs/specs/reader-ab.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | docs/specs/reader-panel.md | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
-| docs/specs/tone-and-tells.md | not recorded | not recorded | not recorded |
+| docs/specs/tone-and-tells.md | claude-code | claude-opus-5-5 | 2026-11-05 |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | not recorded | not recorded | not recorded |
 | src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-02 |

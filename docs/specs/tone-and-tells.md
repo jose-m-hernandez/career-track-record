@@ -327,3 +327,9 @@ Help (section 3.3):
 - 11.69: `--rules --help`: exit 0, the summary (help in a value's place).
 - 11.70: `--help` with standard output closed: exit 2, and one line on standard error, `cannot run: cannot write output`.
 - 11.71: `--print-defaults --help`: exit 0, the summary, not the defaults.
+
+## Build readings (maintainer, 2026-11-05)
+
+These readings are not part of the accepted spec above and change none of its sentences.
+
+1. **The barred check's PDF limit.** Since barred.md revision 6.4 the barred check reads each PDF a second time with `-layout` and finds a hyphenated entry wrapped inside a page; the tone check keeps the default read and the limit stated in § 3.2.
