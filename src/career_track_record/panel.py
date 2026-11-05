@@ -1,6 +1,6 @@
 """Reader panel: blind lens reads of one version, gated by an anchored rubric.
 
-The behaviour is stated in docs/specs/reader-panel.md (draft 1). In short: freeze a plan and
+The behaviour is stated in docs/specs/reader-panel.md (revision 1). In short: freeze a plan and
 its inputs by hash; for each lens (a reader role, given as a prompt file) read two planted
 anchor documents, one deliberately strong and one deliberately weak, and then the version
 under test; gate each lens on whether it put the strong anchor at or above one threshold and

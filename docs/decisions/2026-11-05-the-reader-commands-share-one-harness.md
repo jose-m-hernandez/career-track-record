@@ -2,7 +2,7 @@
 
 Date: 2026-11-05
 
-Status: proposed with the reader panel draft (docs/specs/reader-panel.md); the maintainer settles it with that spec.
+Status: accepted with the reader panel spec, revision 1 (docs/specs/reader-panel.md).
 
 ## The rule
 

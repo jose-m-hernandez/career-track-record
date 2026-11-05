@@ -226,7 +226,7 @@ The tool has the same three subcommands as `ab`:
     track-record panel run plan.txt [--live]
     track-record panel score plan.txt
 
-The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is a draft the maintainer has not signed; its open decisions are listed in it. Spec: [docs/specs/reader-panel.md](docs/specs/reader-panel.md).
+The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 1). Spec: [docs/specs/reader-panel.md](docs/specs/reader-panel.md).
 
 ## Coming
 

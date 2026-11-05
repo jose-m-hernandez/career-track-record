@@ -29,7 +29,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/decisions/2026-10-27-one-module-per-outside-program.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-29-a-reader-command-is-the-one-outside-program-a-user-names.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-11-01-every-file-has-a-provenance-row.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
-| docs/decisions/2026-11-05-the-reader-commands-share-one-harness.md | claude-code | claude-fable-5-1 | 2026-11-05 |
+| docs/decisions/2026-11-05-the-reader-commands-share-one-harness.md | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
 | docs/provenance.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | docs/specs/barred.md | not recorded | not recorded | not recorded |
 | docs/specs/claims.md | claude-code | claude-sonnet-5-5 | 2026-11-02 |

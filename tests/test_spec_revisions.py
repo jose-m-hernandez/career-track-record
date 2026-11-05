@@ -17,7 +17,7 @@ SPEC_REVISIONS = {
     "cli.md": "4",
     "keyword-scan.md": EXEMPT,
     "reader-ab.md": "1.2",
-    "reader-panel.md": "0.2",
+    "reader-panel.md": "1",
     "tone-and-tells.md": "6",
 }
 

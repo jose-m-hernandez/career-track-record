@@ -1,5 +1,14 @@
 # Reader panel: behaviour spec
 
+Status: accepted.
+Date: 2026-11-05.
+Revision: 1. The signed spec (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) is reproduced below verbatim. It is draft revision 0.2 as the owner signed it on 2026-11-05, with no change.
+
+## Signed spec
+
+<!-- signed spec begins: sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54 -->
+# Reader panel: behaviour spec
+
 Status: draft 1. Not signed. Career re-checks this spec before it is signed. Every decision in § 9 is open; each states the default this build uses, so the maintainer can settle or change it before merge.
 Date: 2026-11-05.
 Revision: 0.2. Draft 1, amended after review (the lens owns its scale; freeze rejects an unreachable pass bar; the `none` sentence is frozen). A revision below 1 is a draft; revision 1 is the spec the owner signs, reproduced verbatim with its hash, as docs/specs/reader-ab.md is.
@@ -253,3 +262,4 @@ As in reader-ab.md's build interpretations, with the read folder holding exactly
 - Two anchors fix two points on a scale. A lens that ranks them correctly can still be wrong about the version; the gate rules out a lens that cannot see, not one that sees badly. More anchors, or anchors closer to the version, are a change for a later revision.
 - Set the strong threshold at or above the score the version must reach.
 - The ceiling stops reads once the tally reaches it, so one costly read can overshoot it, the same as in `ab`.
+<!-- signed spec ends -->
