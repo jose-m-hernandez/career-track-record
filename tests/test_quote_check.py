@@ -14,6 +14,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import unicodedata
 import unittest
 from unittest import mock
 
@@ -293,6 +294,31 @@ class QuoteCase(unittest.TestCase):
             self.check("led a team", b"PK\x03\x04\x14\x00\x06\x00\x80\x81", name="source.docx"),
             (DEAD, "not UTF-8"))
 
+    # ------------------------------------------------- G. the number boundary
+
+    def test_number_not_found_inside_a_longer_number(self):
+        source = "We shipped Version 2.5 today.\n"
+        self.assertEqual(self.check("Version 2.", source), NOT_FOUND_T)
+        self.assertEqual(self.check("Version 2", source), NOT_FOUND_T)
+
+    def test_number_found_where_it_stops(self):
+        self.assertEqual(
+            self.check("Version 2.", "We shipped Version 2. Then we rested.\n"), FOUND_T)
+        self.assertEqual(self.check("Version 2", "Version 2."), FOUND_T)
+        self.assertEqual(self.check("Version 2", "Version 2.x"), FOUND_T)
+        self.assertEqual(self.check("v2", "v23"), NOT_FOUND_T)
+
+    def test_number_full_width_digit_folds_and_is_not_found(self):
+        self.assertEqual(self.check("Version ２", "Version 2.5"), NOT_FOUND_T)
+
+    # Known limit: only a full stop is tested after the number, so a comma does not stop the match.
+    def test_limit_number_comma_is_not_tested(self):
+        self.assertEqual(self.check("Version 2", "Version 2,5"), FOUND_T)
+
+    # Known limit: the rule looks after the quote only, so a number inside a decimal can match.
+    def test_limit_number_rule_looks_after_the_quote_only(self):
+        self.assertEqual(self.check("2 engineers", "1.2 engineers"), FOUND_T)
+
 
 def reference_search(q, s):
     """Brute-force oracle for the search: every position, boundary rules written plainly."""
@@ -344,6 +370,50 @@ class SearchOverlap(unittest.TestCase):
             with self.subTest(q=q, s=s):
                 self.assertEqual(quote_check._search(q, s), expected)
                 self.assertEqual(reference_search(q, s), expected)
+
+
+def reference_search_with_numbers(q, s):
+    """Brute-force oracle with the number boundary: every position, each rule written plainly."""
+    def is_digit(ch):
+        return unicodedata.category(ch) == "Nd"
+
+    for p in range(len(s) - len(q) + 1):
+        if not s.startswith(q, p):
+            continue
+        end = p + len(q)
+        start_ok = True
+        if barred._is_word_char(q[0]):
+            start_ok = p == 0 or not barred._is_word_char(s[p - 1])
+        end_ok = True
+        if barred._is_word_char(q[-1]):
+            end_ok = end == len(s) or not barred._is_word_char(s[end])
+        number_ok = True
+        if is_digit(q[-1]):
+            if end < len(s) and is_digit(s[end]):
+                number_ok = False
+            if end + 1 < len(s) and s[end] == "." and is_digit(s[end + 1]):
+                number_ok = False
+        if start_ok and end_ok and number_ok:
+            return True
+    return False
+
+
+class SearchNumberParity(unittest.TestCase):
+    def test_search_matches_the_number_oracle(self):
+        rng = random.Random(20261105)
+        alphabet = "1.a- "
+        for _ in range(20000):
+            s = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 30)))
+            if s and rng.random() < 0.5:
+                a = rng.randint(0, len(s) - 1)
+                q = s[a:a + rng.randint(1, 6)]
+            else:
+                q = "".join(rng.choice(alphabet) for _ in range(rng.randint(1, 6)))
+            if not q:
+                continue
+            self.assertEqual(
+                quote_check._search(q, s), reference_search_with_numbers(q, s),
+                "q=%r s=%r" % (q, s))
 
 
 if __name__ == "__main__":
