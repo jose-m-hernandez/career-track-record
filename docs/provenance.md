@@ -14,7 +14,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | LICENSE | not recorded | not recorded | not recorded |
 | LICENSE-COMMERCIAL.md | not recorded | not recorded | not recorded |
 | METHOD.md | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
-| README.md | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
+| README.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | SECURITY.md | not recorded | not recorded | not recorded |
 | ci/__init__.py | not recorded | not recorded | not recorded |
 | ci/barred_strings.py | not recorded | not recorded | not recorded |
@@ -36,7 +36,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/specs/cli.md | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
 | docs/specs/keyword-scan.md | not recorded | not recorded | not recorded |
 | docs/specs/reader-ab.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
-| docs/specs/reader-panel.md | claude-code | claude-fable-5-1 | 2026-11-05 |
+| docs/specs/reader-panel.md | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
 | docs/specs/tone-and-tells.md | not recorded | not recorded | not recorded |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | not recorded | not recorded | not recorded |
@@ -49,7 +49,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | src/career_track_record/cli.py | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
 | src/career_track_record/data/tone-default.json | not recorded | not recorded | not recorded |
 | src/career_track_record/keywords.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
-| src/career_track_record/panel.py | claude-code | claude-fable-5-1 | 2026-11-05 |
+| src/career_track_record/panel.py | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
 | src/career_track_record/pdf_text.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | src/career_track_record/posting_file.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | src/career_track_record/reader_harness.py | claude-code | claude-fable-5-1 | 2026-11-05 |
@@ -200,11 +200,11 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_no_network.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_output_failures.py | not recorded | not recorded | not recorded |
 | tests/test_packaging.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
-| tests/test_panel.py | claude-code | claude-fable-5-1 | 2026-11-05 |
+| tests/test_panel.py | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
 | tests/test_pdf_text.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_posting_file.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_provenance.py | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | tests/test_source_hygiene.py | not recorded | not recorded | not recorded |
-| tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
+| tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
 | tests/test_tone_pdf.py | not recorded | not recorded | not recorded |

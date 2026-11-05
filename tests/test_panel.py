@@ -13,6 +13,7 @@ a reader that reaches a network or uses credentials.
 
 import hashlib
 import os
+import re
 import shutil
 import sys
 import tempfile
@@ -615,8 +616,8 @@ anchor-reads-per-reader: 1
 anchor-strong-at-least: 7
 anchor-weak-at-most: 4
 rules:
-  recruiter | PASS if score at least 7 in 6 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
-  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 6 of 6; otherwise INCONCLUSIVE
+  recruiter | PASS if score at least 7 in 5 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
+  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE
   overall | PASS if score at least 7 in 10 or more; otherwise INCONCLUSIVE
 spend-ceiling: 40
 fake-reader:
@@ -657,11 +658,11 @@ class PlanFileCase(unittest.TestCase):
                          [("r1", "l1"), ("r2", "l2"), ("r3", None)])
         self.assertEqual([(kind, c.kind, c.threshold, c.field, c.k, c.n)
                           for kind, c in rules[0].clauses],
-                         [("PASS", "at least", 7, None, 6, 6), ("FAIL", "at most", 4, None, 2,
+                         [("PASS", "at least", 7, None, 5, 6), ("FAIL", "at most", 4, None, 2,
                                                                 None)])
         self.assertEqual([(kind, c.kind, c.field, c.k, c.n) for kind, c in rules[1].clauses],
                          [("FAIL", "flagged", "DOUBTS", 3, None),
-                          ("PASS", "at least", None, 6, 6)])
+                          ("PASS", "at least", None, 5, 6)])
         self.assertEqual([(r.kind, r.score, r.lenses, r.documents, r.on_reads)
                           for r in plan.fake_rules[:3]],
                          [("score", 9, None, frozenset(["strong"]), None),
@@ -758,6 +759,64 @@ class PlanFileCase(unittest.TestCase):
             with self.subTest(message):
                 s = Setup(self, **overrides)
                 self.assertRefused(s, text, message)
+
+    def test_a_pass_bar_above_the_strong_threshold_is_refused_by_freeze(self):
+        # The gate showed a lens can give a score of at least anchor-strong-at-least (7) and
+        # no more, so a version cannot be required to beat that.
+        def rule(n, verdict="PASS"):
+            return ["recruiter | %s if score at least %d in 6 of 6; otherwise INCONCLUSIVE"
+                    % (verdict, n)]
+
+        s = Setup(self, rules=rule(8))
+        self.assertRefused(s, "at least 8",
+                           "a PASS clause asks for score at least 8, above "
+                           "anchor-strong-at-least (7): a version cannot be required to beat "
+                           "a score the gate did not show the lens can give")
+        s = Setup(self, rules=["overall | PASS if score at least 9 in 10 or more; "
+                               "otherwise INCONCLUSIVE"])
+        self.assertRefused(s, "at least 9",
+                           "a PASS clause asks for score at least 9, above "
+                           "anchor-strong-at-least (7): a version cannot be required to beat "
+                           "a score the gate did not show the lens can give")
+        for n in (7, 6):
+            with self.subTest(n):
+                self.assertEqual(Setup(self, rules=rule(n)).freeze().exit_code, 0)
+        # Only a PASS bar is held to the gate; a FAIL clause may sit anywhere.
+        self.assertEqual(Setup(self, rules=rule(9, "FAIL")).freeze().exit_code, 0)
+
+    def test_the_lens_owns_its_scale(self):
+        # A lens that scores five criteria 0 to 2 and sums them gives 0 to 10; a 0 is a score.
+        s = Setup(self, anchor_strong_at_least="8", anchor_weak_at_most="1",
+                  fake_reader=["strong | score 10", "weak | score 0", "version | score 7"],
+                  rules=["recruiter | PASS if score at least 7 in 6 of 6; otherwise "
+                         "INCONCLUSIVE"])
+        s.write("recruiter.lens.txt", "Your role: a recruiter. Score five criteria from 0 "
+                "to 2 each and reply with their sum, 0 to 10.\n")
+        self.assertEqual(s.frozen_run().exit_code, 0)
+        lines = s.result_lines()
+        self.assertIn("anchor gate l1: passed (strong scores 10, 10, all at least 8; weak "
+                      "scores 0, 0, all at most 1)", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS", lines)
+        self.assertEqual(panel.parse_reply(reply_text(SCORE="0")).score, 0)
+        self.assertIsNone(panel.parse_reply(reply_text(SCORE="0")).failure)
+
+    def test_the_built_in_prompt_fixes_no_scale(self):
+        self.assertIsNone(re.search(r"[0-9]+\s*(to|-|\u2013)\s*[0-9]+", panel.PROMPT))
+        score_line = [x for x in panel.PROMPT.splitlines() if x.startswith("SCORE:")]
+        self.assertEqual(len(score_line), 1)
+        self.assertIsNone(re.search("[0-9]", score_line[0]))
+
+    def test_the_frozen_prompt_tells_each_free_text_field_to_write_none(self):
+        sentence = "write exactly `none` if you have nothing material"
+        self.assertEqual(panel.PROMPT.count(sentence), len(panel.FREE_TEXT_FIELDS))
+        for field in panel.FREE_TEXT_FIELDS:
+            line = [x for x in panel.PROMPT.splitlines() if x.startswith(field + ":")]
+            self.assertEqual(len(line), 1, field)
+            self.assertEqual(line[0].count(sentence), 1, field)
+        # It is part of the frozen prompt: a change to it changes the prompt's hash.
+        before = panel.prompt_sha256()
+        with mock.patch.object(panel, "PROMPT", panel.PROMPT.replace(sentence, "x")):
+            self.assertNotEqual(panel.prompt_sha256(), before)
 
     def test_negative_thresholds_and_scores_are_allowed(self):
         s = Setup(self, anchor_strong_at_least="0", anchor_weak_at_most="-5",

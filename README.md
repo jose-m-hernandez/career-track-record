@@ -209,8 +209,8 @@ readers:
 anchor-strong-at-least: 7
 anchor-weak-at-most: 4
 rules:
-  recruiter | PASS if score at least 7 in 6 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
-  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 6 of 6; otherwise INCONCLUSIVE
+  recruiter | PASS if score at least 7 in 5 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
+  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE
   overall | PASS if score at least 7 in 10 or more; otherwise INCONCLUSIVE
 fake-reader:
   strong | score 9

@@ -1,8 +1,8 @@
 # Reader panel: behaviour spec
 
-Status: draft 1. Not signed. Every decision in § 9 is open; each states the default this build uses, so the maintainer can settle or change it before merge.
+Status: draft 1. Not signed. Career re-checks this spec before it is signed. Every decision in § 9 is open; each states the default this build uses, so the maintainer can settle or change it before merge.
 Date: 2026-11-05.
-Revision: 0.1. Draft 1, built as written. A revision below 1 is a draft; revision 1 is the spec the owner signs, reproduced verbatim with its hash, as docs/specs/reader-ab.md is.
+Revision: 0.2. Draft 1, amended after review (the lens owns its scale; freeze rejects an unreachable pass bar; the `none` sentence is frozen). A revision below 1 is a draft; revision 1 is the spec the owner signs, reproduced verbatim with its hash, as docs/specs/reader-ab.md is.
 
 The command is `track-record panel`.
 
@@ -48,7 +48,7 @@ The plan is a plain-text file in the syntax of `ab` (reader-ab.md § 3.1 and its
 - `reads-per-reader`: reads of the version per lens for each reader (default 3);
 - `anchor-reads-per-reader`: reads of each anchor per lens for each reader (default 1);
 - `anchor-strong-at-least` and `anchor-weak-at-most`: the gate's thresholds, whole numbers of any sign, both required, with the first greater than the second (§ 6);
-- `rules`: each a pass condition for one lens or for the panel, `<lens> | <rule>` or `overall | <rule>`, in the clause language of § 6. For example, `recruiter | PASS if score at least 7 in 6 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE`;
+- `rules`: each a pass condition for one lens or for the panel, `<lens> | <rule>` or `overall | <rule>`, in the clause language of § 6. For example, `recruiter | PASS if score at least 7 in 5 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE`;
 - `spend-ceiling`: the run's limit, in the plan's one spend unit (absent means no ceiling);
 - `read-timeout`: seconds per live read (default 600);
 - `fake-reader` (optional): the fake reader's rules (§ 5.3);
@@ -60,7 +60,7 @@ The plan is a plain-text file in the syntax of `ab` (reader-ab.md § 3.1 and its
 
 ### 3.3 Documents and lens files
 
-The posting, the version and the anchors are UTF-8 text, or PDF read through the same text extraction the barred check uses. A lens file is UTF-8 text that is not blank. It is given to the reader as it is, as `LENS.txt`; the tool reads nothing into it and substitutes nothing in it. File names are free.
+The posting, the version and the anchors are UTF-8 text, or PDF read through the same text extraction the barred check uses. A lens file is UTF-8 text that is not blank. It is given to the reader as it is, as `LENS.txt`; the tool reads nothing into it and substitutes nothing in it. File names are free. **The lens owns its scale.** A lens may define its own scale and criteria, for example five criteria each scored 0 to 2 and summed to 0 to 10; the plan's thresholds and rules are written on that scale. The tool fixes no scale: any whole number is a valid `SCORE` (§ 5.4), 0 included.
 
 ## 4. Documents and the document check
 
@@ -80,7 +80,7 @@ As in `ab`: a reader is a command the tool runs once per read; the read folder i
 
 ### 5.2 Live runs and run order
 
-The test suite and CI never start a live reader. The `--live` rule of reader-ab.md § 5.2 holds unchanged: for a live run the tool prints the exact commands and the spend estimate, runs them only when the user types `--live`, and without it prints, starts nothing, writes no reply and exits `0`. The fake reader never needs `--live`.
+The test suite and CI never start a live reader. The `--live` rule of reader-ab.md § 5.2 holds unchanged: for a live run the tool prints the exact commands and the spend estimate, runs them only when the user types `--live`, and without it prints, starts nothing, writes no reply and exits `0`. A plan with any live reader and no `--live` runs nothing, fake reads included; a plan whose readers are all `fake` never needs `--live`.
 
 Lenses run in plan order. Within a lens the anchors run first, strong then weak, and the version last, so that a run cut by the spend ceiling keeps its gate. The ceiling stops the run between reads once the tally of declared costs reaches it; reads already returned are kept, and the result says the run was cut.
 
@@ -100,14 +100,16 @@ The score is 5 unless a score rule fires; when several fire, the last in plan or
 Each reply starts with `READ: <read id>` and carries these fields, one per line or block, in the same form as reader-ab.md § 5.4 and its build interpretations (a field starts a line as `FIELD: value`, case-sensitive, and runs to the next field; text before the first field is ignored; a field that appears twice is a failed read):
 
 - `PRIOR`;
-- `SCORE`: one integer, of any size and sign;
+- `SCORE`: one integer, of any size and sign, on the scale the lens gives (§ 3.3);
 - `STRENGTHS`, `DOUBTS`, `UNDERSOLD`, `OVEREXPLAINED`, `OWNED` and `FLAG-FIXES`, the free-text fields.
+
+The built-in `PROMPT.txt` fixes only this envelope: the `READ`, `PRIOR` and `SCORE` fields and the free-text fields. It states no scale. It tells the reader, for each free-text field, "write exactly `none` if you have nothing material"; that sentence is part of the frozen prompt, so it is covered by the prompt's hash like the rest of the text, and a field that says anything but `none` is flagged (below).
 
 A reply missing `READ` or `SCORE`, or whose `SCORE` is not an integer, is a failed read. Failed reads are counted and reported, never guessed. A free-text field is **flagged** when it is present and its value, trimmed, is anything but exactly `none`. A missing or empty field is not flagged.
 
 ### 5.5 Blindness
 
-As in reader-ab.md § 5.5: the prompt tells the reader that it knows nothing about the candidate, any `PRIOR` other than `nothing` is flagged on that read, and a reader marked `not-blind` has its reads of the version reported separately as well as together with the others.
+As in reader-ab.md § 5.5: the prompt tells the reader that it knows nothing about the candidate, any `PRIOR` other than `nothing` is flagged on that read, and a reader marked `not-blind` has its reads of the version reported separately as well as together with the others. The clause language of § 6 tests a score or a flagged field over a lens's reads and cannot select reads by reader, so there is no rule for keeping not-blind readers out of `overall` in draft 1; leave not-blind readers out of the plan.
 
 ## 6. Scoring
 
@@ -115,7 +117,7 @@ Scoring reads only the replies, the key and the frozen plan. Failed reads are le
 
 - **The anchor gate**, per lens. It is evaluated only when every planned anchor read of the lens is valid; otherwise it is "not evaluated". It passes when every valid read of the strong anchor scores at or above `anchor-strong-at-least` and every valid read of the weak anchor scores at or below `anchor-weak-at-most`; one read on the wrong side fails it, and the result names each such read with its score. The anchors play the part the A/A arm plays in `ab`: a run that shows nothing also shows whether it could see something.
 - **Counted lenses.** A lens whose gate passed is counted. A lens whose gate failed or was not evaluated is not counted: every rule on it is INCONCLUSIVE with that reason, and its reads of the version are shown but not counted anywhere. One lens's gate voids that lens only.
-- **Rules.** A rule's clauses are `PASS if <test> in <k> of <m>`, `PASS if <test> in <k> or more`, and the same with `FAIL`, separated by `; `, ending with `otherwise INCONCLUSIVE`. A test is `score at least <n>`, `score at most <n>`, `<FIELD> flagged` or `<FIELD> not flagged`, where FIELD is a free-text field. A rule on a lens counts that lens's valid reads of the version; an `overall` rule counts the valid reads of the version across every counted lens, and is INCONCLUSIVE when no lens is counted. `<k> of <m>` holds when exactly `<m>` reads are counted and at least `<k>` of them pass the test; `<k> or more` holds when at least `<k>` pass it, however many are counted. Clauses are tried in order, and the first that holds decides. The result names rules `r1`, `r2` and so on in plan order, and shows each clause's count.
+- **Rules.** A rule's clauses are `PASS if <test> in <k> of <m>`, `PASS if <test> in <k> or more`, and the same with `FAIL`, separated by `; `, ending with `otherwise INCONCLUSIVE`. A test is `score at least <n>`, `score at most <n>`, `<FIELD> flagged` or `<FIELD> not flagged`, where FIELD is a free-text field. A rule on a lens counts that lens's valid reads of the version; an `overall` rule counts the valid reads of the version across every counted lens, and is INCONCLUSIVE when no lens is counted. `<k> of <m>` holds when exactly `<m>` reads are counted and at least `<k>` of them pass the test; `<k> or more` holds when at least `<k>` pass it, however many are counted. Clauses are tried in order, and the first that holds decides. A version cannot be required to beat a score the gate did not show the lens can give: `freeze` rejects (exit `2`, naming the plan line) any `PASS` clause `score at least <n>` where `<n>` is greater than `anchor-strong-at-least`. A `<n>` equal to or below it is accepted, as is any `FAIL` clause. Prefer `<k> of <m>` with slack to unanimity: identical documents can swing by about two reads in ten between passes, so unanimity rules (`6 of 6`) are brittle. The result names rules `r1`, `r2` and so on in plan order, and shows each clause's count.
 - **Scores** are reported per lens for each document, and for the version per reader as well, with the lowest and highest beside the mean.
 - **Flags.** For each lens and free-text field, the result reports how many valid reads of the version flagged it.
 
@@ -164,7 +166,7 @@ All open. Each lists the default this build uses.
 7. **Read order within a lens.** Default: strong anchor, weak anchor, then the version, each reader in turn, so that a cut by the spend ceiling leaves the gate evaluable.
 8. **What "flagged" means.** Default: a free-text field is flagged when it says anything but exactly `none`; a missing or empty field is not flagged. No pattern matching over fields in draft 1 (the `mechanisms` of `ab` could be added later as a rule test).
 9. **Reserved lens names.** Default: `all`, `overall`, `strong`, `weak` and `version` may not name a lens, because the plan's `rules` and `fake-reader` items use them.
-10. **Not-blind readers.** Default: reported as in `ab`, flagged on each read and counted separately on the version; the gate does not treat them apart.
+10. **Not-blind readers.** Default: reported as in `ab`, flagged on each read and counted separately on the version; the gate does not treat them apart. No rule can leave them out of `overall` in draft 1 (§ 5.5).
 
 ## 10. Acceptance tests (known answers)
 
@@ -197,6 +199,9 @@ Unless a test says otherwise, the plan has two lenses (`recruiter`, `manager`), 
 - 10.23: The fake reader starts no program. (`test_10_23_the_fake_reader_starts_no_program`)
 - 10.24: A second `run` in a folder that holds a run is refused, and `run` and `score` without a freeze exit 2. (`test_10_24_a_second_run_is_refused_and_a_run_needs_a_freeze`)
 - 10.25: The example plan below is read as written. (`test_10_25_the_example_of_the_spec_is_read_as_written`)
+- 10.26: A lens whose file defines a 0 to 10 scale is gated and scored on it, and a score of 0 is accepted; the built-in prompt states no scale. (`test_the_lens_owns_its_scale`, `test_the_built_in_prompt_fixes_no_scale`)
+- 10.27: `freeze` refuses a `PASS` clause `score at least <n>` with `<n>` above `anchor-strong-at-least`, naming the plan line; equal and below are accepted. (`test_a_pass_bar_above_the_strong_threshold_is_refused_by_freeze`)
+- 10.28: The frozen prompt holds the sentence "write exactly `none` if you have nothing material" once per free-text field. (`test_the_frozen_prompt_tells_each_free_text_field_to_write_none`)
 
 ## Build notes (draft 1)
 
@@ -221,8 +226,8 @@ anchor-reads-per-reader: 1
 anchor-strong-at-least: 7
 anchor-weak-at-most: 4
 rules:
-  recruiter | PASS if score at least 7 in 6 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
-  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 6 of 6; otherwise INCONCLUSIVE
+  recruiter | PASS if score at least 7 in 5 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
+  hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE
   overall | PASS if score at least 7 in 10 or more; otherwise INCONCLUSIVE
 spend-ceiling: 40
 fake-reader:
@@ -246,3 +251,5 @@ As in reader-ab.md's build interpretations, with the read folder holding exactly
 - The known limits of `ab`'s live readers hold here: a reader's standard output and standard error are held in memory with no size limit, and a timeout stops the reader's own process only.
 - A lens is handed to the reader as text. Whether the reader takes the role is up to the reader; the gate measures only whether it ranked the anchors.
 - Two anchors fix two points on a scale. A lens that ranks them correctly can still be wrong about the version; the gate rules out a lens that cannot see, not one that sees badly. More anchors, or anchors closer to the version, are a change for a later revision.
+- Set the strong threshold at or above the score the version must reach.
+- The ceiling stops reads once the tally reaches it, so one costly read can overshoot it, the same as in `ab`.

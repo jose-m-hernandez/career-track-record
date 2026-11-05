@@ -80,18 +80,17 @@ Read LENS.txt, then the posting, then the document. Answer on standard
 output only. Write these nine fields, in this order, each starting its
 own line as FIELD: value. No bullets, bold, indentation or text before
 the first field or after the last. A value may continue on later lines;
-the next field name starts a new line. If any field except PRIOR and
-SCORE has nothing to say, write none.
+the next field name starts a new line.
 
 READ: anything; this value is not checked
 PRIOR: what you knew about the candidate before reading. If nothing, write exactly: nothing
-SCORE: a whole number from 1 to 10, as digits only (10 is best)
-STRENGTHS: what in the document works for this role
-DOUBTS: what made you doubt the candidate
-UNDERSOLD: what the candidate has but did not make the most of
-OVEREXPLAINED: what took more space or words than it earned
-OWNED: what the candidate clearly did or led themselves
-FLAG-FIXES: changes you would suggest, as text only; nothing is applied
+SCORE: a whole number, as digits only, on the scale LENS.txt gives
+STRENGTHS: what in the document works for this role; write exactly `none` if you have nothing material.
+DOUBTS: what made you doubt the candidate; write exactly `none` if you have nothing material.
+UNDERSOLD: what the candidate has but did not make the most of; write exactly `none` if you have nothing material.
+OVEREXPLAINED: what took more space or words than it earned; write exactly `none` if you have nothing material.
+OWNED: what the candidate clearly did or led themselves; write exactly `none` if you have nothing material.
+FLAG-FIXES: changes you would suggest, as text only; nothing is applied; write exactly `none` if you have nothing material.
 """
 
 
@@ -342,6 +341,16 @@ def parse_text(text):
                       "with the lens written as in lenses")
             continue
         clauses = _rule_clauses(state, number, parts[1])
+        if clauses is not None and strong_at_least is not None:
+            for verdict, clause in clauses:
+                if (verdict == "PASS" and clause.kind == "at least"
+                        and clause.threshold > strong_at_least):
+                    state.bad(number, "a PASS clause asks for score at least %d, above "
+                              "anchor-strong-at-least (%d): a version cannot be required to "
+                              "beat a score the gate did not show the lens can give"
+                              % (clause.threshold, strong_at_least))
+                    clauses = None
+                    break
         if clauses is not None:
             lens = None if parts[0] == "overall" else arms[parts[0]]
             rules.append(Rule("r%d" % (len(rules) + 1), lens, clauses))

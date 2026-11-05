@@ -8,7 +8,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-- `track-record panel`, the reader panel (draft): it reads one version of your copy blind through lenses you name, each a reader role given as a plain-text prompt file frozen with the plan. Every lens also reads a planted strong anchor and a planted weak anchor; a lens that does not rank them is not counted. Rules per lens and overall end PASS, FAIL or INCONCLUSIVE. The plan format, freeze, `--live` rule, spend ceiling and fake reader are those of `ab`. Its spec, docs/specs/reader-panel.md, is draft 1 and lists every open decision.
+- `track-record panel`, the reader panel (draft): it reads one version of your copy blind through lenses you name, each a reader role given as a plain-text prompt file frozen with the plan. Every lens also reads a planted strong anchor and a planted weak anchor; a lens that does not rank them is not counted. Rules per lens and overall end PASS, FAIL or INCONCLUSIVE. The plan format, freeze, `--live` rule, spend ceiling and fake reader are those of `ab`. A lens defines its own scale (the built-in prompt states none, and a score of 0 is valid), and the built-in prompt tells the reader to write exactly `none` for a free-text field with nothing material. `freeze` refuses a PASS clause `score at least <n>` above `anchor-strong-at-least`. Its spec, docs/specs/reader-panel.md, is draft 1, revision 0.2, and lists every open decision.
 - A decision record, `docs/decisions/2026-11-05-the-reader-commands-share-one-harness.md`: what `ab` and `panel` share lives in one module, `reader_harness.py`, which starts no program.
 
 ### Changed
