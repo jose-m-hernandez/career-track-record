@@ -344,9 +344,10 @@ def _parse_barred(args):
         else:
             if not re.fullmatch(r"[0-9]+", value):
                 raise _OptionError("--min-chars must be a whole number, 0 or more")
-            if len(value.lstrip("0")) > 18:
+            significant = value.lstrip("0")
+            if len(significant) > 18:
                 raise _OptionError("--min-chars is too large (at most 18 digits)")
-            found["min_chars"] = int(value)
+            found["min_chars"] = int(significant or "0")
     found["files"] = files
     return found
 

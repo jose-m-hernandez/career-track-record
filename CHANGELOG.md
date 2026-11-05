@@ -24,6 +24,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- `track-record barred --min-chars` with thousands of leading zeros (for example 5000 zeros then `5`) crashed with a traceback on Python 3.14; it now reads as its value, 5, and a value with more than 18 significant digits still gives the usage error.
 - `track-record barred` also reads each PDF in `pdftotext`'s layout mode (a port of a wrapped-compound check method that reads `pdftotext -layout` output), so a hyphenated entry wrapped at its hyphen inside a page is caught, and so is a `word`-flagged half of it. The default-mode read still sets the length, the control and line numbers, so nothing caught before is missed. A soft hyphen that ends a line in the layout text counts as a hyphen. A wrap beside another column's text is still missed.
 
 ## [0.5.0] - 2026-11-04
