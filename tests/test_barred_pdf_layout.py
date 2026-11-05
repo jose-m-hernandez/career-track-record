@@ -419,6 +419,32 @@ class StandInCase(unittest.TestCase):
         with open(log, encoding="utf-8") as handle:
             self.assertEqual(handle.read(), "x.pdf\n-\nx.pdf\n-\n-layout\n")
 
+    def test_c13_the_layout_read_runs_for_pdf_in_any_case(self):
+        os.remove(os.path.join(self.work, "x.pdf"))
+        with open(os.path.join(self.work, "X.PDF"), "wb") as handle:
+            handle.write(b"not really a pdf\n")
+        layout = page(["a turnkey syn-", "ergy plan"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        self.assertEqual(run_cli(["--list", fx(L1)] + CTRL + ["X.PDF"], cwd=self.work,
+                                 env_extra={"PATH": path}),
+                         (1, fail_one("X.PDF", 13), ""))
+
+    def test_c14_the_layout_read_passes_a_leading_dash_path_safely(self):
+        with open(os.path.join(self.work, "-x.pdf"), "wb") as handle:
+            handle.write(b"not really a pdf\n")
+        self.stand_in('case "$1" in -*) exit 9;; esac\n'
+                      'case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(FOUND), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        self.assertEqual(run_cli(["--list", fx(L1)] + CTRL + ["--", "-x.pdf"],
+                                 cwd=self.work, env_extra={"PATH": path}),
+                         (1, fail_one("-x.pdf", 13), ""))
+
+    def test_c15_a_layout_line_that_is_only_a_soft_hyphen(self):
+        self.assertOk(self.run_with(NOTHING, page([SOFT_HYPHEN])))
+
 
 class FixturePresenceCase(unittest.TestCase):
     def test_the_layout_fixtures_exist(self):

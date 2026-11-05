@@ -2,11 +2,11 @@
 
 Status: draft. Revision 6.4 below is not signed; its owner signs the text between the draft markers as it stands.
 Date: 2026-11-05.
-Revision: 6.4. A draft: the text between the markers below (sha256 c97c5175890a8e974ed548a70d15ac78dabf498f9455906e9ff536c171f8bd2a) is revision 6.4 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
+Revision: 6.4. A draft: the text between the markers below (sha256 730684205c81006499d4cbb79a4bc1f7d54033544920bdc44619ae52a4126a83) is revision 6.4 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
 
 ## Draft spec (revision 6.4, not signed)
 
-<!-- draft spec begins: sha256 c97c5175890a8e974ed548a70d15ac78dabf498f9455906e9ff536c171f8bd2a -->
+<!-- draft spec begins: sha256 730684205c81006499d4cbb79a4bc1f7d54033544920bdc44619ae52a4126a83 -->
 # Barred-wording check: behaviour spec
 
 Status: revision 6.4, drafted on 2026-11-05 for the owner's signature. Revision 6.4 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
@@ -449,6 +449,9 @@ A stand-in `pdftotext` answers the default read and the layout read with differe
 | [`nothing listed`] | [`a turnkey syn`, a space and a soft hyphen, then `ergy plan`] | OK. Exit 0: the soft hyphen does not follow a word character, so folding removes it, and `syn ergy` is not the entry |
 | [`nothing listed`] | [`a turnkey syn`, a space and a soft hyphen, then `ergy plan`] | not against L1 but against a list whose only entry is `syn - ergy`: `OK    x.pdf: 0 of 1 entries (control found; <c> chars)`. Exit 0: that soft hyphen is not turned into a hyphen, so no form holds `syn - ergy` |
 | [`a turnkey syn` and a soft hyphen, then `ergy plan`] | [`nothing listed`] | OK. Exit 0: the default text never gets the soft-hyphen rule |
+| [`nothing listed`] | [`a turnkey syn-`, `ergy plan`] | for a file named `X.PDF` instead of `x.pdf`: `FAIL  X.PDF: 1 entries`, then `X.PDF:13: entry #1 (1 x)`. Exit 1: the layout read runs whatever the case of `.pdf` |
+| [`nothing listed`] | [`a turnkey synergy here`] | for a file named `-x.pdf` instead of `x.pdf`, given after `--`, against a stand-in that fails when its first argument starts with `-`: `FAIL  -x.pdf: 1 entries`, then `-x.pdf:13: entry #1 (1 x)`. Exit 1: the layout read passes the path as `./-x.pdf` |
+| [`nothing listed`] | [a soft hyphen alone on its line] | OK. Exit 0: a soft hyphen with nothing before it is not turned into a hyphen |
 
 One run against that stand-in, logging its arguments, shows exactly two calls, in this order: `x.pdf -`, then `x.pdf - -layout`.
 <!-- draft spec ends -->
