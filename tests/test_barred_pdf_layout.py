@@ -445,6 +445,89 @@ class StandInCase(unittest.TestCase):
     def test_c15_a_layout_line_that_is_only_a_soft_hyphen(self):
         self.assertOk(self.run_with(NOTHING, page([SOFT_HYPHEN])))
 
+    def test_c16_a_digit_or_underscore_before_a_line_end_soft_hyphen(self):
+        listing = os.path.join(self.work, "list-digit.txt")
+        with open(listing, "w", encoding="utf-8") as handle:
+            handle.write("abc1-def\nab_-cd\n")
+        layout = page(["x abc1" + SOFT_HYPHEN, "def y", "x ab_" + SOFT_HYPHEN, "cd y"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        self.assertEqual(run_cli(["--list", listing] + CTRL + ["x.pdf"], cwd=self.work,
+                                 env_extra={"PATH": path}),
+                         (1, "FAIL  x.pdf: 2 entries\nx.pdf:13: entry #1 (1 x)\n"
+                             "x.pdf:15: entry #2 (1 x)\n", ""))
+
+    def test_c17_punctuation_before_a_line_end_soft_hyphen(self):
+        listing = os.path.join(self.work, "list-dot.txt")
+        with open(listing, "w", encoding="utf-8") as handle:
+            handle.write("a.- b\n")
+        layout = page(["x a." + SOFT_HYPHEN, "b y"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        code, out, err = run_cli(["--list", listing] + CTRL + ["x.pdf"], cwd=self.work,
+                                 env_extra={"PATH": path})
+        self.assertEqual((code, err), (0, ""))
+        self.assertRegex(out, r"\AOK    x\.pdf: 0 of 1 entries \(control found; "
+                              r"[0-9]+ chars\)\n\Z")
+
+    def test_c18_strip_comments_never_applies_to_the_layout_text(self):
+        layout = page(["// turnkey synergy here"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        self.assertEqual(run_cli(["--list", fx(L1)] + CTRL + ["--strip-comments", "x.pdf"],
+                                 cwd=self.work, env_extra={"PATH": path}),
+                         (1, fail_one("x.pdf", 13), ""))
+
+    def test_c19_the_soft_hyphen_rule_splits_on_crlf_and_lone_cr(self):
+        text = page(["a turnkey syn" + SOFT_HYPHEN, "ergy plan"])
+        for name, newline in (("crlf", "\r\n"), ("cr", "\r")):
+            with self.subTest(newline=name):
+                layout = printf(text.replace("\n", newline)).replace("\\015", "\\r")
+                self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                              % (layout, printf(NOTHING)))
+                path = self.bin + os.pathsep + os.environ.get("PATH", "")
+                self.assertEqual(run_cli(["--list", fx(L1)] + CTRL + ["x.pdf"],
+                                         cwd=self.work, env_extra={"PATH": path}),
+                                 (1, fail_one("x.pdf", 13), ""))
+
+    def test_c20_a_mixed_case_pdf_name(self):
+        os.remove(os.path.join(self.work, "x.pdf"))
+        with open(os.path.join(self.work, "doc.PdF"), "wb") as handle:
+            handle.write(b"not really a pdf\n")
+        layout = page(["a turnkey syn-", "ergy plan"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        self.assertEqual(run_cli(["--list", fx(L1)] + CTRL + ["doc.PdF"], cwd=self.work,
+                                 env_extra={"PATH": path}),
+                         (1, fail_one("doc.PdF", 13), ""))
+
+    def test_c21_the_layout_reads_own_not_found(self):
+        # PATH holds only the stand-in's folder, so the stand-in uses builtins and
+        # absolute paths; once it has removed itself, no pdftotext can be found.
+        self.stand_in('case " $* " in\n*" -layout "*) exit 1;;\n'
+                      '*) %s; /bin/rm -f -- "$0";;\nesac\n' % printf(NOTHING))
+        stand_in = os.path.join(self.bin, "pdftotext")
+        self.assertEqual(run_cli(["--list", fx(L1)] + CTRL + ["x.pdf"], cwd=self.work,
+                                 env_extra={"PATH": self.bin}),
+                         (2, "DEAD  x.pdf: pdftotext not found\n", ""))
+        self.assertFalse(os.path.exists(stand_in))
+
+    def test_c22_the_layout_texts_joined_form_counts(self):
+        listing = os.path.join(self.work, "list-joined.txt")
+        with open(listing, "w", encoding="utf-8") as handle:
+            handle.write("syn- ergy\n")
+        layout = page(["a turnkey syn-", "ergy plan"])
+        self.stand_in('case " $* " in\n*" -layout "*) %s;;\n*) %s;;\nesac\n'
+                      % (printf(layout), printf(NOTHING)))
+        path = self.bin + os.pathsep + os.environ.get("PATH", "")
+        self.assertEqual(run_cli(["--list", listing] + CTRL + ["x.pdf"], cwd=self.work,
+                                 env_extra={"PATH": path}),
+                         (1, fail_one("x.pdf", 13), ""))
+
 
 class FixturePresenceCase(unittest.TestCase):
     def test_the_layout_fixtures_exist(self):
