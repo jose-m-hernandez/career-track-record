@@ -332,4 +332,4 @@ Help (section 3.3):
 
 These readings are not part of the accepted spec above and change none of its sentences.
 
-1. **The barred check's PDF limit.** Since barred.md revision 6.4 the barred check reads each PDF a second time with `-layout` and finds a hyphenated entry wrapped inside a page; the tone check keeps the default read and the limit stated in § 3.2.
+1. **The barred check's PDF limit.** Since barred.md revision 7 the barred check reads each PDF a second time with `-layout` and finds a hyphenated entry wrapped inside a page; the tone check keeps the default read and the limit stated in § 3.2.

@@ -1,17 +1,17 @@
 # Barred-wording check: behaviour spec
 
-Status: draft. Revision 6.4 below is not signed; its owner signs the text between the draft markers as it stands.
+Status: draft. Revision 7 below is not signed; its owner signs the text between the draft markers as it stands.
 Date: 2026-11-05.
-Revision: 6.4. A draft: the text between the markers below (sha256 ab59c734e667a3308116a16136dcd8a1d3e42d6708a9d22ae5e0714d9543c243) is revision 6.4 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
+Revision: 7. A draft: the text between the markers below (sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3) is revision 7 in full. It is revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before this draft) with each PDF also read in layout mode.
 
-## Draft spec (revision 6.4, not signed)
+## Draft spec (revision 7, not signed)
 
-<!-- draft spec begins: sha256 ab59c734e667a3308116a16136dcd8a1d3e42d6708a9d22ae5e0714d9543c243 -->
+<!-- draft spec begins: sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3 -->
 # Barred-wording check: behaviour spec
 
-Status: revision 6.4, drafted on 2026-11-05 for the owner's signature. Revision 6.4 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
+Status: revision 7, drafted on 2026-11-05 for the owner's signature. Revision 7 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
 Date: 2026-11-05.
-Revision: 6.4. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0). Revision 6.4 reads each PDF in layout mode too, so a hyphenated entry wrapped at its hyphen inside a page is matched (sections 3.2, 4, 5, 6, 7, 9.3 and 10).
+Revision: 7. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0). Revision 7 reads each PDF in layout mode too, so a hyphenated entry wrapped at its hyphen inside a page is matched (sections 3.2, 4, 5, 6, 7, 9.3 and 10).
 
 The command is `<cli> barred`.
 
