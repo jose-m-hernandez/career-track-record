@@ -922,6 +922,38 @@ def _clause_holds(clause, valid, picks):
     return valid == clause.n and picks.get(clause.version, 0) >= clause.k
 
 
+def _completions_line(plan, hyp, recs, picks, first, second, m):
+    """Say whether the rule's verdict would hold whatever the m missing reads said.
+
+    Reads the rule's clauses alone: no A/A gate, no position. Reported only."""
+    x0 = picks.get(first, 0)
+    y0 = picks.get(second, 0)
+    verdicts = set()
+    exact = []
+    for x in range(m + 1):
+        for y in range(m + 1 - x):
+            valid = len(recs) + m
+            counts = {first: x0 + x, second: y0 + y}
+            verdict = "INCONCLUSIVE"
+            for kind, clause in hyp.clauses:
+                if _clause_holds(clause, valid, counts):
+                    verdict = kind
+                    break
+            verdicts.add(verdict)
+            if x0 + x + y0 + y >= 1:
+                exact.append(stats.binomial_p(y0 + y, x0 + x + y0 + y, plan.sidedness))
+    seen = [v for v in ("SUPPORTED", "REFUTED", "INCONCLUSIVE") if v in verdicts]
+    if exact:
+        spread = "p from %s to %s" % (stats.p_text(min(exact)), stats.p_text(max(exact)))
+    else:
+        spread = "p not computed"
+    if len(seen) == 1:
+        text = "settled: %s" % seen[0]
+    else:
+        text = "unsettled: %s possible" % ", ".join(seen)
+    return "hypothesis %s completions (missing reads: %d): %s; %s" % (hyp.name, m, text, spread)
+
+
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
@@ -1002,6 +1034,19 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("reads %s %s: valid=%d %s tie=%d" % (
                 label, arm, len(recs),
                 " ".join("%s=%d" % (v, picks.get(v, 0)) for v in versions), ties))
+
+    # missing reads, per arm, and a dead run
+    missing = {}
+    for arm, _first, _second in arms:
+        mine = [x for x in records if x.read.arm == arm]
+        failed = len([x for x in mine if x.status == "failed"])
+        not_run = len([x for x in mine if x.status not in ("valid", "failed")])
+        missing[arm] = failed + not_run
+        out.append("missing %s: %d of %d planned reads (failed %d, not run %d)"
+                   % (arm, failed + not_run, len([r for r in reads if r.arm == arm]),
+                      failed, not_run))
+    if not any(x.status == "valid" for x in records):
+        out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
 
     # A/A gate
     aa_planned = len([r for r in reads if r.arm == AA])
@@ -1098,29 +1143,32 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         if n == 0:
             out.append("hypothesis %s evidence: no non-TIE pick, %d TIE; "
                        "p and interval not computed" % (hyp.name, ties))
-            continue
-        k = picks.get(second, 0)
-        p = stats.binomial_p(k, n, plan.sidedness)
-        low, high = stats.wilson(k, n)
-        out.append("hypothesis %s evidence: %s %d of %d non-TIE picks, %d TIE; "
-                   "p = %s %s (reads may be correlated; may be too small); "
-                   "95%% interval %s to %s" % (
-                       hyp.name, _show(second), k, n, ties, stats.p_text(p),
-                       SIDE_TEXT[plan.sidedness], low, high))
-        if reasons:
-            continue
-        if verdict in ("SUPPORTED", "REFUTED"):
-            tested = second if plan.sidedness == "greater" else first
-            if plan.sidedness != "two" and decider.version != tested:
-                out.append("hypothesis %s flag: one-sided test: this direction not tested"
-                           % hyp.name)
-            elif p >= plan.alpha:
-                out.append("hypothesis %s flag: evidence disagrees: %s at p = %s, "
-                           "at or above alpha %s" % (hyp.name, verdict, stats.p_text(p),
-                                                     plan.alpha_text))
-        elif p < plan.alpha:
-            out.append("hypothesis %s flag: evidence disagrees: INCONCLUSIVE at p = %s, "
-                       "below alpha %s" % (hyp.name, stats.p_text(p), plan.alpha_text))
+        else:
+            k = picks.get(second, 0)
+            p = stats.binomial_p(k, n, plan.sidedness)
+            low, high = stats.wilson(k, n)
+            out.append("hypothesis %s evidence: %s %d of %d non-TIE picks, %d TIE; "
+                       "p = %s %s (reads may be correlated; may be too small); "
+                       "95%% interval %s to %s" % (
+                           hyp.name, _show(second), k, n, ties, stats.p_text(p),
+                           SIDE_TEXT[plan.sidedness], low, high))
+            if reasons:
+                pass
+            elif verdict in ("SUPPORTED", "REFUTED"):
+                tested = second if plan.sidedness == "greater" else first
+                if plan.sidedness != "two" and decider.version != tested:
+                    out.append("hypothesis %s flag: one-sided test: this direction not tested"
+                               % hyp.name)
+                elif p >= plan.alpha:
+                    out.append("hypothesis %s flag: evidence disagrees: %s at p = %s, "
+                               "at or above alpha %s" % (hyp.name, verdict, stats.p_text(p),
+                                                         plan.alpha_text))
+            elif p < plan.alpha:
+                out.append("hypothesis %s flag: evidence disagrees: INCONCLUSIVE at p = %s, "
+                           "below alpha %s" % (hyp.name, stats.p_text(p), plan.alpha_text))
+        if missing[arm]:
+            out.append(_completions_line(plan, hyp, recs, picks, first, second,
+                                         missing[arm]))
 
     # mechanisms
     def matching(recs, mech):

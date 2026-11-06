@@ -14,6 +14,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `career_track_record/stats.py`: the exact binomial p-value and the 95% Wilson interval the reader commands will print beside their verdicts, with the spec's rounding (p half up to 4 places; the interval's ends rounded outward to 3). Nothing calls it yet.
 - `track-record ab` plans take two optional keys from the Reader A/B spec revision 2: `sidedness` (`two`, `greater` or `less`; default `two`) and `alpha` (written `0.` and digits, not all zero; default `0.05`). `freeze` refuses any other form, naming the plan line. Nothing prints them yet.
 - `track-record ab` results put the evidence of the Reader A/B spec revision 2 beside each verdict: the exact sign-test p-value and the 95% Wilson interval for the second-listed version's share of non-TIE picks, a flag when that evidence disagrees with the verdict (or a line saying a one-sided test did not look at the verdict's direction), the A/A gate's own interval, the count of not-blind reads on every verdict line, and one validity line. No verdict or exit status changes.
+- `track-record ab` results count each arm's missing reads (failed, and not run), say for each hypothesis whether its verdict would hold whatever the missing reads had said, with the range of the p-value, and print a `DEAD` line when no read is valid. These lines never change a verdict, and a dead run still exits 1.
 
 ### Changed
 

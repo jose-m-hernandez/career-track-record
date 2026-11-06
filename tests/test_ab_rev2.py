@@ -10,7 +10,8 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from career_track_record import ab  # noqa: E402
 from tests.test_ab import (  # noqa: E402
-    PREFER_GLANCE, SIX, TOO_LONG, WITHOUT_GLANCE, WRITE_TOO_LONG, Setup, items)
+    PREFER_GLANCE, SIX, SHORT_SIX, TOO_LONG, TWO, WITHOUT_GLANCE, WRITE_TOO_LONG, Setup,
+    items)
 
 ALPHA_MESSAGE = "alpha is written as 0. followed by digits, not all zero"
 SIDEDNESS_MESSAGE = "sidedness is two, greater or less"
@@ -208,6 +209,83 @@ class EvidenceCase(unittest.TestCase):
                       lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
         self.assertNoFlag(lines)
+
+
+class MissingReadsCase(unittest.TestCase):
+    def done(self, **overrides):
+        overrides.setdefault("hypotheses", [SIX])
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def assertNoLineStarting(self, lines, prefix):
+        self.assertEqual([x for x in lines if x.startswith(prefix)], [])
+
+    def test_10_45_missing_and_completions_unsettled(self):
+        s, result, lines = self.done(
+            reads_per_reader="4",
+            hypotheses=["SUPPORTED if skills-top preferred in 8 of 8; otherwise INCONCLUSIVE"],
+            fake_reader=[PREFER_GLANCE, "omit PREFER | read 8"])
+        self.assertIn("missing c1: 1 of 8 planned reads (failed 1, not run 0)", lines)
+        self.assertIn("missing aa: 0 of 8 planned reads (failed 0, not run 0)", lines)
+        self.assertIn("hypothesis h1 completions (missing reads: 1): "
+                      "unsettled: SUPPORTED, INCONCLUSIVE possible; p from 0.0078 to 0.0703",
+                      lines)
+        self.assertNoLineStarting(lines, "DEAD:")
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_46_completions_settled(self):
+        s, result, lines = self.done(fake_reader=[WITHOUT_GLANCE, "omit PREFER | read 1"])
+        self.assertIn("hypothesis h1 completions (missing reads: 1): "
+                      "settled: REFUTED; p from 0.0313 to 0.2188", lines)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_47_dead_run(self):
+        s, result, lines = self.done(fake_reader=["aa | omit PREFER", "all | omit PREFER"])
+        self.assertIn("DEAD: 0 of 12 planned reads are valid", lines)
+        self.assertIn("missing aa: 6 of 6 planned reads (failed 6, not run 0)", lines)
+        self.assertIn("missing c1: 6 of 6 planned reads (failed 6, not run 0)", lines)
+        self.assertIn("hypothesis h1 completions (missing reads: 6): "
+                      "unsettled: SUPPORTED, REFUTED, INCONCLUSIVE possible; "
+                      "p from 0.0313 to 1.0000", lines)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_a_cut_counts_reads_not_run(self):
+        s, result, lines = self.done(
+            comparisons=TWO, spend_ceiling="8",
+            hypotheses=["base vs skills-top | " + SIX,
+                        "base vs skills-top-short | " + SHORT_SIX],
+            fake_reader=[PREFER_GLANCE])
+        self.assertIn("missing aa: 0 of 6 planned reads (failed 0, not run 0)", lines)
+        self.assertIn("missing c1: 4 of 6 planned reads (failed 0, not run 4)", lines)
+        self.assertIn("missing c2: 6 of 6 planned reads (failed 0, not run 6)", lines)
+        self.assertIn("hypothesis h1 completions (missing reads: 4): "
+                      "unsettled: SUPPORTED, REFUTED, INCONCLUSIVE possible; "
+                      "p from 0.0313 to 1.0000", lines)
+        self.assertIn("hypothesis h2 completions (missing reads: 6): "
+                      "unsettled: SUPPORTED, INCONCLUSIVE possible; p from 0.0313 to 1.0000",
+                      lines)
+        self.assertNoLineStarting(lines, "DEAD:")
+        self.assertEqual(result.exit_code, 1)
+
+    def test_no_missing_read_no_completions_line(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE])
+        self.assertIn("missing c1: 0 of 6 planned reads (failed 0, not run 0)", lines)
+        self.assertNoLineStarting(lines, "hypothesis h1 completions")
+
+    def test_completions_ignore_the_gate(self):
+        s, result, lines = self.done(
+            fake_reader=["aa | random seed 1 non-tie | strongly", PREFER_GLANCE,
+                         "omit PREFER | read 1"])
+        self.assertIn("hypothesis h1 completions (missing reads: 1): "
+                      "unsettled: SUPPORTED, INCONCLUSIVE possible; p from 0.0313 to 0.2188",
+                      lines)
+
+    def test_a_p_equal_to_alpha_is_flagged(self):
+        s, result, lines = self.done(fake_reader=[WITHOUT_GLANCE, "omit PREFER | read 1"],
+                                     alpha="0.0625")
+        self.assertIn("hypothesis h1 flag: evidence disagrees: REFUTED at p = 0.0625, "
+                      "at or above alpha 0.0625", lines)
 
 
 if __name__ == "__main__":
