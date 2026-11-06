@@ -287,6 +287,71 @@ class MissingReadsCase(unittest.TestCase):
         self.assertIn("hypothesis h1 flag: evidence disagrees: REFUTED at p = 0.0625, "
                       "at or above alpha 0.0625", lines)
 
+    def test_no_dead_line_while_the_aa_arm_has_valid_reads(self):
+        s, result, lines = self.done(fake_reader=["all | omit PREFER"])
+        self.assertIn("missing c1: 6 of 6 planned reads (failed 6, not run 0)", lines)
+        self.assertNoLineStarting(lines, "DEAD:")
+
+    def test_completions_use_the_plans_side(self):
+        s, result, lines = self.done(fake_reader=[WITHOUT_GLANCE, "omit PREFER | read 1"],
+                                     sidedness="greater")
+        self.assertIn("hypothesis h1 completions (missing reads: 1): "
+                      "settled: REFUTED; p from 0.9844 to 1.0000", lines)
+
+
+class ScaleCase(unittest.TestCase):
+    def done(self, **overrides):
+        overrides.setdefault("hypotheses", [SIX])
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def ceiling(self, arm, c, v):
+        return ("scores %s ceiling: %d of %d valid reads score both slots at 10 or more"
+                % (arm, c, v))
+
+    def separation(self, arm, n, v):
+        return ("scores %s separation: %d of %d valid reads give both slots the same score"
+                % (arm, n, v))
+
+    def at_ceiling(self, arm):
+        return "scores %s: at the ceiling; preference is the only measure" % arm
+
+    def test_10_48_both_arms_at_the_ceiling(self):
+        s, result, lines = self.done(
+            fake_reader=[PREFER_GLANCE, "all | score 10 10", "aa | score 10 10"])
+        for arm in ("aa", "c1"):
+            self.assertIn(self.ceiling(arm, 6, 6), lines)
+            self.assertIn(self.separation(arm, 6, 6), lines)
+            self.assertIn(self.at_ceiling(arm), lines)
+
+    def test_10_49_no_score_rule(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE])
+        for arm in ("aa", "c1"):
+            self.assertIn(self.ceiling(arm, 0, 6), lines)
+            self.assertIn(self.separation(arm, 6, 6), lines)
+            self.assertNotIn(self.at_ceiling(arm), lines)
+
+    def test_10_49_above_ten_and_unequal(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE, "all | score 10 12"])
+        self.assertIn(self.ceiling("c1", 6, 6), lines)
+        self.assertIn(self.separation("c1", 0, 6), lines)
+        self.assertIn(self.at_ceiling("c1"), lines)
+        self.assertIn(self.ceiling("aa", 0, 6), lines)
+        self.assertNotIn(self.at_ceiling("aa"), lines)
+
+    def test_one_slot_at_ten_is_not_the_ceiling(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE, "all | score 10 9"])
+        self.assertIn(self.ceiling("c1", 0, 6), lines)
+        self.assertNotIn(self.at_ceiling("c1"), lines)
+
+    def test_no_valid_read(self):
+        s, result, lines = self.done(fake_reader=["aa | omit PREFER", "all | omit PREFER"])
+        self.assertIn(self.ceiling("aa", 0, 0), lines)
+        self.assertIn(self.separation("c1", 0, 0), lines)
+        self.assertEqual([x for x in lines if x.endswith(
+            "at the ceiling; preference is the only measure")], [])
+
 
 if __name__ == "__main__":
     unittest.main()

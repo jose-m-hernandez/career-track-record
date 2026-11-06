@@ -1236,6 +1236,17 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                    % (max(aa_scores) - min(aa_scores), max(aa_scores), min(aa_scores)))
     else:
         out.append("A/A score spread: none (no valid A/A read)")
+    for arm, _first, _second in arms:
+        recs = valid_in(arm)
+        ceiling = len([x for x in recs
+                       if x.reply.score_a >= 10 and x.reply.score_b >= 10])
+        same = len([x for x in recs if x.reply.score_a == x.reply.score_b])
+        out.append("scores %s ceiling: %d of %d valid reads score both slots at 10 or more"
+                   % (arm, ceiling, len(recs)))
+        out.append("scores %s separation: %d of %d valid reads give both slots the same score"
+                   % (arm, same, len(recs)))
+        if recs and ceiling == len(recs):
+            out.append("scores %s: at the ceiling; preference is the only measure" % arm)
     out.append(VALIDITY_LINE)
 
     return harness.finish_result(folder, out, records, log, stopped)
