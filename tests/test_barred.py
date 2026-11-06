@@ -1030,6 +1030,24 @@ class RuleGapCase(RunCase):
                          (2, "", "cannot run: --min-chars is too large (at most 18 digits)\n"))
         self.assertNotIn("Traceback", err)
 
+    def test_32_min_chars_of_5000_zeros_then_5_is_read_as_5(self):
+        code, out, err = run_cli(["--list", L1] + CTRL + ["--min-chars", "0" * 5000 + "5",
+                                                           "clean.txt"])
+        self.assertEqual((code, out, err), (0, OK_CLEAN, ""))
+
+    def test_33_min_chars_of_5000_zeros_then_19_digits_cannot_run(self):
+        code, out, err = run_cli(["--list", L1] + CTRL + ["--min-chars", "0" * 5000 + "1" * 19,
+                                                           "clean.txt"])
+        self.assertEqual((code, out, err),
+                         (2, "", "cannot run: --min-chars is too large (at most 18 digits)\n"))
+
+    def test_34_min_chars_of_0_alone_and_all_zeros_mean_0(self):
+        for value in ("0", "0" * 5000):
+            with self.subTest(len=len(value)):
+                code, out, err = run_cli(["--list", L1] + CTRL + ["--min-chars", value,
+                                                                   "clean.txt"])
+                self.assertEqual((code, out, err), (0, OK_CLEAN, ""))
+
 
 class FixturesCase(unittest.TestCase):
     def test_generator_output_matches_the_committed_files(self):
@@ -1268,13 +1286,17 @@ class HyphenKeptCase(RunCase):
         self.assertOkRun("h6.txt", padded(["a zebra\u2013", "word here"]),
                          "zebra\u2013word\n")
 
-    def test_a_pdf_wrap_inside_a_page_is_the_stated_limit(self):
-        if shutil.which("pdftotext") is None:
+    def test_a_pdf_wrap_inside_a_page_is_found(self):
+        from tests.test_barred_pdf_layout import pdftotext_gate
+        gate = pdftotext_gate(shutil.which("pdftotext") is not None, os.environ)
+        if gate == "skip":
             self.skipTest("pdftotext is not installed")
-        code, out, err = run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"])
-        self.assertEqual((code, err), (0, ""))
-        self.assertRegex(out, r"\AOK    hyphmid.pdf: 0 of 1 entries \(control found; "
-                              r"[0-9]+ chars\)\n\Z")
+        if gate == "fail":
+            self.fail("pdftotext is not installed in CI; install poppler-utils so the "
+                      "positive control for PDF reading runs")
+        self.assertEqual(run_cli(["--list", L3] + CTRL + ["hyphmid.pdf"]),
+                         (1, "FAIL  hyphmid.pdf: 1 entries\nhyphmid.pdf:13: entry #1 (1 x)\n",
+                          ""))
 
 
 class LayoutCase(unittest.TestCase):

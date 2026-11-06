@@ -1,7 +1,8 @@
 """Read a PDF's text with the pdftotext program.
 
 This is the only module that starts another program, and it starts exactly one:
-``pdftotext FILE -`` in its default (non-layout) mode. No shell is used.
+``pdftotext FILE -`` in its default (non-layout) mode, or ``pdftotext FILE - -layout``
+in its layout mode when ``layout=True`` is given. No shell is used.
 """
 
 import subprocess
@@ -15,9 +16,10 @@ class PdfTextError(Exception):
         self.reason = reason
 
 
-def pdf_text(path, timeout=60, *, errors="replace"):
+def pdf_text(path, timeout=60, *, errors="replace", layout=False):
     try:
-        done = subprocess.run(["pdftotext", path, "-"], stdin=subprocess.DEVNULL,
+        done = subprocess.run(["pdftotext", path, "-", *(["-layout"] if layout else [])],
+                              stdin=subprocess.DEVNULL,
                               capture_output=True, timeout=timeout, check=False)
     except FileNotFoundError:
         raise PdfTextError("not found")

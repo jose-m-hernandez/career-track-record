@@ -117,7 +117,7 @@ class _OptionError(Exception):
 _BARRED_VALUE_OPTIONS = ("--list", "--control", "--min-chars")
 _BARRED_OPTIONS = _BARRED_VALUE_OPTIONS + ("--strip-comments",)
 _CLAIMS_VALUE_OPTIONS = ("--list", "--control")
-_CLAIMS_OPTIONS = _CLAIMS_VALUE_OPTIONS + ("--stale-check",)
+_CLAIMS_OPTIONS = _CLAIMS_VALUE_OPTIONS + ("--stale-check", "--check-sources")
 _TONE_OPTIONS = ("--rules", "--warn-only", "--stale-check", "--print-defaults")
 
 _BARRED_HELP = """\
@@ -153,16 +153,18 @@ exit: 0 no errors, 1 errors found, 2 it cannot run
 
 _CLAIMS_HELP = """\
 usage: track-record claims --list FILE --control TEXT [--control TEXT]...
-    [--stale-check] FILE...
+    [--stale-check] [--check-sources] FILE...
 
 Fail on any sentence your claims list has not approved.
 
   --list FILE      the claims list (required)
   --control TEXT   a string each file must hold (repeatable, any one counts)
   --stale-check    also report approved entries no file uses
+  --check-sources  also check each quote against the source file it cites
   -h, --help       show this summary and exit
 
-exit: 0 every sentence approved, 1 a sentence not approved, 2 a DEAD file or cannot run
+exit: 0 every sentence approved, 1 a sentence not approved, 2 a DEAD file or cannot run;
+    with --check-sources, also 1 a quote not found, 2 a source that cannot be read
 """
 
 
@@ -342,9 +344,10 @@ def _parse_barred(args):
         else:
             if not re.fullmatch(r"[0-9]+", value):
                 raise _OptionError("--min-chars must be a whole number, 0 or more")
-            if len(value.lstrip("0")) > 18:
+            significant = value.lstrip("0")
+            if len(significant) > 18:
                 raise _OptionError("--min-chars is too large (at most 18 digits)")
-            found["min_chars"] = int(value)
+            found["min_chars"] = int(significant or "0")
     found["files"] = files
     return found
 
@@ -375,7 +378,8 @@ def _parse_claims(args):
     """Parse the options of ``claims``. Raises _OptionError on any problem."""
     if _asks_for_help(args, _CLAIMS_VALUE_OPTIONS, _CLAIMS_OPTIONS):
         return {"help": True}
-    found = {"list": None, "controls": [], "stale_check": False, "files": []}
+    found = {"list": None, "controls": [], "stale_check": False, "check_sources": False,
+             "files": []}
     list_given = False
     i = 0
     while i < len(args):
@@ -390,6 +394,9 @@ def _parse_claims(args):
         name, equals, value = arg.partition("=")
         if name == "--stale-check" and not equals:
             found["stale_check"] = True
+            continue
+        if name == "--check-sources" and not equals:
+            found["check_sources"] = True
             continue
         if name not in _CLAIMS_VALUE_OPTIONS:
             raise _OptionError("unknown option %s" % barred.printed_path(arg))
@@ -418,7 +425,8 @@ def _main_claims(args):
         _out(_CLAIMS_HELP)
         return 0
     result = claims.run(list_path=opts["list"], files=opts["files"],
-                        controls=opts["controls"], stale_check=opts["stale_check"])
+                        controls=opts["controls"], stale_check=opts["stale_check"],
+                        check_sources=opts["check_sources"])
     if not result.ran:
         _err(result.error + "\n")
         return result.exit_code

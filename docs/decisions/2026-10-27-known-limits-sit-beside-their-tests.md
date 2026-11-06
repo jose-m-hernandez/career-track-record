@@ -2,6 +2,8 @@
 
 Date: 2026-10-27
 
+> **Updated 2026-11-05:** the PDF hyphen-wrap limit named under "Why" was closed by barred.md revision 7, and its test, `test_a_pdf_wrap_inside_a_page_is_found`, now asserts FOUND. The rule is unchanged.
+
 ## The rule
 
 > **A limit that is accepted rather than fixed gets a one-line `# Known limit:`
