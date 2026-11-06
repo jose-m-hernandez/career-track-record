@@ -1,17 +1,17 @@
 # Reader A/B harness: behaviour spec
 
-Status: accepted.
+Status: draft. Revision 3 below is not signed, and neither is revision 2, on which it is built; its owner signs revision 2 first, then the text between the draft markers as it stands. Until then, revision 1.2 (signed, sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53) is the spec the tool is built to.
 Date: 2026-11-05.
-Revision: 2.1. The signed spec (sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6) is reproduced below verbatim. Its owner signed it on 2026-11-05, with its one-sided flag text applied at its request. It revises revision 1.2's signed text (sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53), puts the evidence beside each verdict and corrects section 1. The build interpretations of revision 1.1 follow it and still apply. Revision 2.1 (2026-11-06) adds the maintainer's build interpretations of revision 2 at the end of this file, and changes no signed text.
+Revision: 3. A draft: the text between the markers below (sha256 5b9b949fe2f2f29e999bb1037fcba71ec70d8b26e93e9e49eabba139e91822dc) is revision 3 in full. It is revision 2's draft text (sha256 183c52588837f56d2ad5bf99460f6ff3147e8f76f533602884a7ec8db61e9bd2) with a sensitivity arm, replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift. The build interpretations of revision 1.1 follow it and still apply.
 
-## Signed spec
+## Draft spec (revision 3, not signed)
 
-<!-- signed spec begins: sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6 -->
+<!-- draft spec begins: sha256 5b9b949fe2f2f29e999bb1037fcba71ec70d8b26e93e9e49eabba139e91822dc -->
 # Reader A/B harness: behaviour spec
 
-Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 1 was accepted with all six decisions (§ 9) settled: 1 to 5 by the owner on 2026-10-28, and 6 by the owner on 2026-10-29.
+Status: revision 3, drafted on 2026-11-05 for the owner's signature, after revision 2. Revision 1 was accepted with all six decisions (§ 9) settled: 1 to 5 by the owner on 2026-10-28, and 6 by the owner on 2026-10-29.
 Date: 2026-11-05.
-Revision: 2. Puts the evidence beside each verdict and corrects what § 1 claims for the control (sections 1, 2, 3.1, 5.5, 6, 7, 8, 9 and 10). Every verdict is decided as in revision 1; nothing in revision 2 changes a verdict, an exit status or the prompt. Revision 1 was draft 3. It replaces draft 2 (2026-10-28). Draft 3 makes the fixtures' change a neutral one (a skills block moved above the experience section), uses neutral reader comments as the mechanism strings in 10.11 and 10.15, renames the versions in the tests to match, and settles decision 6. Draft 2's changes to draft 1 (2026-10-27) stand: the noise threshold becomes a plan field stated as a share; the fake reader's behaviour is defined on the A/A arm; slot alternation runs over the arm; failed reads leave the denominators; mechanism checks count replies per arm against the A/A floor; and the arms run in a fixed order. Tests 10.17 to 10.31 are new.
+Revision: 3. Adds a second control on the reads, the sensitivity arm; replicate runs; an optional read floor; keeps reads from not-blind readers out of every verdict; and lets a settled completion lift an INCONCLUSIVE when the plan sets a read floor (sections 1, 2, 3.1, 3.2, 4, 5.2, 5.3, 5.5, 6, 6.1, 7, 8, 9 and 10). **Revision 3 changes verdicts** of plans with a not-blind reader, and adds verdict changes a plan opts into (a sensitivity arm, a read floor). It changes no exit status and no prompt. Revision 2 put the evidence beside each verdict and corrected § 1. Revision 1 was draft 3. It replaces draft 2 (2026-10-28). Draft 3 makes the fixtures' change a neutral one (a skills block moved above the experience section), uses neutral reader comments as the mechanism strings in 10.11 and 10.15, renames the versions in the tests to match, and settles decision 6. Draft 2's changes to draft 1 (2026-10-27) stand: the noise threshold becomes a plan field stated as a share; the fake reader's behaviour is defined on the A/A arm; slot alternation runs over the arm; failed reads leave the denominators; mechanism checks count replies per arm against the A/A floor; and the arms run in a fixed order. Tests 10.17 to 10.31 are new.
 
 The command is `track-record ab`.
 
@@ -23,7 +23,7 @@ Compare two versions of the same career document by asking model readers, and re
 
 The tool exists because a tailored résumé changes many times in a day, and each change is judged by feel. The harness turns a change into a test with three parts: a hypothesis fixed in advance, a noise control, and a check that the two versions differ only where the change was meant to be.
 
-It follows rule 6 of the method ("Test before you trust") for the comparison itself: the isolation check (§ 4.2) must find zero changed lines on the A/A arm and some on every comparison before any read. For the reads, every run carries one control, the A/A arm. It shows whether the readers pick a side when the two versions are the same. It does not show that they would see a real difference, so a run that finds no difference does not show that the readers could have found one.
+It follows rule 6 of the method ("Test before you trust") for the comparison itself: the isolation check (§ 4.2) must find zero changed lines on the A/A arm and some on every comparison before any read. For the reads, every run carries one control, the A/A arm. It shows whether the readers pick a side when the two versions are the same. It does not show that they would see a real difference. A plan may add a second control, the sensitivity arm (§ 6): a version against a copy of it weakened on purpose. When the readers prefer the version, the run shows they could see that planted difference, though not that they could see one as small as the change under test. A run without a sensitivity arm that finds no difference does not show that the readers could have found one.
 
 ## 2. Scope
 
@@ -31,6 +31,8 @@ In scope:
 
 - paired reads: a reader sees one posting and two versions, A and B, and scores both;
 - the A/A control: the same version in both slots, run in every run, before any comparison;
+- the sensitivity control, when the plan names one: a version against a copy of it weakened on purpose, run after the A/A arm and before any comparison;
+- replicate runs: the same frozen plan run again in a new folder, compared with the first run;
 - preregistration: the hypotheses and decision rules, frozen by hash before the first read;
 - the isolation check: the text that differs between the two versions, compared with what the plan says should differ;
 - scoring the replies against the frozen rules, and writing a result;
@@ -53,7 +55,7 @@ The plan is a plain-text file the user writes before any read. Each line is `key
 - `versions`: each version file, with a short name;
 - `comparisons`: one or more comparisons, each written `X vs Y` in version names. The tool adds the A/A arm (below) when the plan leaves it out, and says so in the result;
 - `aa-version`: the version used in both slots of the A/A arm (default: the second version of the first comparison);
-- `readers`: each reader's name and command (§ 5.1), and whether it is `not-blind` (§ 5.5);
+- `readers`: each reader's name and command (§ 5.1), whether it is `not-blind` (§ 5.5), and optionally the `family` it belongs to, a name shared by readers that are alike (for example, one model behind two commands) (§ 5.5);
 - `reads-per-reader`: reads per arm for each reader (default 3, which gives 6 reads per arm with two readers);
 - `hypotheses`: each with its decision rule written as counts of valid reads. For example, "SUPPORTED if Y is preferred in 6 of 6; REFUTED if X is preferred in 4 or more; otherwise INCONCLUSIVE";
 - `mechanisms` (optional): a case-insensitive pattern, the reply fields it is matched against, and the count of matching replies that supports it. The default fields are every free-text field: `DROVE-IT`, `DOUBTS`, `UNDERSOLD`, `OVEREXPLAINED`, `OWNED`, `FLAG-FIXES`, and the rationale part of `PREFER` (§ 5.4);
@@ -61,6 +63,11 @@ The plan is a plain-text file the user writes before any read. Each line is `key
 - `noise-threshold`: the share of valid A/A reads that are non-TIE and marked `clearly` or `strongly` at which every comparison is reported INCONCLUSIVE (default `1/2`, § 6);
 - `sidedness` (optional): `two`, `greater` or `less`, the side of the sign test in § 6.1 (default `two`). `greater` tests whether the second-listed version of a comparison is preferred, and `less` whether it is not;
 - `alpha` (optional): the level the disagreement flag in § 6.1 compares each p-value with (default `0.05`). It is written as `0.` followed by one or more digits, not all of them zero, and in no other form;
+- `sensitivity` (optional): a pair written `X vs W`, where `X` is a version in `versions` and `W` is a copy of it weakened on purpose, also in `versions`. The plan should say in a comment what was weakened. Neither name may appear in a hypothesis, and the pair is not a comparison;
+- `sensitivity-scope`: the line patterns where `X` and `W` may differ, under the rules of `change-scope`; required when `sensitivity` is given, and refused without it;
+- `sensitivity-threshold` (optional): the share of valid sensitivity reads that must prefer `X`, written `<n>/<d>` (default `5/6`). It must be above 1/2 and at most 1;
+- `min-valid-reads` (optional): the read floor, a whole number, 1 or more. A comparison arm with fewer valid reads from blind readers has its hypothesis and mechanism verdicts reported INCONCLUSIVE (§ 6);
+- `replicate-of` (optional): the freeze file of a first run of this same plan (§ 3.2);
 - `spend-ceiling`: the run's limit, in the reader's own units;
 - `amends` (optional): the freeze file of the plan this one replaces (§ 3.2).
 
@@ -72,6 +79,7 @@ The plan is a plain-text file the user writes before any read. Each line is `key
 - After a freeze, neither the plan nor its inputs may change. A run checks every hash first and exits `2`, naming the file, if any one differs. That includes the plan itself.
 - The run folder is the folder that holds the plan.
 - An amendment is a new plan, in a new run folder, whose `amends` key names the earlier freeze file. It gets its own freeze. The result names both freezes, and the earlier freeze file and run folder are never edited.
+- A replicate is a new plan, in a new run folder, whose `replicate-of` key names the freeze file of a first run. With that one line removed, the replicate's plan must be byte-identical to the plan the first freeze names, and every input it names must have the hash the first freeze recorded; `freeze` refuses it otherwise (exit `2`, naming the file). `replicate-of` must name a first run, not another replicate or an amendment, and a plan may not carry both `replicate-of` and `amends`. The first run folder is read, never written. A replicate's verdicts come from its own reads; its result also compares its counts with the first run's (§ 6).
 
 ### 3.3 Version and posting files
 
@@ -81,7 +89,7 @@ These are UTF-8 text, or PDF read through the same text extraction the barred ch
 
 ### 4.1 Slot assignment
 
-Within an arm, reads are numbered in the order they run: the first reader's reads, then the second reader's, and so on. Odd-numbered reads put the first-listed version in slot A, and even-numbered reads put the second-listed version there. With 6 reads, each version sits in slot A 3 times. With an odd count, the first-listed version gets the extra read in slot A, and the result shows each reader's slot split.
+The arms are the A/A arm (`aa`), the sensitivity arm (`s`), when the plan names one, and the comparisons (`c1`, `c2` and so on). Within an arm, reads are numbered in the order they run: the first reader's reads, then the second reader's, and so on. Odd-numbered reads put the first-listed version in slot A, and even-numbered reads put the second-listed version there. With 6 reads, each version sits in slot A 3 times. With an odd count, the first-listed version gets the extra read in slot A, and the result shows each reader's slot split.
 
 The key file is written before any read runs. Readers see only `A.txt` and `B.txt`.
 
@@ -93,6 +101,8 @@ For each comparison, the tool compares the two versions line by line, after coll
 - If any changed line is outside the scope, the run stops before reading, exits `2` and prints those lines. The user then narrows the versions or widens the scope, in a new plan.
 - If a comparison has no changed line at all, the run stops and exits `2`, because a file compared with itself is the control, not a test.
 - A plan with no comparison exits `2` (no A/A arm is possible without a version to copy).
+
+The sensitivity pair gets the same check as a comparison, against `sensitivity-scope`: at least one changed line, and every changed line inside the scope, or the run stops before reading and exits `2`.
 
 The A/A arm must show no changed line, and that is its own positive control. The check has to report zero on the A/A arm and nonzero on every real comparison, or the run does not start.
 
@@ -106,7 +116,7 @@ A reader is a command the tool runs once per read. The read folder is its only i
 
 The test suite and CI never start a live reader. For a live run, the tool prints the exact commands and the spend estimate. It runs them only when the user types the `--live` flag. Without `--live`, it prints, starts no reader, writes no reply and exits `0`. The fake reader never needs `--live`.
 
-The A/A arm runs first, and then the comparisons in plan order. The spend ceiling stops the run between reads once it is reached. Reads that have already returned are kept, and the result says the run was cut.
+The A/A arm runs first, then the sensitivity arm when the plan names one, and then the comparisons in plan order. The spend ceiling stops the run between reads once it is reached. Reads that have already returned are kept, and the result says the run was cut.
 
 ### 5.3 The fake reader
 
@@ -120,7 +130,7 @@ The fake reader is a deterministic program for tests. Given a rule, it writes a 
 - "omit field F";
 - "on read k only", combined with another rule: that rule applies to read k, and every other read is TIE.
 
-A rule applies to every comparison arm unless the plan names the arm it applies to, and it applies to the A/A arm only when the plan names it. On the A/A arm, the fake reader answers TIE unless the plan gives that arm its own rule. A non-TIE reply is marked `slightly` unless the rule names a strength. When the rules name no preference (for example, only "write S in F"), the reply is TIE. Each fake read costs 1 spend unit.
+A rule applies to every comparison arm unless the plan names the arm it applies to, and it applies to the A/A arm or the sensitivity arm only when the plan names that arm (`aa` or `s`). On the A/A arm, the fake reader answers TIE unless the plan gives that arm its own rule. A non-TIE reply is marked `slightly` unless the rule names a strength. When the rules name no preference (for example, only "write S in F"), the reply is TIE. Each fake read costs 1 spend unit.
 
 ### 5.4 Reply format
 
@@ -135,41 +145,44 @@ A reply that is missing `READ`, `SCORE-A`, `SCORE-B` or `PREFER`, or whose `PREF
 
 ### 5.5 Blindness
 
-The prompt tells the reader that it knows nothing about the candidate, and the `PRIOR` field asks what it knew before reading. Any `PRIOR` other than `nothing` is flagged on that read in the result. A reader known to receive the user's identity from its own environment is marked `not-blind` in the plan. Its reads are reported separately, as well as together with the others, and every verdict line says how many of the reads behind it came from a reader marked `not-blind` (§ 6.1).
+The prompt tells the reader that it knows nothing about the candidate, and the `PRIOR` field asks what it knew before reading. Any `PRIOR` other than `nothing` is flagged on that read in the result. A reader known to receive the user's identity from its own environment is marked `not-blind` in the plan. Its reads are reported separately and are never counted in a verdict, a gate or a mechanism count: from revision 3, everything in § 6 counts reads from blind readers only. Every verdict line says how many reads it left out because their reader is marked `not-blind` (§ 6.1). A reader's `family`, when given, is reported with its reads, and the result counts valid reads per family; a family changes no verdict.
 
 ## 6. Scoring
 
-Scoring reads only the replies, the key and the frozen plan. Failed reads are left out of every denominator below. A rule that needs N of N valid reads is INCONCLUSIVE when fewer than N reads are valid.
+Scoring reads only the replies, the key and the frozen plan, and, for a replicate, the first run's replies and key. Failed reads, and reads from readers marked `not-blind`, are left out of every denominator below. A rule that needs N of N valid reads is INCONCLUSIVE when fewer than N reads are valid, unless a settled completion lifts it (§ 6.1).
 
 - **Preference.** Each read's preference is mapped through the key, from slot to version.
 - **Hypotheses.** Each one gets SUPPORTED, REFUTED or INCONCLUSIVE from its frozen rule.
 - **A/A gate.** If the share of valid A/A reads that are non-TIE and marked `clearly` or `strongly` is at or above the plan's noise threshold, every comparison is reported INCONCLUSIVE, whatever it showed, and the result says why. `Slightly` picks do not count toward the gate. If the A/A arm has fewer valid reads than planned (failed reads or a cut), the gate is "not evaluated", and every comparison is INCONCLUSIVE.
 - **Position.** The share of non-TIE picks that went to slot A is reported per arm and overall. In an arm with two or more non-TIE picks, all in the same slot, position is INCONCLUSIVE whatever the version counts. Alternating slots then gives each version exactly the wins its slot gave it. With fewer than two non-TIE picks, position is "not assessable" and the verdict stands as the rule gave it.
 - **Mechanisms.** A mechanism check counts the valid replies in each arm in which its pattern matches any named field (replies, not matches). It reports that count beside the same count on the A/A arm, which is the pattern's noise floor. Each count is shown as a share of the arm's valid reads. If the share in a comparison is no higher than the A/A share, the pattern is reported as unable to separate the versions, and its rule is INCONCLUSIVE.
-- **Scores.** Scores are reported per version and per reader, with the A/A arm's score spread beside them.
+- **Sensitivity gate.** When the plan names a sensitivity pair: if the share of valid sensitivity reads that prefer `X` is below `sensitivity-threshold`, every comparison is reported INCONCLUSIVE, whatever it showed, and the result says the readers did not detect the planted difference. `Slightly` picks count toward this gate. If the sensitivity arm has fewer valid reads than planned (failed reads or a cut), the gate is "not evaluated", and every comparison is INCONCLUSIVE. A failed or unevaluated sensitivity gate voids mechanism verdicts as well as hypotheses, as the A/A gate does. Mechanisms are not counted on the sensitivity arm. Without a sensitivity pair, the result says the gate was not tested, and verdicts stand as the other rules give them.
+- **Read floor.** When the plan sets `min-valid-reads`, a comparison arm with fewer valid reads than the floor has its hypothesis and mechanism verdicts reported INCONCLUSIVE, with the reason "below the read floor".
+- **Scores.** Scores are reported per version and per reader, with the A/A arm's score spread beside them. When the plan names a sensitivity pair, the result also gives, per reader, the sensitivity arm's score gap: the mean score that reader gave `X` minus the mean it gave `W`.
+- **Replicates.** A replicate's result gives, for each hypothesis, the first run's and this run's counts (`k` of `n` non-TIE picks for the second-listed version, blind reads only) and the two-sided Fisher exact p-value for the difference between them. Two runs of one frozen plan should differ only by chance; a small p-value says they differ by more. Known limit: each replicate is compared with the first run only, so spread across three or more runs is not measured.
 
 ### 6.1 Evidence beside the verdicts
 
 Nothing in this section changes a verdict. Each line is reported beside the verdicts above, which come from the frozen rules alone (§ 8).
 
-- **Sign test.** For each hypothesis, over the valid reads of its comparison arm: `n` is the number of reads that pick a version, whatever their strength (a `slightly` pick counts), and `k` is the number of those that pick the second-listed version of the comparison (`Y` in `X vs Y`). TIEs are left out of `n` and reported as a count. The p-value is exact, from the binomial distribution with `n` trials and chance 1/2: under `greater`, the chance of `k` or more; under `less`, the chance of `k` or fewer; under `two`, twice the smaller of those two, and at most 1. Under `greater` or `less` the p-value measures one direction only. A SUPPORTED or REFUTED verdict for the other version is not compared with `alpha`; its flag line says that direction was not tested.
+- **Sign test.** For each hypothesis, over the valid reads of its comparison arm: `n` is the number of reads that pick a version, whatever their strength (a `slightly` pick counts), and `k` is the number of those that pick the second-listed version of the comparison (`Y` in `X vs Y`). TIEs are left out of `n` and reported as a count. The p-value is exact, from the binomial distribution with `n` trials and chance 1/2: under `greater`, the chance of `k` or more; under `less`, the chance of `k` or fewer; under `two`, twice the smaller of those two, and at most 1. Under `greater` or `less` the p-value measures one direction only, so a verdict for the other version always comes with a large p-value.
 - **Interval.** The 95% Wilson score interval for `k/n`, with z = 1.959964, whatever `alpha` is.
 - **No pick.** When `n` is 0, neither the p-value nor the interval is computed, and the line says so.
-- **Disagreement flag.** A hypothesis whose verdict is SUPPORTED or REFUTED with a p-value at or above `alpha`, or INCONCLUSIVE with a p-value below `alpha`, is flagged. The exact p-value is compared, not the printed one. There is no flag when `n` is 0, or when the verdict is INCONCLUSIVE because of the A/A gate or position (its reason line already says why). Under a one-sided test, a SUPPORTED or REFUTED verdict whose deciding clause names the version the test does not look at (the first-listed under `greater`, the second-listed under `less`) is not compared with `alpha`: its flag line says `one-sided test: this direction not tested` instead. The flag never changes the verdict.
-- **Missing reads.** For each arm, the result counts the planned reads that are missing: failed, and not run (a cut or a stopped run). For each hypothesis with missing reads in its arm, the frozen rule is evaluated again under every completion of those reads, each one counted as a pick for `X`, a pick for `Y`, or a TIE, as if every planned read were valid. The result says whether one verdict holds under every completion (settled) or which verdicts are possible (unsettled), and gives the range of the p-value over the completions. This reads the rule alone: it does not complete the A/A arm and does not apply the A/A gate or position. It never changes the verdict.
+- **Disagreement flag.** A hypothesis whose verdict is SUPPORTED or REFUTED with a p-value at or above `alpha`, or INCONCLUSIVE with a p-value below `alpha`, is flagged. The exact p-value is compared, not the printed one. There is no flag when `n` is 0, or when the verdict is INCONCLUSIVE because of the A/A gate or position (its reason line already says why). The flag never changes the verdict.
+- **Missing reads.** For each arm, the result counts the planned reads that are missing: failed, and not run (a cut or a stopped run). For each hypothesis with missing reads in its arm, the frozen rule is evaluated again under every completion of those reads, each one counted as a pick for `X`, a pick for `Y`, or a TIE, as if every planned read were valid. The result says whether one verdict holds under every completion (settled) or which verdicts are possible (unsettled), and gives the range of the p-value over the completions. This reads the rule alone: it does not complete the A/A arm or the sensitivity arm, and does not apply a gate, position or the read floor. **The lift.** It changes a verdict in one case only: when the plan sets `min-valid-reads`, the arm's valid reads meet it, the verdict is INCONCLUSIVE because of the rule alone (not a gate, position or the floor), and one verdict holds under every completion, that verdict replaces INCONCLUSIVE, and the result says it was lifted. Without a read floor nothing is lifted.
 - **A dead run.** When no read in the run is valid, the result says so in one line. The exit status is `1`, as for any run with a failed read (§ 7).
 - **The top of the scale.** The built-in prompt asks for scores from 1 to 10. For each arm, the result counts the valid reads that score both slots at 10 or more, and the valid reads that give both slots the same score. When every valid read of an arm scores both slots at 10 or more, the scores cannot show a difference in that arm, and the result says that preference is the only measure there.
-- **Not-blind reads.** Each hypothesis and mechanism verdict line ends with the number of its valid reads that came from a reader marked `not-blind` (§ 5.5).
-- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt may not be independent, so each p-value assumes an independence the reads may not have and may be too small. Each p-value carries a short form of the same caveat on the same line.
+- **Not-blind reads.** Each hypothesis and mechanism verdict line ends with the number of valid reads it left out because their reader is marked `not-blind` (§ 5.5).
+- **Sensitivity gate evidence.** The gate's share gets the exact one-sided p-value against 1/2 (the chance that `k` or more of `n` valid sensitivity reads prefer `X` if readers picked at random, TIEs counted as reads that do not prefer `X`) and its 95% Wilson interval.
+- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt are not independent, so each p-value assumes an independence the reads may not have and may be too small. Each p-value carries a short form of the same caveat on the same line.
 
 #### Printed forms
 
 In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`, `c2` and so on, and `<h>` is the hypothesis name. A p-value is printed rounded half up to 4 decimal places, or as `< 0.0001` when it rounds to 0. An interval's lower end is rounded down and its upper end rounded up, to 3 decimal places. `<side>` is `two-sided`, `one-sided greater` or `one-sided less`.
 
-- `hypothesis <h> evidence: <Y> <k> of <n> non-TIE picks, <t> TIE; p = <p> <side> (reads may be correlated; may be too small); 95% interval <lo> to <hi>`
+- `hypothesis <h> evidence: <Y> <k> of <n> non-TIE picks, <t> TIE; p = <p> <side> (reads correlated; may be too small); 95% interval <lo> to <hi>`
 - With no pick: `hypothesis <h> evidence: no non-TIE pick, <t> TIE; p and interval not computed`
 - `hypothesis <h> flag: evidence disagrees: <verdict> at p = <p>, at or above alpha <alpha>`, or `... below alpha <alpha>` for an INCONCLUSIVE verdict. `<alpha>` is printed as the plan wrote it, or `0.05` by default.
-- Under a one-sided test, for a verdict in the direction the test does not look at: `hypothesis <h> flag: one-sided test: this direction not tested`.
 - `missing <arm>: <m> of <planned> planned reads (failed <f>, not run <r>)`, one line per arm, `m` = `f` + `r`.
 - `hypothesis <h> completions (missing reads: <m>): settled: <verdict>; p from <a> to <b>`, or `... unsettled: <verdicts> possible; p from <a> to <b>`, with the possible verdicts in the order SUPPORTED, REFUTED, INCONCLUSIVE and separated by `, `. When no completion has a pick, the part after the last `;` is `p not computed`. A hypothesis whose arm has no missing read gets no completions line.
 - `DEAD: 0 of <N> planned reads are valid`, where `N` counts the planned reads of every arm.
@@ -177,8 +190,15 @@ In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`,
 - `scores <arm> separation: <s> of <v> valid reads give both slots the same score`
 - When `c` equals `v` and `v` is 1 or more: `scores <arm>: at the ceiling; preference is the only measure`
 - `A/A gate interval: <lo> to <hi> (95%, Wilson)`, the interval for the gate's own share (non-TIE `clearly` or `strongly` reads over valid A/A reads), or `A/A gate interval: not computed` when the A/A arm has no valid read.
-- Every hypothesis verdict line and mechanism verdict line ends with ` [not blind: <b> of <v> valid reads]`.
-- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.`
+- Every hypothesis verdict line and mechanism verdict line ends with ` [not blind: <b> reads left out]`.
+- `sensitivity gate: passed (<k> of <n> valid sensitivity reads prefer <X>; threshold <t>)`, `sensitivity gate: failed (...)` with the same parentheses, `sensitivity gate: not evaluated (<v> valid reads of <p> planned)`, or `sensitivity gate: not tested`, on the line after the A/A gate line.
+- `sensitivity gate evidence: p = <p> one-sided greater (reads correlated; may be too small); 95% interval <lo> to <hi>`, when the gate was evaluated.
+- `sensitivity score gap <reader>: <gap>`, one line per reader with a valid sensitivity read, with `<gap>` printed as the score lines print a mean.
+- A hypothesis reason line `hypothesis <h> reason: below the read floor (<v> valid reads, floor <f>)`, and a mechanism reason line of the same form.
+- After a lift, the verdict line gives the lifted verdict, and the reason line reads `hypothesis <h> reason: lifted from INCONCLUSIVE: settled under every completion of <m> missing reads; read floor <f> met`.
+- In a replicate: `replicate of: <first freeze sha256>`, and per hypothesis `hypothesis <h> replicate: first run <Y> <k1> of <n1>, this run <k2> of <n2>; Fisher exact p = <p> two-sided`.
+- `family <name>: <v> valid reads`, one line per family named in the plan, counting its valid reads across every arm.
+- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt are not independent, so each p-value assumes independence and may be too small.`
 
 ## 7. Output and exit status
 
@@ -191,7 +211,8 @@ In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`,
 - the A/A gate;
 - the position shares;
 - failed reads and any cut;
-- the evidence lines of § 6.1: each hypothesis's sign test, interval, flag and completions, the missing reads per arm, the A/A gate interval, the score ceiling and separation per arm, any `DEAD` line, and the validity line.
+- the evidence lines of § 6.1: each hypothesis's sign test, interval, flag and completions, the missing reads per arm, the A/A gate interval, the score ceiling and separation per arm, any `DEAD` line, and the validity line;
+- the sensitivity gate, its counts, evidence and score gaps; any read-floor or lift reason; the counts per family; and, in a replicate, the comparison with the first run.
 
 Every run writes a new result; an earlier result is never overwritten.
 
@@ -209,7 +230,9 @@ When causes combine, the higher code wins: `2` over `1` over `0`.
 - The A/A arm runs in every run, and it runs first.
 - The isolation check runs before any read.
 - Verdicts come from the frozen rules only. The tool has no option to change a rule at scoring time.
-- The evidence of § 6.1 sits beside the verdicts and never changes one.
+- The evidence of § 6.1 sits beside the verdicts and never changes one, except the lift, which only a plan with a read floor allows.
+- When a plan names a sensitivity pair, the sensitivity arm runs in every run of that plan, after the A/A arm and before any comparison.
+- Reads from a reader marked `not-blind` are never counted in a verdict or a gate.
 - A reader's suggested rewrite is reported as text and applied to nothing.
 
 ## 9. Decisions
@@ -227,9 +250,18 @@ Settled 2026-10-28:
 Settled 2026-11-05, for revision 2:
 
 7. The sign test leaves TIEs out and reports them as a count, and a `slightly` pick counts as a pick. The default side is two-sided, set with `sidedness: two|greater|less`.
-8. `alpha` defaults to 0.05. The disagreement flag works in both directions (SUPPORTED or REFUTED at p ≥ alpha, INCONCLUSIVE at p < alpha) and never changes a verdict. Under a one-sided test, a verdict in the direction the test does not look at says `one-sided test: this direction not tested` instead of being flagged.
+8. `alpha` defaults to 0.05. The disagreement flag works in both directions (SUPPORTED or REFUTED at p ≥ alpha, INCONCLUSIVE at p < alpha) and never changes a verdict.
 9. The missing-read completions are reported only; they lift no INCONCLUSIVE. A dead run keeps exit `1` and gains the `DEAD` line.
 10. Not-blind reads still count in the verdicts in revision 2, and every verdict line says how many there are.
+
+Proposed for revision 3, settled when the owner signs it:
+
+11. The sensitivity arm is optional, and a run without one says "sensitivity gate: not tested".
+12. The sensitivity threshold defaults to 5/6, and `freeze` refuses one at or below 1/2.
+13. `Slightly` picks count toward the sensitivity gate.
+14. A replicate is a new run folder that names the first run's freeze; repeat reads inside one folder are not offered.
+15. From revision 3, reads from not-blind readers are never counted in a verdict, which changes the verdicts of plans that have one.
+16. A settled completion lifts an INCONCLUSIVE only when the plan sets a read floor and the arm meets it.
 
 ## 10. Acceptance tests (known answers)
 
@@ -277,8 +309,8 @@ Unless a test says otherwise, the plan has one comparison (`base vs skills-top`)
 
 Tests 10.42 to 10.57 are new in revision 2 (10.32 to 10.41 are the build interpretations' tests, below). Where a test names "the example rule", the hypothesis is `SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE`.
 
-- 10.42: 10.1 with the example rule. The result has `hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; p = 0.0313 two-sided (reads may be correlated; may be too small); 95% interval 0.609 to 1.000`, the verdict line `hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]`, and no flag line. (The exact p-value is 1/32 = 0.03125, so rounding half to even would print 0.0312.)
-- 10.43: 10.42 with `sidedness: greater` prints `p = 0.0156 one-sided greater`. With `sidedness: less` it prints `p = 1.0000 one-sided less` and the flag line `hypothesis h1 flag: one-sided test: this direction not tested`, because the deciding clause names `skills-top`, the version `less` does not look at. The verdict is SUPPORTED in both.
+- 10.42: 10.1 with the example rule. The result has `hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; p = 0.0313 two-sided (reads correlated; may be too small); 95% interval 0.609 to 1.000`, the verdict line `hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]`, and no flag line. (The exact p-value is 1/32 = 0.03125, so rounding half to even would print 0.0312.)
+- 10.43: 10.42 with `sidedness: greater` prints `p = 0.0156 one-sided greater`. With `sidedness: less` it prints `p = 1.0000 one-sided less` and the flag line `hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 1.0000, at or above alpha 0.05`. The verdict is SUPPORTED in both.
 - 10.44: Reads 1 to 4 of the comparison `prefer containing "At a glance"`, reads 5 and 6 `prefer without "At a glance"`, and the hypothesis is `SUPPORTED if skills-top preferred in 4 or more; otherwise INCONCLUSIVE`. It is SUPPORTED, with `skills-top 4 of 6 non-TIE picks, 0 TIE; p = 0.6875 two-sided` and `95% interval 0.299 to 0.904` (the exact lower end, 0.29999…, is rounded down), and the flag line `hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 0.6875, at or above alpha 0.05`.
 - 10.45: `reads-per-reader: 4`, `prefer containing "At a glance"` on the comparison, `omit PREFER | read 8`, and the hypothesis `SUPPORTED if skills-top preferred in 8 of 8; otherwise INCONCLUSIVE`. Seven reads are valid, so the verdict is INCONCLUSIVE. The result has `skills-top 7 of 7 non-TIE picks, 0 TIE; p = 0.0156 two-sided`, `95% interval 0.645 to 1.000`, the flag line `hypothesis h1 flag: evidence disagrees: INCONCLUSIVE at p = 0.0156, below alpha 0.05`, `missing c1: 1 of 8 planned reads (failed 1, not run 0)`, `missing aa: 0 of 8 planned reads (failed 0, not run 0)` and `hypothesis h1 completions (missing reads: 1): unsettled: SUPPORTED, INCONCLUSIVE possible; p from 0.0078 to 0.0703`. Exit 1.
 - 10.46: `prefer without "At a glance"` on the comparison, `omit PREFER | read 1`, the example rule. Five reads are valid, all for `base`, so the verdict is REFUTED, with `skills-top 0 of 5 non-TIE picks, 0 TIE; p = 0.0625 two-sided`, `95% interval 0.000 to 0.435`, the flag line `hypothesis h1 flag: evidence disagrees: REFUTED at p = 0.0625, at or above alpha 0.05`, and `hypothesis h1 completions (missing reads: 1): settled: REFUTED; p from 0.0313 to 0.2188`. Exit 1.
@@ -293,7 +325,29 @@ Tests 10.42 to 10.57 are new in revision 2 (10.32 to 10.41 are the build interpr
 - 10.55: 10.2 (always TIE) has `hypothesis h1 evidence: no non-TIE pick, 6 TIE; p and interval not computed` and no flag line.
 - 10.56: 10.8 with `prefer containing "At a glance"` on the comparison and the example rule. The rule alone would give SUPPORTED at p = 0.0313. The gate trips, so the verdict is INCONCLUSIVE with the A/A reason, the evidence line is printed in full, and there is no flag line.
 - 10.57: Revision 2 changes no prompt: the built-in prompt's sha256 equals the one the previous release recorded, so a plan frozen before revision 2 without `sidedness` or `alpha` still runs.
-<!-- signed spec ends -->
+
+Tests 10.58 to 10.76 are new in revision 3. They add a fixture, `base-weak`: the `base` résumé with one bullet's specific phrase, here called P, replaced by a vague one, so that P appears only in `base`. Where a test names "the sensitivity plan", the plan adds `sensitivity: base vs base-weak` and a `sensitivity-scope` naming that bullet's line.
+
+- 10.58: The sensitivity plan with `s | prefer containing "P"` and the comparison as 10.1: `sensitivity gate: passed (6 of 6 valid sensitivity reads prefer base; threshold 5/6)`, `sensitivity gate evidence: p = 0.0156 one-sided greater (reads correlated; may be too small); 95% interval 0.609 to 1.000`, the comparison SUPPORTED, exit 0.
+- 10.59: The sensitivity plan with `s | tie`: the gate fails (0 of 6), and the comparison is INCONCLUSIVE with a reason naming the sensitivity gate. Exit 0.
+- 10.60: `sensitivity: base vs base` exits 2 before reading.
+- 10.61: A `base-weak` that also differs from `base` outside `sensitivity-scope` exits 2 before reading and prints the line.
+- 10.62: Every earlier acceptance test, with no `sensitivity` key, gives the result it gave under revision 2 plus the line `sensitivity gate: not tested`, except the tests with a reader marked `not-blind` (10.24 and 10.50), whose not-blind reads are now left out of every count (decision 15, as 10.71 shows).
+- 10.63: The sensitivity plan with `s | omit PREFER | read 1`: the gate is "not evaluated", the comparison is INCONCLUSIVE, exit 1.
+- 10.64: The sensitivity plan with a spend ceiling of 9: the A/A arm completes, the sensitivity arm is cut at 3 reads, the gate is "not evaluated", the run is reported cut, exit 1.
+- 10.65: The sensitivity plan with `s | prefer slot A`: `base` is preferred on reads 1, 3 and 5 only, so the gate fails (3 of 6, below 5/6), and position on `s` is INCONCLUSIVE.
+- 10.66: The sensitivity plan with `s | score 8 5`. The score rule follows the slots, so reader-1 (reads 1 to 3; `base` in slot A on reads 1 and 3) gives `base` 8, 5, 8 and `base-weak` 5, 8, 5, a gap of 1, and reader-2 (reads 4 to 6; `base` in slot A on read 5) gives a gap of -1.
+- 10.67: `all | prefer slot B` with the sensitivity plan and no `s` rule: the sensitivity reads are TIE (the `all` arm does not reach `s`), so the gate fails.
+- 10.68: `freeze` refuses `sensitivity-threshold: 1/2`, `sensitivity-threshold: 2/5` and `sensitivity` without `sensitivity-scope`, naming the plan line; `sensitivity-threshold: 4/6` freezes.
+- 10.69: 10.11's plan made the sensitivity plan with `s | tie`: the gate fails, the `too long` mechanism is INCONCLUSIVE, and its 4/6 count is still shown.
+- 10.70: A hypothesis that names `base-weak` is refused by `freeze`, naming the plan line.
+- 10.71: 10.1 with reader-2 marked `not-blind`: three blind reads remain, so "skills-top preferred in 6 of 6" is INCONCLUSIVE (it was SUPPORTED under revision 2), and the verdict line ends ` [not blind: 3 reads left out]`. This is the verdict change of decision 15.
+- 10.72: 10.9's plan (one failed read, 5 valid) with `min-valid-reads: 6`: the hypothesis reason is `below the read floor (5 valid reads, floor 6)`. With `min-valid-reads: 5` the reason is the rule's own, and the verdict is INCONCLUSIVE.
+- 10.73: The rule `SUPPORTED if skills-top preferred in 5 of 6; otherwise INCONCLUSIVE`, `prefer containing "At a glance"`, `omit PREFER | read 1`: five valid reads, so the rule gives INCONCLUSIVE, and every completion gives SUPPORTED. Without a read floor the verdict stays INCONCLUSIVE, with `completions (missing reads: 1): settled: SUPPORTED`. With `min-valid-reads: 5` the verdict is SUPPORTED, with the reason `lifted from INCONCLUSIVE: settled under every completion of 1 missing reads; read floor 5 met`. Exit 1 in both.
+- 10.74: 10.73's plan with `min-valid-reads: 5` and the A/A gate tripped as in 10.8: the verdict stays INCONCLUSIVE with the A/A reason; nothing is lifted.
+- 10.75: A replicate of 10.1 (a second folder whose plan adds only `replicate-of`) gives `replicate of: <the first freeze's sha256>` and `hypothesis h1 replicate: first run skills-top 6 of 6, this run 6 of 6; Fisher exact p = 1.0000 two-sided`, and the first run folder stays byte-identical. A replicate whose plan differs from the first in any other line, or whose version file has changed since the first freeze, is refused by `freeze`, naming the file.
+- 10.76: Readers `reader-1 | fake | family f1` and `reader-2 | fake | family f1`: the result has `family f1: 12 valid reads` (every valid read of every arm), and every verdict is as in 10.1.
+<!-- draft spec ends -->
 
 ## Build interpretations (maintainer, 2026-10-29)
 
@@ -416,12 +470,3 @@ Without `--live`, a plan with a live reader prints each live command and the est
 ### Known limit: moved blocks
 
 Changed lines are found with Python's `difflib.SequenceMatcher` (`autojunk=False`) over the collapsed, non-blank lines. A moved block shows as removed and added lines only when the text it moves past is longer than the block itself. A long block moved past a short one shows the short one as changed instead. If those lines fall outside the change scope, the run stops at the isolation check (exit `2`) before any read; if they are inside it, only in-scope lines differ and the run goes ahead. Either way the limit can stop a run. It cannot let through a line whose text changed, but it can report a moved block as a change to the block it moved past.
-
-## Build interpretations of revision 2 (maintainer, 2026-11-06)
-
-Revision 2.1 completes signed revision 2 and does not edit it. It reads these points, which the signed text leaves open:
-
-1. **No flag beside a reason line.** Section 6.1 says there is no disagreement flag when a verdict is INCONCLUSIVE because of the A/A gate or position. Whenever a hypothesis prints a reason line for the A/A gate or for position, it gets no flag line, even when its rule alone would also have given INCONCLUSIVE.
-2. **The A/A gate interval.** It is printed whenever the A/A arm has at least one valid read, including when the gate is "not evaluated". `not computed` means the arm has no valid read.
-3. **The completions.** Every split of an arm's missing reads into picks for `X`, picks for `Y` and TIEs is tried. Each split counts every planned read of the arm as valid, which is how a rule's `<n> of <m>` is read there. The p-value range uses the plan's `sidedness`.
-4. **Where the lines go.** The `missing` lines and any `DEAD` line follow the per-arm read counts. The A/A gate interval follows the A/A gate line. For each hypothesis, the evidence, flag and completions lines follow its verdict and reason lines, in that order. The score ceiling and separation lines follow the A/A score spread. The validity line is the last line before the result's tail.

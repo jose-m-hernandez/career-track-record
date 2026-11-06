@@ -6,6 +6,11 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- The Reader A/B spec, docs/specs/reader-ab.md, is revision 3, a draft its owner has not signed yet, built on revision 2, also unsigned. Revision 2 puts an exact p-value, an interval and the missing reads beside each verdict, and corrects what section 1 claims for the A/A control. Revision 3 adds an optional sensitivity arm (a version against a copy weakened on purpose), replicate runs and an optional read floor, and lets a settled completion lift an INCONCLUSIVE when the plan sets a floor. **It changes verdicts:** reads from a reader marked `not-blind` are no longer counted in any verdict.
+- The reader panel spec, docs/specs/reader-panel.md, is revision 3, a draft its owner has not signed yet, built on revision 2, also unsigned. Revision 2 puts an interval beside each clause count, an exact p-value when a rule names a share to test against, and the missing reads beside each verdict, and its inner status line and decisions now read as signed. Revision 3 adds replicate runs and an optional read floor, and the same lift. **It changes verdicts:** reads from a reader marked `not-blind` are no longer counted in any rule or gate.
+
 ## [0.7.0] - 2026-11-06
 
 ### Added

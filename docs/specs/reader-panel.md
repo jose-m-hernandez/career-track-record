@@ -1,17 +1,17 @@
 # Reader panel: behaviour spec
 
-Status: accepted.
+Status: draft. Revision 3 below is not signed, and neither is revision 2, on which it is built; its owner signs revision 2 first, then the text between the draft markers as it stands. Until then, revision 1 (signed, sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) is the spec the tool is built to.
 Date: 2026-11-05.
-Revision: 2.1. The signed spec (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010) is reproduced below verbatim. Its owner signed it on 2026-11-05, with two amendments applied at its request (the anchor-gate sentence in section 6, and the unanimity sentence in section 6, whose figure is cut). It revises revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54), puts the evidence beside each verdict, and brings its inner status line and section 9 up to the signed state. Revision 2.1 (2026-11-06) adds the maintainer's build interpretations of revision 2 at the end of this file, and changes no signed text.
+Revision: 3. A draft: the text between the markers below (sha256 7976a2624d84e3dfa7070a1875d2c71fc5036f14acacc75f953dbc97d66458ec) is revision 3 in full. It is revision 2's draft text (sha256 3332ef0de2a7338012f1b04849e871b28441ef8051d22b904b18ec4df9d8269e) with replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift.
 
-## Signed spec
+## Draft spec (revision 3, not signed)
 
-<!-- signed spec begins: sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010 -->
+<!-- draft spec begins: sha256 7976a2624d84e3dfa7070a1875d2c71fc5036f14acacc75f953dbc97d66458ec -->
 # Reader panel: behaviour spec
 
-Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 1 is draft 0.2 as its owner signed it on 2026-11-05, which settled every decision in § 9.
+Status: revision 3, drafted on 2026-11-05 for the owner's signature, after revision 2. Revision 1 is draft 0.2 as its owner signed it on 2026-11-05, which settled every decision in § 9.
 Date: 2026-11-05.
-Revision: 2. Puts the evidence beside each verdict (sections 3.1, 5.5, 6, 7, 8, 9 and 10). Every verdict is decided as in revision 1; nothing in revision 2 changes a verdict, an exit status or the prompt. Revision 0.2: Draft 1, amended after review (the lens owns its scale; freeze rejects an unreachable pass bar; the `none` sentence is frozen). A revision below 1 is a draft; revision 1 is the spec the owner signs, reproduced verbatim with its hash, as docs/specs/reader-ab.md is.
+Revision: 3. Adds replicate runs and an optional read floor, keeps reads from not-blind readers out of every verdict and gate, and lets a settled completion lift an INCONCLUSIVE when the plan sets a read floor (sections 2, 3.1, 3.2, 5.5, 6, 6.1, 7, 8, 9 and 10). **Revision 3 changes verdicts** of plans with a not-blind reader, and adds verdict changes a plan opts into (a read floor). It changes no exit status and no prompt. Revision 2 put the evidence beside each verdict. Revision 0.2: Draft 1, amended after review (the lens owns its scale; freeze rejects an unreachable pass bar; the `none` sentence is frozen). A revision below 1 is a draft; revision 1 is the spec the owner signs, reproduced verbatim with its hash, as docs/specs/reader-ab.md is.
 
 The command is `track-record panel`.
 
@@ -32,6 +32,7 @@ In scope:
 - the anchored rubric: two planted documents the user supplies, a deliberately strong one and a deliberately weak one, read through every lens in every run;
 - the anchor gate: a lens that does not put the strong anchor at or above one threshold and the weak anchor at or below another has its reads of the version reported INCONCLUSIVE and not counted;
 - preregistration: the pass conditions, per lens and overall, frozen by hash before the first read;
+- replicate runs: the same frozen plan run again in a new folder, compared with the first run;
 - scoring the replies against the frozen rules, and writing a result;
 - the evidence beside each verdict: an interval for each clause count, an exact p-value when a rule names a share to test against, the reads that are missing, and what the scores can and cannot show (§ 6.1).
 
@@ -54,7 +55,9 @@ The plan is a plain-text file in the syntax of `ab` (reader-ab.md § 3.1 and its
 - `version`: the one document under test;
 - `anchors`: two items, `strong | <file>` and `weak | <file>`, each exactly once;
 - `lenses`: each lens's name and its prompt file (§ 3.3), `<name> | <file>`, and optionally `max <n>`, the top of the lens's own scale, a whole number at or above `anchor-strong-at-least` (§ 6.1). Names are letters, digits and `-`, unique, and not one of the words `all`, `overall`, `strong`, `weak` or `version`. The result names lenses `l1`, `l2` and so on in plan order;
-- `readers`: each reader's name and command, and optionally `not-blind` and `cost <n>`, exactly as in `ab` (§ 5.1, § 5.5);
+- `readers`: each reader's name and command, and optionally `not-blind`, `cost <n>` and `family <name>`, exactly as in `ab` (§ 5.1, § 5.5);
+- `min-valid-reads` (optional): the read floor, a whole number, 1 or more. A rule that counts fewer valid reads from blind readers is INCONCLUSIVE (§ 6);
+- `replicate-of` (optional): the freeze file of a first run of this same plan (§ 3.2);
 - `reads-per-reader`: reads of the version per lens for each reader (default 3);
 - `anchor-reads-per-reader`: reads of each anchor per lens for each reader (default 1);
 - `anchor-strong-at-least` and `anchor-weak-at-most`: the gate's thresholds, whole numbers of any sign, both required, with the first greater than the second (§ 6);
@@ -67,7 +70,7 @@ The plan is a plain-text file in the syntax of `ab` (reader-ab.md § 3.1 and its
 
 ### 3.2 Freeze
 
-`track-record panel freeze PLAN` hashes the plan and every input it names (sha256): the posting, the version, both anchors, every lens file and any amended freeze, plus the built-in prompt. It writes the hashes to a freeze file beside the plan and exits `0`. The rules of reader-ab.md § 3.2 hold unchanged: it refuses (exit `2`) a missing input, an existing freeze file or a run folder that already holds a reply; a run checks every hash first and exits `2`, naming the file, if any one differs, the plan and the lens files included; the run folder is the folder that holds the plan; an amendment is a new plan in a new run folder whose `amends` names the earlier freeze file, and the earlier folder is never edited.
+`track-record panel freeze PLAN` hashes the plan and every input it names (sha256): the posting, the version, both anchors, every lens file and any amended freeze, plus the built-in prompt. It writes the hashes to a freeze file beside the plan and exits `0`. The rules of reader-ab.md § 3.2 hold unchanged: it refuses (exit `2`) a missing input, an existing freeze file or a run folder that already holds a reply; a run checks every hash first and exits `2`, naming the file, if any one differs, the plan and the lens files included; the run folder is the folder that holds the plan; an amendment is a new plan in a new run folder whose `amends` names the earlier freeze file, and the earlier folder is never edited. A replicate follows the rules of reader-ab.md § 3.2 for replicates: a new run folder whose `replicate-of` names a first run's freeze file, a plan byte-identical to the first apart from that line, every input (the lens files included) at the hash the first freeze recorded, and the first folder read, never written.
 
 ### 3.3 Documents and lens files
 
@@ -120,17 +123,19 @@ A reply missing `READ` or `SCORE`, or whose `SCORE` is not an integer, is a fail
 
 ### 5.5 Blindness
 
-As in reader-ab.md § 5.5: the prompt tells the reader that it knows nothing about the candidate, any `PRIOR` other than `nothing` is flagged on that read, and a reader marked `not-blind` has its reads of the version reported separately as well as together with the others. The clause language of § 6 tests a score or a flagged field over a lens's reads and cannot select reads by reader, so there is no rule for keeping not-blind readers out of `overall` in draft 1; leave not-blind readers out of the plan. Every verdict line says how many of the reads behind it came from a reader marked `not-blind` (§ 6.1).
+As in reader-ab.md § 5.5: the prompt tells the reader that it knows nothing about the candidate, and any `PRIOR` other than `nothing` is flagged on that read. From revision 3, a reader marked `not-blind` has its reads reported separately and never counted: no rule, gate or flag count includes them. Every verdict line says how many reads it left out for that reason (§ 6.1). A reader's `family`, when given, is reported with its reads, and the result counts valid reads per family; a family changes no verdict.
 
 ## 6. Scoring
 
-Scoring reads only the replies, the key and the frozen plan. Failed reads are left out of every denominator below. A rule that needs N of N valid reads is INCONCLUSIVE when the count of valid reads is not exactly N.
+Scoring reads only the replies, the key and the frozen plan, and, for a replicate, the first run's replies and key. Failed reads, and reads from readers marked `not-blind`, are left out of every denominator below. A rule that needs N of N valid reads is INCONCLUSIVE when the count of valid reads is not exactly N, unless a settled completion lifts it (§ 6.1).
 
-- **The anchor gate**, per lens. It is evaluated only when every planned anchor read of the lens is valid; otherwise it is "not evaluated". It passes when every valid read of the strong anchor scores at or above `anchor-strong-at-least` and every valid read of the weak anchor scores at or below `anchor-weak-at-most`; one read on the wrong side fails it, and the result names each such read with its score. The anchors check that a lens can tell strong from weak; a passed gate doesn't show it could see this version's difference.
+- **The anchor gate**, per lens. It is evaluated only when every planned anchor read of the lens is valid; otherwise it is "not evaluated". It passes when every valid read of the strong anchor scores at or above `anchor-strong-at-least` and every valid read of the weak anchor scores at or below `anchor-weak-at-most`; one read on the wrong side fails it, and the result names each such read with its score. The anchors play the part the A/A arm plays in `ab`: a run that shows nothing also shows whether it could see something.
 - **Counted lenses.** A lens whose gate passed is counted. A lens whose gate failed or was not evaluated is not counted: every rule on it is INCONCLUSIVE with that reason, and its reads of the version are shown but not counted anywhere. One lens's gate voids that lens only.
-- **Rules.** A rule's clauses are `PASS if <test> in <k> of <m>`, `PASS if <test> in <k> or more`, and the same with `FAIL`, separated by `; `, ending with `otherwise INCONCLUSIVE`. A test is `score at least <n>`, `score at most <n>`, `<FIELD> flagged` or `<FIELD> not flagged`, where FIELD is a free-text field. A rule on a lens counts that lens's valid reads of the version; an `overall` rule counts the valid reads of the version across every counted lens, and is INCONCLUSIVE when no lens is counted. `<k> of <m>` holds when exactly `<m>` reads are counted and at least `<k>` of them pass the test; `<k> or more` holds when at least `<k>` pass it, however many are counted. Clauses are tried in order, and the first that holds decides. A version cannot be required to beat a score the gate did not show the lens can give: `freeze` rejects (exit `2`, naming the plan line) any `PASS` clause `score at least <n>` where `<n>` is greater than `anchor-strong-at-least`. A `<n>` equal to or below it is accepted, as is any `FAIL` clause. Prefer `<k> of <m>` with slack to unanimity: a unanimity rule (`6 of 6`) fails on one stray read, so it is brittle. The result names rules `r1`, `r2` and so on in plan order, and shows each clause's count.
+- **Rules.** A rule's clauses are `PASS if <test> in <k> of <m>`, `PASS if <test> in <k> or more`, and the same with `FAIL`, separated by `; `, ending with `otherwise INCONCLUSIVE`. A test is `score at least <n>`, `score at most <n>`, `<FIELD> flagged` or `<FIELD> not flagged`, where FIELD is a free-text field. A rule on a lens counts that lens's valid reads of the version; an `overall` rule counts the valid reads of the version across every counted lens, and is INCONCLUSIVE when no lens is counted. `<k> of <m>` holds when exactly `<m>` reads are counted and at least `<k>` of them pass the test; `<k> or more` holds when at least `<k>` pass it, however many are counted. Clauses are tried in order, and the first that holds decides. A version cannot be required to beat a score the gate did not show the lens can give: `freeze` rejects (exit `2`, naming the plan line) any `PASS` clause `score at least <n>` where `<n>` is greater than `anchor-strong-at-least`. A `<n>` equal to or below it is accepted, as is any `FAIL` clause. Prefer `<k> of <m>` with slack to unanimity: identical documents can swing by about two reads in ten between passes, so unanimity rules (`6 of 6`) are brittle. The result names rules `r1`, `r2` and so on in plan order, and shows each clause's count.
 - **Scores** are reported per lens for each document, and for the version per reader as well, with the lowest and highest beside the mean.
 - **Flags.** For each lens and free-text field, the result reports how many valid reads of the version flagged it.
+- **Read floor.** When the plan sets `min-valid-reads`, a rule that counts fewer valid reads than the floor is INCONCLUSIVE, with the reason "below the read floor".
+- **Replicates.** A replicate's result gives, for each clause of each rule, the first run's and this run's counts (`k` of `n` counted reads passing the test) and the two-sided Fisher exact p-value for the difference. Known limit: each replicate is compared with the first run only.
 
 ### 6.1 Evidence beside the verdicts
 
@@ -138,18 +143,18 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 
 - **Interval.** For each clause of each rule, `n` is the number of reads the rule counts and `k` the number that pass the clause's test. The result gives the 95% Wilson score interval for `k/n`, with z = 1.959964. When `n` is 0, no interval is computed, and the line says so.
 - **Against a declared share.** When a rule names a `null-share` q, each clause also gets an exact p-value from the binomial distribution with `n` trials and chance q: under `greater`, the chance of `k` or more; under `less`, of `k` or fewer; under `two`, twice the smaller of the two, and at most 1. Without a `null-share`, no p-value is printed: a single version has no natural share to test against.
-- **Missing reads.** For each lens, the result counts the planned reads of the version that are missing: failed, and not run. For each rule with missing reads among the reads it would count, the rule is evaluated again under every completion of those reads, each missing read taking any score and any set of flagged fields, as if every planned read of the version were valid. The result says whether one verdict holds under every completion (settled) or which verdicts are possible (unsettled). Missing anchor reads are not completed: the gate stays "not evaluated", and a lens that is not counted adds no reads to complete. This never changes the verdict.
+- **Missing reads.** For each lens, the result counts the planned reads of the version that are missing: failed, and not run. For each rule with missing reads among the reads it would count, the rule is evaluated again under every completion of those reads, each missing read taking any score and any set of flagged fields, as if every planned read of the version were valid. The result says whether one verdict holds under every completion (settled) or which verdicts are possible (unsettled). Missing anchor reads are not completed: the gate stays "not evaluated", and a lens that is not counted adds no reads to complete. **The lift.** It changes a verdict in one case only: when the plan sets `min-valid-reads`, the rule counts at least that many valid reads, the rule is INCONCLUSIVE because of its clauses alone (not a gate, no counted lens, or the floor), and one verdict holds under every completion, that verdict replaces INCONCLUSIVE, and the result says it was lifted. Without a read floor nothing is lifted.
 - **A dead run.** When no read in the run is valid, the result says so in one line. The exit status is `1`, as for any run with a failed read (§ 7).
 - **The top of the scale.** For each lens, the result gives the version's lowest valid score beside the strong anchor's highest valid score, and the version's spread (highest minus lowest). When the version's lowest score is at or above the strong anchor's highest, the lens cannot rank the version above the strong anchor, and the result says so. When every valid read gives the version the same score, the result says so. When the lens names `max`, the result gives the room between the strong anchor's highest score and that maximum.
-- **Not-blind reads.** Each rule's verdict line ends with the number of the reads it counts that came from a reader marked `not-blind` (§ 5.5).
-- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small. Each p-value carries a short form of the same caveat on the same line.
+- **Not-blind reads.** Each rule's verdict line ends with the number of reads it left out because their reader is marked `not-blind` (§ 5.5).
+- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt are not independent, so each p-value assumes independence and may be too small. Each p-value carries a short form of the same caveat on the same line.
 
 #### Printed forms
 
 `<rule>` is the rule's name (`r1`, `r2` and so on), `<arm>` is the lens's arm (`l1`, `l2` and so on), and `<test>` is the clause's test as written. A p-value is printed rounded half up to 4 decimal places, or as `< 0.0001` when it rounds to 0. An interval's lower end is rounded down and its upper end rounded up, to 3 decimal places. `<side>` is `two-sided`, `one-sided greater` or `one-sided less`.
 
 - `rule <rule> evidence: <test>: <k> of <n> counted reads; 95% interval <lo> to <hi>`, one line per clause, or `... <k> of <n> counted reads; interval not computed` when `n` is 0.
-- With a `null-share` q, written as the plan wrote it, the same line gains, before the interval: `; p = <p> <side> against <q> (reads may be correlated; may be too small)`.
+- With a `null-share` q, written as the plan wrote it, the same line gains, before the interval: `; p = <p> <side> against <q> (reads correlated; may be too small)`.
 - `missing <arm> version: <m> of <planned> planned reads (failed <f>, not run <r>)`, one line per lens.
 - `rule <rule> completions (missing reads: <m>): settled: <verdict>`, or `... unsettled: <verdicts> possible`, in the order PASS, FAIL, INCONCLUSIVE, separated by `, `. A rule with no missing read among those it would count gets no completions line.
 - `DEAD: 0 of <N> planned reads are valid`, where `N` counts every planned read of every lens.
@@ -158,8 +163,12 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 - When `a` is at or above `b`: `scores <arm>: the version scores at or above the strong anchor; this lens cannot rank it higher`.
 - When the version has two or more valid reads and its spread is 0: `scores <arm>: every read gives the version the same score`.
 - When the lens names `max`: `scores <arm> room above the strong anchor: <max minus b> (scale maximum <max>)`.
-- Every rule verdict line ends with ` [not blind: <b> of <v> counted reads]`.
-- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.`
+- Every rule verdict line ends with ` [not blind: <b> reads left out]`.
+- `rule <rule> reason: below the read floor (<v> counted reads, floor <f>)`.
+- After a lift, the verdict line gives the lifted verdict, and the reason line reads `rule <rule> reason: lifted from INCONCLUSIVE: settled under every completion of <m> missing reads; read floor <f> met`.
+- In a replicate: `replicate of: <first freeze sha256>`, and per clause `rule <rule> replicate: <test>: first run <k1> of <n1>, this run <k2> of <n2>; Fisher exact p = <p> two-sided`.
+- `family <name>: <v> valid reads`, one line per family named in the plan, counting its valid reads across every lens.
+- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt are not independent, so each p-value assumes independence and may be too small.`
 
 ## 7. Output and exit status
 
@@ -173,7 +182,8 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 - the counted lenses;
 - each rule, with its clause counts, its verdict and any reason;
 - the spend tally, failed reads and any cut;
-- the evidence lines of § 6.1: each clause's interval and any p-value, the missing reads per lens and each rule's completions, the score lines per lens, any `DEAD` line, and the validity line.
+- the evidence lines of § 6.1: each clause's interval and any p-value, the missing reads per lens and each rule's completions, the score lines per lens, any `DEAD` line, and the validity line;
+- any read-floor or lift reason, the counts per family, and, in a replicate, the comparison with the first run.
 
 Every run writes a new result; an earlier result is never overwritten.
 
@@ -192,7 +202,8 @@ When causes combine, the higher code wins.
 - The document check runs before any read.
 - A reader never learns which document it is reading.
 - Verdicts come from the frozen rules only. The tool has no option to change a rule, a threshold or a lens at scoring time.
-- The evidence of § 6.1 sits beside the verdicts and never changes one.
+- The evidence of § 6.1 sits beside the verdicts and never changes one, except the lift, which only a plan with a read floor allows.
+- Reads from a reader marked `not-blind` are never counted in a rule, a gate or a flag count.
 - A reader's suggested rewrite is reported as text and applied to nothing.
 
 ## 9. Decisions
@@ -212,6 +223,12 @@ Decisions 1 to 10 were settled as written when the owner signed revision 1 on 20
 11. **Evidence.** Each clause count gets a Wilson interval. A rule may name a `null-share` at freeze, and then each clause gets an exact p-value against it; without one, no p-value is printed.
 12. **Missing reads and the top of the scale.** The completions are reported only; they lift no INCONCLUSIVE. A dead run keeps exit `1` and gains the `DEAD` line. The score lines report a version at or above the strong anchor, a version with no spread, and, when a lens names its maximum, the room above the strong anchor.
 13. **Not-blind reads** still count in revision 2, and every verdict line says how many there are.
+
+Proposed for revision 3, settled when the owner signs it:
+
+14. **Replicates.** A replicate is a new run folder that names the first run's freeze; repeat reads inside one folder are not offered.
+15. **Not-blind readers.** From revision 3 their reads are never counted, which changes the verdicts of plans that have one. This replaces decision 10's "no rule can leave them out".
+16. **The lift.** A settled completion lifts an INCONCLUSIVE only when the plan sets a read floor and the rule meets it.
 
 ## 10. Acceptance tests (known answers)
 
@@ -251,7 +268,7 @@ Unless a test says otherwise, the plan has two lenses (`recruiter`, `manager`), 
 Tests 10.29 to 10.38 are new in revision 2. They use the defaults above and the control lenses unless they say otherwise.
 
 - 10.29: 10.1's rule on the recruiter gives `rule r1 evidence: score at least 7: 6 of 6 counted reads; 95% interval 0.609 to 1.000` and `rule r1 evidence: score at most 4: 0 of 6 counted reads; 95% interval 0.000 to 0.391`, no p-value, and the verdict line `rule r1 verdict: PASS [not blind: 0 of 6 counted reads]`.
-- 10.30: The same rule with `| null-share 1/2` prints `; p = 0.0313 two-sided against 1/2 (reads may be correlated; may be too small)` on both clause lines. With `| null-share 3/4` the first clause prints `p = 0.3560 two-sided against 3/4` and the second `p = 0.0005 two-sided against 3/4`. With `sidedness: greater` and `null-share 1/2`, the first clause prints `p = 0.0156 one-sided greater against 1/2`. The verdict is PASS in every case.
+- 10.30: The same rule with `| null-share 1/2` prints `; p = 0.0313 two-sided against 1/2 (reads correlated; may be too small)` on both clause lines. With `| null-share 3/4` the first clause prints `p = 0.3560 two-sided against 3/4` and the second `p = 0.0005 two-sided against 3/4`. With `sidedness: greater` and `null-share 1/2`, the first clause prints `p = 0.0156 one-sided greater against 1/2`. The verdict is PASS in every case.
 - 10.31: With the control lenses scoring the strong anchor 9 through both lenses (10.32 assumes the same), each lens has `scores <arm> version against strong anchor: lowest version score 7, highest strong-anchor score 9`, `scores <arm> version spread: 0 (highest 7, lowest 7)` and `scores <arm>: every read gives the version the same score`, and no "at or above the strong anchor" line. With `version | score 9` in place of 7, each lens also has `scores <arm>: the version scores at or above the strong anchor; this lens cannot rank it higher`.
 - 10.32: `recruiter | recruiter.lens.txt | max 10` gives `scores l1 room above the strong anchor: 1 (scale maximum 10)`, and the manager lens has no such line. `max 6` (below `anchor-strong-at-least`, 7) is refused by `freeze`, naming the plan line.
 - 10.33: `recruiter | version | omit SCORE | read 5` leaves the recruiter 5 valid reads of the version, so 10.1's rule is INCONCLUSIVE. The result has `missing l1 version: 1 of 6 planned reads (failed 1, not run 0)`, `missing l2 version: 0 of 6 planned reads (failed 0, not run 0)` and `rule r1 completions (missing reads: 1): unsettled: PASS, INCONCLUSIVE possible`. Exit 1.
@@ -260,6 +277,15 @@ Tests 10.29 to 10.38 are new in revision 2. They use the defaults above and the 
 - 10.36: Every result has exactly one validity line, with the text in § 6.1, including those of 10.2 and 10.34.
 - 10.37: `freeze` refuses each of `null-share 0/4`, `null-share 4/4`, `null-share 0.5`, `max x`, `max 7.5` and `sidedness: both`, naming the plan line, and writes no freeze file.
 - 10.38: Revision 2 changes no prompt: the built-in prompt's sha256 equals the one the previous release recorded, so a plan frozen before revision 2 without the new fields still runs.
+
+Tests 10.39 to 10.44 are new in revision 3.
+
+- 10.39: With reader-2 marked `not-blind`, the recruiter counts 3 version reads, so 10.1's rule (`6 of 6`) is INCONCLUSIVE (it was PASS under revision 2), and its verdict line ends ` [not blind: 3 reads left out]`. The gates count reader-1's anchor reads only, and pass.
+- 10.40: 10.33's plan (5 valid recruiter reads of the version) with `min-valid-reads: 6`: the rule's reason is `below the read floor (5 counted reads, floor 6)`.
+- 10.41: The rule `recruiter | PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE` with `recruiter | version | omit SCORE | read 5`: five counted reads, all 7, so the rule gives INCONCLUSIVE, and every completion gives PASS. Without a read floor it stays INCONCLUSIVE, with `completions (missing reads: 1): settled: PASS`. With `min-valid-reads: 5` the verdict is PASS, with the reason `lifted from INCONCLUSIVE: settled under every completion of 1 missing reads; read floor 5 met`.
+- 10.42: 10.41's plan with `min-valid-reads: 5` and the recruiter's gate failed (as in 10.3): the rule stays INCONCLUSIVE with the gate's reason; nothing is lifted.
+- 10.43: A replicate of 10.1 gives `replicate of: <the first freeze's sha256>` and `rule r1 replicate: score at least 7: first run 6 of 6, this run 6 of 6; Fisher exact p = 1.0000 two-sided`, and the first run folder stays byte-identical. A replicate whose lens file changed since the first freeze is refused by `freeze`, naming the file.
+- 10.44: Readers `reader-1 | fake | family f1` and `reader-2 | fake | family f2`: the result has `family f1: 10 valid reads` and `family f2: 10 valid reads`, and every verdict is as in 10.1.
 
 ## Build notes (draft 1)
 
@@ -311,15 +337,4 @@ As in reader-ab.md's build interpretations, with the read folder holding exactly
 - Two anchors fix two points on a scale. A lens that ranks them correctly can still be wrong about the version; the gate rules out a lens that cannot see, not one that sees badly. More anchors, or anchors closer to the version, are a change for a later revision.
 - Set the strong threshold at or above the score the version must reach.
 - The ceiling stops reads once the tally reaches it, so one costly read can overshoot it, the same as in `ab`.
-<!-- signed spec ends -->
-
-## Build interpretations of revision 2 (maintainer, 2026-11-06)
-
-Revision 2.1 completes signed revision 2 and does not edit it. It reads these points, which the signed text leaves open:
-
-1. **A rule's name in its lines.** The printed forms write `rule <rule>`. Every rule line keeps the label the tool printed before revision 2: the rule's name and its lens's arm, or `overall`, as in `rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]` and `rule r2 (overall) evidence: …`.
-2. **Room with no strong-anchor read.** A lens that names `max` but has no valid read of the strong anchor prints `scores <arm> room above the strong anchor: not assessable (scale maximum <max>)`.
-3. **No p when nothing is counted.** A clause whose rule names a `null-share` but counts no read prints no p-value: its line is `… 0 of 0 counted reads; interval not computed`, as it is without a `null-share`.
-4. **The completions.** One missing read has one score, and that score decides every score clause of the rule at once. So the completions try whole reads: every score that falls on a different side of some threshold in the rule, combined with every set of the flag fields the rule tests. A completion counts every planned version read of the counted lenses as valid.
-5. **The score lines** are printed for every lens, whether it is counted or not.
-6. **Where the lines go.** Each lens's score lines follow its flag counts. The `missing` lines and any `DEAD` line follow the `counted lenses` line. For each rule, the evidence lines (one per clause, in clause order) and any completions line follow its verdict and reason lines. The validity line is the last line before the result's tail.
+<!-- draft spec ends -->
