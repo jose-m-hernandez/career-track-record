@@ -228,5 +228,80 @@ class MissingReadsCase(unittest.TestCase):
         self.assertEqual([x for x in lines if x.startswith("rule r1 (l2) completions")], [])
 
 
+    def test_no_dead_line_while_anchor_reads_are_valid(self):
+        s, result, lines = self.done(fake_reader=RANK + ["version | omit SCORE"],
+                                     rules=["recruiter | " + SIX_PASS])
+        self.assertIn("missing l1 version: 6 of 6 planned reads (failed 6, not run 0)", lines)
+        self.assertEqual([x for x in lines if x.startswith("DEAD:")], [])
+
+
+RANK_9 = ["recruiter | strong | score 9", "recruiter | weak | score 2",
+          "recruiter | version | score 7",
+          "manager | strong | score 9", "manager | weak | score 3", "manager | version | score 7"]
+RULE_6 = "recruiter | " + SIX_PASS
+CANNOT = "scores %s: the version scores at or above the strong anchor; this lens cannot rank it higher"
+SAME = "scores %s: every read gives the version the same score"
+
+
+class ScaleCase(unittest.TestCase):
+    """Revision 2 section 6.1: the top of the scale and the room above the strong anchor."""
+
+    def done(self, **overrides):
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def test_10_31_version_below_the_strong_anchor(self):
+        s, result, lines = self.done(fake_reader=RANK_9, rules=[RULE_6])
+        for arm in ("l1", "l2"):
+            self.assertIn("scores %s version against strong anchor: lowest version score 7, "
+                          "highest strong-anchor score 9" % arm, lines)
+            self.assertIn("scores %s version spread: 0 (highest 7, lowest 7)" % arm, lines)
+            self.assertIn(SAME % arm, lines)
+        self.assertEqual([x for x in lines if x.endswith("this lens cannot rank it higher")], [])
+
+    def test_10_31_version_at_the_strong_anchor(self):
+        reader = [x.replace("version | score 7", "version | score 9") for x in RANK_9]
+        s, result, lines = self.done(
+            fake_reader=reader,
+            rules=["recruiter | PASS if score at least 7 in 6 of 6; otherwise INCONCLUSIVE"])
+        for arm in ("l1", "l2"):
+            self.assertIn(CANNOT % arm, lines)
+
+    def test_10_32_room_above_the_strong_anchor(self):
+        s, result, lines = self.done(
+            fake_reader=RANK_9, rules=[RULE_6],
+            lenses=["recruiter | recruiter.lens.txt | max 10", "manager | hiring-manager.lens.txt"])
+        self.assertIn("scores l1 room above the strong anchor: 1 (scale maximum 10)", lines)
+        self.assertEqual([x for x in lines if x.startswith("scores l2 room above")], [])
+
+    def test_room_not_assessable_without_a_strong_read(self):
+        s, result, lines = self.done(
+            fake_reader=RANK_9 + ["recruiter | strong | omit SCORE"], rules=[RULE_6],
+            lenses=["recruiter | recruiter.lens.txt | max 10", "manager | hiring-manager.lens.txt"])
+        self.assertIn("scores l1 room above the strong anchor: not assessable "
+                      "(scale maximum 10)", lines)
+        self.assertIn("scores l1 version against strong anchor: not assessable", lines)
+
+    def test_a_spread(self):
+        s, result, lines = self.done(
+            fake_reader=RANK_9 + ["recruiter | version | score 8 | read 5"], rules=[RULE_6])
+        self.assertIn("scores l1 version spread: 1 (highest 8, lowest 7)", lines)
+        self.assertNotIn(SAME % "l1", lines)
+
+    def test_one_version_read_is_not_a_spread(self):
+        s, result, lines = self.done(
+            readers=["r1 | fake"], reads_per_reader="1", fake_reader=RANK_9,
+            rules=["recruiter | PASS if score at least 7 in 1 of 1; otherwise INCONCLUSIVE"])
+        self.assertIn("scores l1 version spread: 0 (highest 7, lowest 7)", lines)
+        self.assertNotIn(SAME % "l1", lines)
+
+    def test_no_valid_version_read(self):
+        s, result, lines = self.done(
+            fake_reader=RANK_9 + ["recruiter | version | omit SCORE"], rules=[RULE_6])
+        self.assertIn("scores l1 version spread: not assessable", lines)
+        self.assertIn("scores l1 version against strong anchor: not assessable", lines)
+
+
 if __name__ == "__main__":
     unittest.main()

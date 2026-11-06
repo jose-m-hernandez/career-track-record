@@ -960,6 +960,34 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                        % (arm, field, len([x for x in version_recs
                                            if field in x.reply.flagged]),
                           len(version_recs)))
+        # the top of the scale: the version against the strong anchor, its spread, the room above
+        version_scores = [x.reply.score for x in version_recs]
+        strong_scores = [x.reply.score for x in strong_recs]
+        low_version = min(version_scores) if version_scores else None
+        high_strong = max(strong_scores) if strong_scores else None
+        spread = max(version_scores) - low_version if version_scores else None
+        if version_scores and strong_scores:
+            out.append("scores %s version against strong anchor: lowest version score %d, "
+                       "highest strong-anchor score %d" % (arm, low_version, high_strong))
+        else:
+            out.append("scores %s version against strong anchor: not assessable" % arm)
+        if version_scores:
+            out.append("scores %s version spread: %d (highest %d, lowest %d)"
+                       % (arm, spread, max(version_scores), low_version))
+        else:
+            out.append("scores %s version spread: not assessable" % arm)
+        if version_scores and strong_scores and low_version >= high_strong:
+            out.append("scores %s: the version scores at or above the strong anchor; "
+                       "this lens cannot rank it higher" % arm)
+        if len(version_scores) >= 2 and spread == 0:
+            out.append("scores %s: every read gives the version the same score" % arm)
+        if lens.max is not None:
+            if strong_scores:
+                out.append("scores %s room above the strong anchor: %d (scale maximum %d)"
+                           % (arm, lens.max - high_strong, lens.max))
+            else:
+                out.append("scores %s room above the strong anchor: not assessable "
+                           "(scale maximum %d)" % (arm, lens.max))
     out.append("counted lenses: %s" % (" ".join(counted) if counted else "none"))
     missing_in = {}
     for lens in plan.lenses:

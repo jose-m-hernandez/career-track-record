@@ -19,6 +19,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `track-record panel` plans take three optional items from the reader panel spec revision 2: `max <n>` on a lens (the top of its own scale, at or above `anchor-strong-at-least`), `null-share <n>/<d>` on a rule (the share of reads expected to pass each test by chance, strictly between 0 and 1), and `sidedness` (`two`, `greater` or `less`). `freeze` refuses any other form, naming the plan line. Nothing prints them yet.
 - `track-record panel` results put the evidence of the reader panel spec revision 2 beside each verdict: a 95% Wilson interval for each clause count, an exact p-value against the rule's `null-share` when it declares one, the count of not-blind reads on every rule verdict line, and one validity line, the same as `ab`'s. No verdict or exit status changes.
 - `track-record panel` results count each lens's missing version reads (failed, and not run), say for each rule whether its verdict would hold whatever the missing reads had said, and print a `DEAD` line when no read is valid. These lines never change a verdict, and a dead run still exits 1.
+- `track-record panel` results give, for each lens, the version's lowest score beside the strong anchor's highest and the version's spread, say when the lens cannot rank the version above the strong anchor or gives every read the same score, and, when the lens names `max`, the room between the strong anchor and the top of its scale.
 
 ### Changed
 
