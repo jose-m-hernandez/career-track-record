@@ -2,7 +2,7 @@
 
 Status: accepted.
 Date: 2026-11-05.
-Revision: 2. The signed spec (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010) is reproduced below verbatim. Its owner signed it on 2026-11-05, with two amendments applied at its request (the anchor-gate sentence in section 6, and the unanimity sentence in section 6, whose figure is cut). It revises revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54), puts the evidence beside each verdict, and brings its inner status line and section 9 up to the signed state.
+Revision: 2.1. The signed spec (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010) is reproduced below verbatim. Its owner signed it on 2026-11-05, with two amendments applied at its request (the anchor-gate sentence in section 6, and the unanimity sentence in section 6, whose figure is cut). It revises revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54), puts the evidence beside each verdict, and brings its inner status line and section 9 up to the signed state. Revision 2.1 (2026-11-06) adds the maintainer's build interpretations of revision 2 at the end of this file, and changes no signed text.
 
 ## Signed spec
 
@@ -312,3 +312,14 @@ As in reader-ab.md's build interpretations, with the read folder holding exactly
 - Set the strong threshold at or above the score the version must reach.
 - The ceiling stops reads once the tally reaches it, so one costly read can overshoot it, the same as in `ab`.
 <!-- signed spec ends -->
+
+## Build interpretations of revision 2 (maintainer, 2026-11-06)
+
+Revision 2.1 completes signed revision 2 and does not edit it. It reads these points, which the signed text leaves open:
+
+1. **A rule's name in its lines.** The printed forms write `rule <rule>`. Every rule line keeps the label the tool printed before revision 2: the rule's name and its lens's arm, or `overall`, as in `rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]` and `rule r2 (overall) evidence: …`.
+2. **Room with no strong-anchor read.** A lens that names `max` but has no valid read of the strong anchor prints `scores <arm> room above the strong anchor: not assessable (scale maximum <max>)`.
+3. **No p when nothing is counted.** A clause whose rule names a `null-share` but counts no read prints no p-value: its line is `… 0 of 0 counted reads; interval not computed`, as it is without a `null-share`.
+4. **The completions.** One missing read has one score, and that score decides every score clause of the rule at once. So the completions try whole reads: every score that falls on a different side of some threshold in the rule, combined with every set of the flag fields the rule tests. A completion counts every planned version read of the counted lenses as valid.
+5. **The score lines** are printed for every lens, whether it is counted or not.
+6. **Where the lines go.** Each lens's score lines follow its flag counts. The `missing` lines and any `DEAD` line follow the `counted lenses` line. For each rule, the evidence lines (one per clause, in clause order) and any completions line follow its verdict and reason lines. The validity line is the last line before the result's tail.

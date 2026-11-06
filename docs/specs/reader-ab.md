@@ -2,7 +2,7 @@
 
 Status: accepted.
 Date: 2026-11-05.
-Revision: 2. The signed spec (sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6) is reproduced below verbatim. Its owner signed it on 2026-11-05, with its one-sided flag text applied at its request. It revises revision 1.2's signed text (sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53), puts the evidence beside each verdict and corrects section 1. The build interpretations of revision 1.1 follow it and still apply.
+Revision: 2.1. The signed spec (sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6) is reproduced below verbatim. Its owner signed it on 2026-11-05, with its one-sided flag text applied at its request. It revises revision 1.2's signed text (sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53), puts the evidence beside each verdict and corrects section 1. The build interpretations of revision 1.1 follow it and still apply. Revision 2.1 (2026-11-06) adds the maintainer's build interpretations of revision 2 at the end of this file, and changes no signed text.
 
 ## Signed spec
 
@@ -416,3 +416,12 @@ Without `--live`, a plan with a live reader prints each live command and the est
 ### Known limit: moved blocks
 
 Changed lines are found with Python's `difflib.SequenceMatcher` (`autojunk=False`) over the collapsed, non-blank lines. A moved block shows as removed and added lines only when the text it moves past is longer than the block itself. A long block moved past a short one shows the short one as changed instead. If those lines fall outside the change scope, the run stops at the isolation check (exit `2`) before any read; if they are inside it, only in-scope lines differ and the run goes ahead. Either way the limit can stop a run. It cannot let through a line whose text changed, but it can report a moved block as a change to the block it moved past.
+
+## Build interpretations of revision 2 (maintainer, 2026-11-06)
+
+Revision 2.1 completes signed revision 2 and does not edit it. It reads these points, which the signed text leaves open:
+
+1. **No flag beside a reason line.** Section 6.1 says there is no disagreement flag when a verdict is INCONCLUSIVE because of the A/A gate or position. Whenever a hypothesis prints a reason line for the A/A gate or for position, it gets no flag line, even when its rule alone would also have given INCONCLUSIVE.
+2. **The A/A gate interval.** It is printed whenever the A/A arm has at least one valid read, including when the gate is "not evaluated". `not computed` means the arm has no valid read.
+3. **The completions.** Every split of an arm's missing reads into picks for `X`, picks for `Y` and TIEs is tried. Each split counts every planned read of the arm as valid, which is how a rule's `<n> of <m>` is read there. The p-value range uses the plan's `sidedness`.
+4. **Where the lines go.** The `missing` lines and any `DEAD` line follow the per-arm read counts. The A/A gate interval follows the A/A gate line. For each hypothesis, the evidence, flag and completions lines follow its verdict and reason lines, in that order. The score ceiling and separation lines follow the A/A score spread. The validity line is the last line before the result's tail.

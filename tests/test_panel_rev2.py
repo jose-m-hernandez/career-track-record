@@ -275,6 +275,15 @@ class ScaleCase(unittest.TestCase):
         self.assertIn("scores l1 room above the strong anchor: 1 (scale maximum 10)", lines)
         self.assertEqual([x for x in lines if x.startswith("scores l2 room above")], [])
 
+    def test_the_strong_anchors_highest_score_is_used(self):
+        s, result, lines = self.done(
+            fake_reader=RANK_9 + ["recruiter | strong | score 8 | read 1"],
+            rules=["recruiter | " + SIX_PASS],
+            lenses=["recruiter | recruiter.lens.txt | max 10", "manager | hiring-manager.lens.txt"])
+        self.assertIn("scores l1 version against strong anchor: lowest version score 7, "
+                      "highest strong-anchor score 9", lines)
+        self.assertIn("scores l1 room above the strong anchor: 1 (scale maximum 10)", lines)
+
     def test_room_not_assessable_without_a_strong_read(self):
         s, result, lines = self.done(
             fake_reader=RANK_9 + ["recruiter | strong | omit SCORE"], rules=[RULE_6],

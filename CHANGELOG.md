@@ -33,6 +33,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The Reader A/B spec, docs/specs/reader-ab.md, is revision 2, signed by its owner: it puts an exact p-value, an interval and the missing reads beside each verdict, says when a one-sided test did not look at a verdict's direction, and corrects what section 1 claims for the A/A control. It changes no verdict, exit status or prompt.
 - The reader panel spec, docs/specs/reader-panel.md, is revision 2, signed by its owner: it puts an interval beside each clause count, an exact p-value when a rule names a share to test against, and the missing reads beside each verdict, and its inner status line and decisions now read as signed. It changes no verdict, exit status or prompt.
 - The README says what a reader result means and what the reader tools' controls show, and METHOD.md's status line says how Reader A/B relates to rule 6.
+- The Reader A/B and reader panel specs are revision 2.1: each adds the maintainer's build interpretations of revision 2 after its signed text (no flag beside an A/A-gate or position reason line; where the new lines go; how the completions are tried; the panel's rule labels, its room line with no strong-anchor read, and no p when a rule counts no read). The signed text is unchanged.
 
 ### Fixed
 
