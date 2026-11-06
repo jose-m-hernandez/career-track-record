@@ -303,6 +303,16 @@ class TopLevelHelpListsToolsCli(CliBase):
                 self.assertIn(line, lines)
 
 
+class CommandNameIsExactCli(CliBase):
+    def test_a_name_that_only_starts_like_a_command_is_not_that_command(self):
+        for name in ("barredx", "tonex", "claimsx"):
+            with self.subTest(name=name):
+                code, out, err = track(name, "--help")
+                self.assertEqual((code, out), (2, ""))
+                self.assertTrue(err.startswith("usage: track-record [-h] command"), err)
+                self.assertIn("invalid choice: '%s'" % name, err)
+
+
 def track_with_broken_stdout(*args):
     """Run with standard output a pipe whose reader is already gone."""
     env = dict(os.environ, PYTHONPATH="src", PYTHONDONTWRITEBYTECODE="1")

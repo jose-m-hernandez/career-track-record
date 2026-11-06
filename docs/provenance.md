@@ -203,7 +203,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_claims.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_claims_runs.py | claude-code | claude-sonnet-5-5 | 2026-11-04 |
 | tests/test_claims_sources.py | claude-code | claude-opus-5-5 | 2026-11-05 |
-| tests/test_cli.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| tests/test_cli.py | claude-code | claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_keywords.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_no_network.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_output_failures.py | not recorded | not recorded | not recorded |
