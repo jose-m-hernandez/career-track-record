@@ -207,7 +207,8 @@ class Plan(object):
     def __init__(self, posting, versions, comparisons, readers, fake_rules=(),
                  reads_per_reader=3, hypotheses=(), mechanisms=(), change_scope=(),
                  noise_threshold=Fraction(1, 2), spend_ceiling=None, aa_version=None,
-                 amends=None, read_timeout=DEFAULT_READ_TIMEOUT):
+                 amends=None, read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two",
+                 alpha=Fraction(1, 20), alpha_text="0.05"):
         self.posting = posting
         self.versions = list(versions)
         self.comparisons = list(comparisons)
@@ -222,6 +223,9 @@ class Plan(object):
         self.aa_version = aa_version
         self.amends = amends
         self.read_timeout = read_timeout
+        self.sidedness = sidedness
+        self.alpha = alpha
+        self.alpha_text = alpha_text
 
     def version_path(self, name):
         for version, path in self.versions:
@@ -247,7 +251,7 @@ class Plan(object):
 _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
               "change-scope", "fake-reader")
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
-                "spend-ceiling", "amends", "read-timeout")
+                "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
 _FRACTION = re.compile(r"([0-9]+)/([0-9]+)\Z")
@@ -336,6 +340,22 @@ def parse_text(text):
             state.bad(number, "noise-threshold is written as a fraction n/d")
         else:
             noise = Fraction(int(match.group(1)), int(match.group(2)))
+    sidedness = "two"
+    if "sidedness" in scalars:
+        number, value = scalars["sidedness"]
+        if value in ("two", "greater", "less"):
+            sidedness = value
+        else:
+            state.bad(number, "sidedness is two, greater or less")
+    alpha = Fraction(1, 20)
+    alpha_text = "0.05"
+    if "alpha" in scalars:
+        number, value = scalars["alpha"]
+        if re.fullmatch(r"0\.[0-9]+", value) and value.strip("0.") != "":
+            alpha = Fraction(value)
+            alpha_text = value
+        else:
+            state.bad(number, "alpha is written as 0. followed by digits, not all zero")
     ceiling = None
     if "spend-ceiling" in scalars:
         number, value = scalars["spend-ceiling"]
@@ -444,7 +464,8 @@ def parse_text(text):
                 reads_per_reader=reads_per_reader, hypotheses=hypotheses,
                 mechanisms=mechanisms, change_scope=change_scope, noise_threshold=noise,
                 spend_ceiling=ceiling, aa_version=aa_version, amends=amends,
-                read_timeout=timeout)
+                read_timeout=timeout, sidedness=sidedness, alpha=alpha,
+                alpha_text=alpha_text)
 
 
 def _hypothesis_clauses(state, number, rule, pair):
