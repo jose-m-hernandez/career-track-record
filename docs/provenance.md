@@ -215,5 +215,5 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_quote_check.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_source_hygiene.py | not recorded | not recorded | not recorded |
 | tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
-| tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_tone_pdf.py | not recorded | not recorded | not recorded |
