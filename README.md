@@ -9,7 +9,7 @@ Six checks for the career copy you send. Open the repository in your own AI agen
 - **Is every sentence in this file one I approved?** The claim gate (`track-record claims`) fails on any sentence your claims list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. It never decides whether a claim is true.
 - **How does this one draft read to a recruiter, and to the hiring manager?** The reader panel (`track-record panel`) reads one draft blind through lenses you name, each a reader in a role. Every lens also reads two planted anchors, one strong and one weak; a lens that cannot tell them apart is not counted. Each rule you wrote ends PASS, FAIL or INCONCLUSIVE.
 
-Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL. <!-- COPY PENDING, reader-ab revision 2: its owner words this line. -->
+Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples. The two reader tools measure their readers rather than prove them, and each result says how (see [Why you can trust a result](#why-you-can-trust-a-result)). It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
 
 Designed and directed by José Miguel Hernandez, built with AI coding agents. Where it was recorded, [docs/provenance.md](docs/provenance.md) names the harness and model that wrote each file.
 
@@ -53,7 +53,7 @@ Then point it at your own files: `track-record barred --list your-list.txt --con
 ## Why you can trust a result
 
 - **No network library.** No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does.
-- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run. The reader panel reads a strong and a weak anchor through every lens in every run. <!-- COPY PENDING, reader-ab revision 2: its owner words this line. -->
+- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. The reader tools are different: their readers can't be checked the same way. Reader A/B reads one version against itself in every run, which shows how often a reader picks a side when the drafts are the same. It doesn't show that a reader noticed your change. The reader panel reads a strong and a weak anchor through every lens in every run, and a lens that can't tell them apart is not counted.
 - **The rules are fixed before the answer.** A Reader A/B or reader panel plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
 The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` and `track-record panel` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
@@ -150,7 +150,13 @@ The tool has three subcommands:
 
 Exit 0 means the run completed and was scored, whatever the verdicts, or it only printed the commands because `--live` was absent. Exit 1 means it finished but a read failed, or the spend ceiling cut it short. Exit 2 means it couldn't run: a plan error, a changed file, a failed check on the versions, or an interrupt. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md).
 
-<!-- COPY PENDING, reader-ab and reader-panel revision 2: a paragraph on what the readers stand for and on the evidence beside each verdict (p-value, interval, missing reads, the validity line), worded by its owner. -->
+**What a reader result means.** The readers are AI models standing in for the people who will read your draft, such as a recruiter or a hiring manager. How well they stand in for people hasn't been measured, so a result is evidence about these readers, not about people. Beside each verdict, a result shows:
+- the exact p-value;
+- the 95% interval for the share of reads that picked one version;
+- how many reads were missing, and whether they could have changed the verdict;
+- how many reads were not blind.
+
+It also prints one line on validity: reads from one model and prompt may not be independent, so the p-value may be too small. These lines never change a verdict. They help you judge how much to rely on it.
 
 ### `track-record claims`
 

@@ -2,7 +2,7 @@
 
 A career record is assembled from sources that disagree: two résumés with different start dates, a title that changed mid-year, a number remembered one way and printed another. The method is how the record stays useful when that happens. It's six rules.
 
-Status: the barred-wording check, the keyword scan, the voice and tone check, Reader A/B, the claim gate and the reader panel run rule 6. <!-- COPY PENDING, reader-ab revision 2: its owner words this line. --> On request (`--check-sources`), the claim gate checks that each quote on an entry appears word for word in the local file the entry cites; it does not yet flag a claim with no source. Rules 1 to 4 are not built into a tool yet.
+Status: the barred-wording check, the keyword scan, the voice and tone check, the claim gate and the reader panel run rule 6. Reader A/B runs rule 6's fixed cases, and its isolation check runs on every plan. Its reads have no control that must be found: its self-read control measures how often readers pick a side on identical drafts. Each result reports that rate, and the evidence beside each verdict. On request (`--check-sources`), the claim gate checks that each quote on an entry appears word for word in the local file the entry cites; it does not yet flag a claim with no source. Rules 1 to 4 are not built into a tool yet.
 
 ## 1. Never overwrite
 

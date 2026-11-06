@@ -1,12 +1,12 @@
 # Reader panel: behaviour spec
 
-Status: draft. Revision 2 below is not signed; its owner signs the text between the draft markers as it stands. Until then, revision 1 (signed, sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) is the spec the tool is built to.
+Status: accepted.
 Date: 2026-11-05.
-Revision: 2. A draft: the text between the markers below (sha256 1d1aa533a8f0bbd0a76ef7c82d7992f21a603ad2db88343ead18f72f708ba170) is revision 2 in full. It is revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) with the evidence beside each verdict, and with its inner status line and section 9 brought up to the signed state.
+Revision: 2. The signed spec (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010) is reproduced below verbatim. Its owner signed it on 2026-11-05, with two amendments applied at its request (the anchor-gate sentence in section 6, and the unanimity sentence in section 6, whose figure is cut). It revises revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54), puts the evidence beside each verdict, and brings its inner status line and section 9 up to the signed state.
 
-## Draft spec (revision 2, not signed)
+## Signed spec
 
-<!-- draft spec begins: sha256 1d1aa533a8f0bbd0a76ef7c82d7992f21a603ad2db88343ead18f72f708ba170 -->
+<!-- signed spec begins: sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010 -->
 # Reader panel: behaviour spec
 
 Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 1 is draft 0.2 as its owner signed it on 2026-11-05, which settled every decision in § 9.
@@ -126,9 +126,9 @@ As in reader-ab.md § 5.5: the prompt tells the reader that it knows nothing abo
 
 Scoring reads only the replies, the key and the frozen plan. Failed reads are left out of every denominator below. A rule that needs N of N valid reads is INCONCLUSIVE when the count of valid reads is not exactly N.
 
-- **The anchor gate**, per lens. It is evaluated only when every planned anchor read of the lens is valid; otherwise it is "not evaluated". It passes when every valid read of the strong anchor scores at or above `anchor-strong-at-least` and every valid read of the weak anchor scores at or below `anchor-weak-at-most`; one read on the wrong side fails it, and the result names each such read with its score. The anchors play the part the A/A arm plays in `ab`: a run that shows nothing also shows whether it could see something.
+- **The anchor gate**, per lens. It is evaluated only when every planned anchor read of the lens is valid; otherwise it is "not evaluated". It passes when every valid read of the strong anchor scores at or above `anchor-strong-at-least` and every valid read of the weak anchor scores at or below `anchor-weak-at-most`; one read on the wrong side fails it, and the result names each such read with its score. The anchors check that a lens can tell strong from weak; a passed gate doesn't show it could see this version's difference.
 - **Counted lenses.** A lens whose gate passed is counted. A lens whose gate failed or was not evaluated is not counted: every rule on it is INCONCLUSIVE with that reason, and its reads of the version are shown but not counted anywhere. One lens's gate voids that lens only.
-- **Rules.** A rule's clauses are `PASS if <test> in <k> of <m>`, `PASS if <test> in <k> or more`, and the same with `FAIL`, separated by `; `, ending with `otherwise INCONCLUSIVE`. A test is `score at least <n>`, `score at most <n>`, `<FIELD> flagged` or `<FIELD> not flagged`, where FIELD is a free-text field. A rule on a lens counts that lens's valid reads of the version; an `overall` rule counts the valid reads of the version across every counted lens, and is INCONCLUSIVE when no lens is counted. `<k> of <m>` holds when exactly `<m>` reads are counted and at least `<k>` of them pass the test; `<k> or more` holds when at least `<k>` pass it, however many are counted. Clauses are tried in order, and the first that holds decides. A version cannot be required to beat a score the gate did not show the lens can give: `freeze` rejects (exit `2`, naming the plan line) any `PASS` clause `score at least <n>` where `<n>` is greater than `anchor-strong-at-least`. A `<n>` equal to or below it is accepted, as is any `FAIL` clause. Prefer `<k> of <m>` with slack to unanimity: identical documents can swing by about two reads in ten between passes, so unanimity rules (`6 of 6`) are brittle. The result names rules `r1`, `r2` and so on in plan order, and shows each clause's count.
+- **Rules.** A rule's clauses are `PASS if <test> in <k> of <m>`, `PASS if <test> in <k> or more`, and the same with `FAIL`, separated by `; `, ending with `otherwise INCONCLUSIVE`. A test is `score at least <n>`, `score at most <n>`, `<FIELD> flagged` or `<FIELD> not flagged`, where FIELD is a free-text field. A rule on a lens counts that lens's valid reads of the version; an `overall` rule counts the valid reads of the version across every counted lens, and is INCONCLUSIVE when no lens is counted. `<k> of <m>` holds when exactly `<m>` reads are counted and at least `<k>` of them pass the test; `<k> or more` holds when at least `<k>` pass it, however many are counted. Clauses are tried in order, and the first that holds decides. A version cannot be required to beat a score the gate did not show the lens can give: `freeze` rejects (exit `2`, naming the plan line) any `PASS` clause `score at least <n>` where `<n>` is greater than `anchor-strong-at-least`. A `<n>` equal to or below it is accepted, as is any `FAIL` clause. Prefer `<k> of <m>` with slack to unanimity: a unanimity rule (`6 of 6`) fails on one stray read, so it is brittle. The result names rules `r1`, `r2` and so on in plan order, and shows each clause's count.
 - **Scores** are reported per lens for each document, and for the version per reader as well, with the lowest and highest beside the mean.
 - **Flags.** For each lens and free-text field, the result reports how many valid reads of the version flagged it.
 
@@ -311,4 +311,4 @@ As in reader-ab.md's build interpretations, with the read folder holding exactly
 - Two anchors fix two points on a scale. A lens that ranks them correctly can still be wrong about the version; the gate rules out a lens that cannot see, not one that sees badly. More anchors, or anchors closer to the version, are a change for a later revision.
 - Set the strong threshold at or above the score the version must reach.
 - The ceiling stops reads once the tally reaches it, so one costly read can overshoot it, the same as in `ab`.
-<!-- draft spec ends -->
+<!-- signed spec ends -->

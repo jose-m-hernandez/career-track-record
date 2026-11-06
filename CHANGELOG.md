@@ -21,8 +21,9 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The command-line spec, docs/specs/cli.md, is revision 5: it notes that `claims` takes `--check-sources` and lists it in its fixed help text.
 - The README's `track-record claims` section describes quote lines and `--check-sources`, and its Coming section no longer promises the quote check. METHOD.md's status line says the claim gate checks quotes on request, and does not yet flag a claim with no source.
 - The barred-check spec, docs/specs/barred.md, is revision 7, signed by its owner: it reads each PDF in layout mode too, and replaces the known limit for wraps inside a page with one for pages set in columns.
-- The Reader A/B spec, docs/specs/reader-ab.md, is revision 2, a draft its owner has not signed yet: it puts an exact p-value, an interval and the missing reads beside each verdict, and corrects what section 1 claims for the A/A control. It changes no verdict, exit status or prompt.
-- The reader panel spec, docs/specs/reader-panel.md, is revision 2, a draft its owner has not signed yet: it puts an interval beside each clause count, an exact p-value when a rule names a share to test against, and the missing reads beside each verdict, and its inner status line and decisions now read as signed. It changes no verdict, exit status or prompt.
+- The Reader A/B spec, docs/specs/reader-ab.md, is revision 2, signed by its owner: it puts an exact p-value, an interval and the missing reads beside each verdict, says when a one-sided test did not look at a verdict's direction, and corrects what section 1 claims for the A/A control. It changes no verdict, exit status or prompt.
+- The reader panel spec, docs/specs/reader-panel.md, is revision 2, signed by its owner: it puts an interval beside each clause count, an exact p-value when a rule names a share to test against, and the missing reads beside each verdict, and its inner status line and decisions now read as signed. It changes no verdict, exit status or prompt.
+- The README says what a reader result means and what the reader tools' controls show, and METHOD.md's status line says how Reader A/B relates to rule 6.
 
 ### Fixed
 
