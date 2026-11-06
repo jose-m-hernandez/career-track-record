@@ -9,7 +9,7 @@ Six checks for the career copy you send. Open the repository in your own AI agen
 - **Is every sentence in this file one I approved?** The claim gate (`track-record claims`) fails on any sentence your claims list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. It never decides whether a claim is true.
 - **How does this one draft read to a recruiter, and to the hiring manager?** The reader panel (`track-record panel`) reads one draft blind through lenses you name, each a reader in a role. Every lens also reads two planted anchors, one strong and one weak; a lens that cannot tell them apart is not counted. Each rule you wrote ends PASS, FAIL or INCONCLUSIVE.
 
-Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
+Your agent runs the tools and tells you what they returned. Each tool proves it was looking before you trust a clean result: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples, a control read. It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL. <!-- COPY PENDING, reader-ab revision 2: its owner words this line. -->
 
 Designed and directed by José Miguel Hernandez, built with AI coding agents. Where it was recorded, [docs/provenance.md](docs/provenance.md) names the harness and model that wrote each file.
 
@@ -53,7 +53,7 @@ Then point it at your own files: `track-record barred --list your-list.txt --con
 ## Why you can trust a result
 
 - **No network library.** No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does.
-- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run. The reader panel reads a strong and a weak anchor through every lens in every run.
+- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. Reader A/B reads one version against itself in every run. The reader panel reads a strong and a weak anchor through every lens in every run. <!-- COPY PENDING, reader-ab revision 2: its owner words this line. -->
 - **The rules are fixed before the answer.** A Reader A/B or reader panel plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
 The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` and `track-record panel` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
@@ -149,6 +149,8 @@ The tool has three subcommands:
 `freeze` finds every problem in the plan and writes a freeze file beside it. `run` checks the hashes and that the versions differ only where the plan says, runs the readers and writes a result. `score` scores the replies again into a new result and never overwrites an earlier one. The `fake` reader answers by the rules in the plan's `fake-reader` block, so it tests the plan and says nothing about your copy. A live reader is a command you name, run without a shell in a folder holding the two versions, the posting and the prompt; it inherits your whole environment, API keys included. A plan with a live reader prints its commands and a spend estimate, and starts nothing, until you add `--live`. What a live reader does with your files is up to that reader.
 
 Exit 0 means the run completed and was scored, whatever the verdicts, or it only printed the commands because `--live` was absent. Exit 1 means it finished but a read failed, or the spend ceiling cut it short. Exit 2 means it couldn't run: a plan error, a changed file, a failed check on the versions, or an interrupt. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md).
+
+<!-- COPY PENDING, reader-ab and reader-panel revision 2: a paragraph on what the readers stand for and on the evidence beside each verdict (p-value, interval, missing reads, the validity line), worded by its owner. -->
 
 ### `track-record claims`
 
