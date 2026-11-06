@@ -2,11 +2,11 @@
 
 Status: draft. Revision 2 below is not signed; its owner signs the text between the draft markers as it stands. Until then, revision 1.2 (signed, sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53) is the spec the tool is built to.
 Date: 2026-11-05.
-Revision: 2. A draft: the text between the markers below (sha256 183c52588837f56d2ad5bf99460f6ff3147e8f76f533602884a7ec8db61e9bd2) is revision 2 in full. It is revision 1.2's signed text (sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53) with the evidence beside each verdict and a corrected section 1. The build interpretations of revision 1.1 follow it and still apply.
+Revision: 2. A draft: the text between the markers below (sha256 d8e31e9accbd4ba085f4b8c6158af89b2393fa2071fd7a49c99dee572c95ab97) is revision 2 in full. It is revision 1.2's signed text (sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53) with the evidence beside each verdict and a corrected section 1. The build interpretations of revision 1.1 follow it and still apply.
 
 ## Draft spec (revision 2, not signed)
 
-<!-- draft spec begins: sha256 183c52588837f56d2ad5bf99460f6ff3147e8f76f533602884a7ec8db61e9bd2 -->
+<!-- draft spec begins: sha256 d8e31e9accbd4ba085f4b8c6158af89b2393fa2071fd7a49c99dee572c95ab97 -->
 # Reader A/B harness: behaviour spec
 
 Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 1 was accepted with all six decisions (§ 9) settled: 1 to 5 by the owner on 2026-10-28, and 6 by the owner on 2026-10-29.
@@ -160,13 +160,13 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 - **A dead run.** When no read in the run is valid, the result says so in one line. The exit status is `1`, as for any run with a failed read (§ 7).
 - **The top of the scale.** The built-in prompt asks for scores from 1 to 10. For each arm, the result counts the valid reads that score both slots at 10 or more, and the valid reads that give both slots the same score. When every valid read of an arm scores both slots at 10 or more, the scores cannot show a difference in that arm, and the result says that preference is the only measure there.
 - **Not-blind reads.** Each hypothesis and mechanism verdict line ends with the number of its valid reads that came from a reader marked `not-blind` (§ 5.5).
-- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt are not independent, so each p-value assumes an independence the reads may not have and may be too small. Each p-value carries a short form of the same caveat on the same line.
+- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt may not be independent, so each p-value assumes an independence the reads may not have and may be too small. Each p-value carries a short form of the same caveat on the same line.
 
 #### Printed forms
 
 In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`, `c2` and so on, and `<h>` is the hypothesis name. A p-value is printed rounded half up to 4 decimal places, or as `< 0.0001` when it rounds to 0. An interval's lower end is rounded down and its upper end rounded up, to 3 decimal places. `<side>` is `two-sided`, `one-sided greater` or `one-sided less`.
 
-- `hypothesis <h> evidence: <Y> <k> of <n> non-TIE picks, <t> TIE; p = <p> <side> (reads correlated; may be too small); 95% interval <lo> to <hi>`
+- `hypothesis <h> evidence: <Y> <k> of <n> non-TIE picks, <t> TIE; p = <p> <side> (reads may be correlated; may be too small); 95% interval <lo> to <hi>`
 - With no pick: `hypothesis <h> evidence: no non-TIE pick, <t> TIE; p and interval not computed`
 - `hypothesis <h> flag: evidence disagrees: <verdict> at p = <p>, at or above alpha <alpha>`, or `... below alpha <alpha>` for an INCONCLUSIVE verdict. `<alpha>` is printed as the plan wrote it, or `0.05` by default.
 - `missing <arm>: <m> of <planned> planned reads (failed <f>, not run <r>)`, one line per arm, `m` = `f` + `r`.
@@ -177,7 +177,7 @@ In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`,
 - When `c` equals `v` and `v` is 1 or more: `scores <arm>: at the ceiling; preference is the only measure`
 - `A/A gate interval: <lo> to <hi> (95%, Wilson)`, the interval for the gate's own share (non-TIE `clearly` or `strongly` reads over valid A/A reads), or `A/A gate interval: not computed` when the A/A arm has no valid read.
 - Every hypothesis verdict line and mechanism verdict line ends with ` [not blind: <b> of <v> valid reads]`.
-- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt are not independent, so each p-value assumes independence and may be too small.`
+- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.`
 
 ## 7. Output and exit status
 
@@ -276,7 +276,7 @@ Unless a test says otherwise, the plan has one comparison (`base vs skills-top`)
 
 Tests 10.42 to 10.57 are new in revision 2 (10.32 to 10.41 are the build interpretations' tests, below). Where a test names "the example rule", the hypothesis is `SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE`.
 
-- 10.42: 10.1 with the example rule. The result has `hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; p = 0.0313 two-sided (reads correlated; may be too small); 95% interval 0.609 to 1.000`, the verdict line `hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]`, and no flag line. (The exact p-value is 1/32 = 0.03125, so rounding half to even would print 0.0312.)
+- 10.42: 10.1 with the example rule. The result has `hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; p = 0.0313 two-sided (reads may be correlated; may be too small); 95% interval 0.609 to 1.000`, the verdict line `hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]`, and no flag line. (The exact p-value is 1/32 = 0.03125, so rounding half to even would print 0.0312.)
 - 10.43: 10.42 with `sidedness: greater` prints `p = 0.0156 one-sided greater`. With `sidedness: less` it prints `p = 1.0000 one-sided less` and the flag line `hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 1.0000, at or above alpha 0.05`. The verdict is SUPPORTED in both.
 - 10.44: Reads 1 to 4 of the comparison `prefer containing "At a glance"`, reads 5 and 6 `prefer without "At a glance"`, and the hypothesis is `SUPPORTED if skills-top preferred in 4 or more; otherwise INCONCLUSIVE`. It is SUPPORTED, with `skills-top 4 of 6 non-TIE picks, 0 TIE; p = 0.6875 two-sided` and `95% interval 0.299 to 0.904` (the exact lower end, 0.29999…, is rounded down), and the flag line `hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 0.6875, at or above alpha 0.05`.
 - 10.45: `reads-per-reader: 4`, `prefer containing "At a glance"` on the comparison, `omit PREFER | read 8`, and the hypothesis `SUPPORTED if skills-top preferred in 8 of 8; otherwise INCONCLUSIVE`. Seven reads are valid, so the verdict is INCONCLUSIVE. The result has `skills-top 7 of 7 non-TIE picks, 0 TIE; p = 0.0156 two-sided`, `95% interval 0.645 to 1.000`, the flag line `hypothesis h1 flag: evidence disagrees: INCONCLUSIVE at p = 0.0156, below alpha 0.05`, `missing c1: 1 of 8 planned reads (failed 1, not run 0)`, `missing aa: 0 of 8 planned reads (failed 0, not run 0)` and `hypothesis h1 completions (missing reads: 1): unsettled: SUPPORTED, INCONCLUSIVE possible; p from 0.0078 to 0.0703`. Exit 1.

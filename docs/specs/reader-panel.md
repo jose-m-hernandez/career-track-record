@@ -2,11 +2,11 @@
 
 Status: draft. Revision 2 below is not signed; its owner signs the text between the draft markers as it stands. Until then, revision 1 (signed, sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) is the spec the tool is built to.
 Date: 2026-11-05.
-Revision: 2. A draft: the text between the markers below (sha256 3332ef0de2a7338012f1b04849e871b28441ef8051d22b904b18ec4df9d8269e) is revision 2 in full. It is revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) with the evidence beside each verdict, and with its inner status line and section 9 brought up to the signed state.
+Revision: 2. A draft: the text between the markers below (sha256 1d1aa533a8f0bbd0a76ef7c82d7992f21a603ad2db88343ead18f72f708ba170) is revision 2 in full. It is revision 1's signed text (sha256 ac82fffd00acf5929e7001ab2e67b6b0d38705982f2bb7e9c35da25e290e1d54) with the evidence beside each verdict, and with its inner status line and section 9 brought up to the signed state.
 
 ## Draft spec (revision 2, not signed)
 
-<!-- draft spec begins: sha256 3332ef0de2a7338012f1b04849e871b28441ef8051d22b904b18ec4df9d8269e -->
+<!-- draft spec begins: sha256 1d1aa533a8f0bbd0a76ef7c82d7992f21a603ad2db88343ead18f72f708ba170 -->
 # Reader panel: behaviour spec
 
 Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 1 is draft 0.2 as its owner signed it on 2026-11-05, which settled every decision in § 9.
@@ -142,14 +142,14 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 - **A dead run.** When no read in the run is valid, the result says so in one line. The exit status is `1`, as for any run with a failed read (§ 7).
 - **The top of the scale.** For each lens, the result gives the version's lowest valid score beside the strong anchor's highest valid score, and the version's spread (highest minus lowest). When the version's lowest score is at or above the strong anchor's highest, the lens cannot rank the version above the strong anchor, and the result says so. When every valid read gives the version the same score, the result says so. When the lens names `max`, the result gives the room between the strong anchor's highest score and that maximum.
 - **Not-blind reads.** Each rule's verdict line ends with the number of the reads it counts that came from a reader marked `not-blind` (§ 5.5).
-- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt are not independent, so each p-value assumes independence and may be too small. Each p-value carries a short form of the same caveat on the same line.
+- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small. Each p-value carries a short form of the same caveat on the same line.
 
 #### Printed forms
 
 `<rule>` is the rule's name (`r1`, `r2` and so on), `<arm>` is the lens's arm (`l1`, `l2` and so on), and `<test>` is the clause's test as written. A p-value is printed rounded half up to 4 decimal places, or as `< 0.0001` when it rounds to 0. An interval's lower end is rounded down and its upper end rounded up, to 3 decimal places. `<side>` is `two-sided`, `one-sided greater` or `one-sided less`.
 
 - `rule <rule> evidence: <test>: <k> of <n> counted reads; 95% interval <lo> to <hi>`, one line per clause, or `... <k> of <n> counted reads; interval not computed` when `n` is 0.
-- With a `null-share` q, written as the plan wrote it, the same line gains, before the interval: `; p = <p> <side> against <q> (reads correlated; may be too small)`.
+- With a `null-share` q, written as the plan wrote it, the same line gains, before the interval: `; p = <p> <side> against <q> (reads may be correlated; may be too small)`.
 - `missing <arm> version: <m> of <planned> planned reads (failed <f>, not run <r>)`, one line per lens.
 - `rule <rule> completions (missing reads: <m>): settled: <verdict>`, or `... unsettled: <verdicts> possible`, in the order PASS, FAIL, INCONCLUSIVE, separated by `, `. A rule with no missing read among those it would count gets no completions line.
 - `DEAD: 0 of <N> planned reads are valid`, where `N` counts every planned read of every lens.
@@ -159,7 +159,7 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 - When the version has two or more valid reads and its spread is 0: `scores <arm>: every read gives the version the same score`.
 - When the lens names `max`: `scores <arm> room above the strong anchor: <max minus b> (scale maximum <max>)`.
 - Every rule verdict line ends with ` [not blind: <b> of <v> counted reads]`.
-- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt are not independent, so each p-value assumes independence and may be too small.`
+- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.`
 
 ## 7. Output and exit status
 
@@ -251,7 +251,7 @@ Unless a test says otherwise, the plan has two lenses (`recruiter`, `manager`), 
 Tests 10.29 to 10.38 are new in revision 2. They use the defaults above and the control lenses unless they say otherwise.
 
 - 10.29: 10.1's rule on the recruiter gives `rule r1 evidence: score at least 7: 6 of 6 counted reads; 95% interval 0.609 to 1.000` and `rule r1 evidence: score at most 4: 0 of 6 counted reads; 95% interval 0.000 to 0.391`, no p-value, and the verdict line `rule r1 verdict: PASS [not blind: 0 of 6 counted reads]`.
-- 10.30: The same rule with `| null-share 1/2` prints `; p = 0.0313 two-sided against 1/2 (reads correlated; may be too small)` on both clause lines. With `| null-share 3/4` the first clause prints `p = 0.3560 two-sided against 3/4` and the second `p = 0.0005 two-sided against 3/4`. With `sidedness: greater` and `null-share 1/2`, the first clause prints `p = 0.0156 one-sided greater against 1/2`. The verdict is PASS in every case.
+- 10.30: The same rule with `| null-share 1/2` prints `; p = 0.0313 two-sided against 1/2 (reads may be correlated; may be too small)` on both clause lines. With `| null-share 3/4` the first clause prints `p = 0.3560 two-sided against 3/4` and the second `p = 0.0005 two-sided against 3/4`. With `sidedness: greater` and `null-share 1/2`, the first clause prints `p = 0.0156 one-sided greater against 1/2`. The verdict is PASS in every case.
 - 10.31: With the control lenses scoring the strong anchor 9 through both lenses (10.32 assumes the same), each lens has `scores <arm> version against strong anchor: lowest version score 7, highest strong-anchor score 9`, `scores <arm> version spread: 0 (highest 7, lowest 7)` and `scores <arm>: every read gives the version the same score`, and no "at or above the strong anchor" line. With `version | score 9` in place of 7, each lens also has `scores <arm>: the version scores at or above the strong anchor; this lens cannot rank it higher`.
 - 10.32: `recruiter | recruiter.lens.txt | max 10` gives `scores l1 room above the strong anchor: 1 (scale maximum 10)`, and the manager lens has no such line. `max 6` (below `anchor-strong-at-least`, 7) is refused by `freeze`, naming the plan line.
 - 10.33: `recruiter | version | omit SCORE | read 5` leaves the recruiter 5 valid reads of the version, so 10.1's rule is INCONCLUSIVE. The result has `missing l1 version: 1 of 6 planned reads (failed 1, not run 0)`, `missing l2 version: 0 of 6 planned reads (failed 0, not run 0)` and `rule r1 completions (missing reads: 1): unsettled: PASS, INCONCLUSIVE possible`. Exit 1.
