@@ -800,6 +800,51 @@ def _evidence_line(label, clause, rule, recs, sidedness):
                                                low, high))
 
 
+def _possible_verdicts(rule, recs, m):
+    """The verdicts ``rule`` could reach if ``m`` more version reads came in, each scoring
+    anything and flagging any fields; one read decides all of the score clauses at once.
+    Returns them in the order PASS, FAIL, INCONCLUSIVE."""
+    clauses = [clause for _kind, clause in rule.clauses]
+    thresholds = [c.threshold for c in clauses if c.kind in ("at least", "at most")]
+    scores = sorted(set(t + d for t in thresholds for d in (-1, 0, 1))) if thresholds else [0]
+    fields = sorted(set(c.field for c in clauses if c.kind in ("flagged", "not flagged")))
+    flag_sets = [[]]
+    for field in fields:
+        flag_sets = flag_sets + [s + [field] for s in flag_sets]
+    vectors = set()
+    for score in scores:
+        for flags in flag_sets:
+            vector = []
+            for c in clauses:
+                if c.kind == "at least":
+                    vector.append(1 if score >= c.threshold else 0)
+                elif c.kind == "at most":
+                    vector.append(1 if score <= c.threshold else 0)
+                elif c.kind == "flagged":
+                    vector.append(1 if c.field in flags else 0)
+                else:
+                    vector.append(0 if c.field in flags else 1)
+            vectors.add(tuple(vector))
+    totals = set([tuple(0 for _c in clauses)])
+    for _i in range(m):
+        totals = set(tuple(a + b for a, b in zip(total, vector))
+                     for total in totals for vector in vectors)
+    base = [len([x for x in recs if c.holds_for(x.reply)]) for c in clauses]
+    n = len(recs) + m
+    found = set()
+    for total in totals:
+        verdict = "INCONCLUSIVE"
+        for (kind, clause), have, extra in zip(rule.clauses, base, total):
+            count = have + extra
+            holds = count >= clause.k if clause.n is None else (n == clause.n
+                                                               and count >= clause.k)
+            if holds:
+                verdict = kind
+                break
+        found.add(verdict)
+    return [v for v in ("PASS", "FAIL", "INCONCLUSIVE") if v in found]
+
+
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
@@ -916,6 +961,17 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                                            if field in x.reply.flagged]),
                           len(version_recs)))
     out.append("counted lenses: %s" % (" ".join(counted) if counted else "none"))
+    missing_in = {}
+    for lens in plan.lenses:
+        planned = planned_in(lens.arm, VERSION)
+        version = [x for x in records if x.read.arm == lens.arm and x.read.document == VERSION]
+        failed = len([x for x in version if x.status == "failed"])
+        not_run = len([x for x in version if x.status not in ("valid", "failed")])
+        missing_in[lens.arm] = failed + not_run
+        out.append("missing %s version: %d of %d planned reads (failed %d, not run %d)"
+                   % (lens.arm, failed + not_run, len(planned), failed, not_run))
+    if not [x for x in records if x.status == "valid"]:
+        out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
 
     # rules
     for rule in plan.rules:
@@ -951,6 +1007,16 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("%s reason: %s" % (label, reason))
         for kind, clause in rule.clauses:
             out.append(_evidence_line(label, clause, rule, recs, plan.sidedness))
+        arms = counted if rule.lens is None else ([rule.lens] if rule.lens in counted else [])
+        m = sum(missing_in[arm] for arm in arms)
+        if m >= 1:
+            possible = _possible_verdicts(rule, recs, m)
+            if len(possible) == 1:
+                out.append("%s completions (missing reads: %d): settled: %s"
+                           % (label, m, possible[0]))
+            else:
+                out.append("%s completions (missing reads: %d): unsettled: %s possible"
+                           % (label, m, ", ".join(possible)))
 
     out.append(harness.VALIDITY_LINE)
     return harness.finish_result(folder, out, records, log, stopped)

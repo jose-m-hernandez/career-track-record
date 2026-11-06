@@ -159,5 +159,74 @@ class EvidenceCase(unittest.TestCase):
         self.assertIs(ab.VALIDITY_LINE, reader_harness.VALIDITY_LINE)
 
 
+class MissingReadsCase(unittest.TestCase):
+    """Revision 2 section 6.1: missing reads, completions and the DEAD line."""
+
+    ONE_MISSING = RANK + ["recruiter | version | omit SCORE | read 5"]
+
+    def done(self, **overrides):
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def one_missing(self, rule, extra=()):
+        return self.done(fake_reader=self.ONE_MISSING, rules=["recruiter | " + rule] + list(extra))
+
+    def test_10_33_one_missing_version_read(self):
+        s, result, lines = self.done(fake_reader=self.ONE_MISSING,
+                                     rules=["recruiter | " + SIX_PASS])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("missing l1 version: 1 of 6 planned reads (failed 1, not run 0)", lines)
+        self.assertIn("missing l2 version: 0 of 6 planned reads (failed 0, not run 0)", lines)
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): unsettled: PASS, "
+                      "INCONCLUSIVE possible", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 5 counted reads]",
+                      lines)
+        self.assertEqual([x for x in lines if x.startswith("DEAD:")], [])
+
+    def test_10_34_dead_run(self):
+        s, result, lines = self.done(fake_reader=["omit SCORE"],
+                                     rules=["recruiter | " + SIX_PASS])
+        self.assertEqual(result.exit_code, 1)
+        self.assertIn("DEAD: 0 of 20 planned reads are valid", lines)
+        for arm in ("l1", "l2"):
+            self.assertIn("anchor gate %s: not evaluated (0 valid anchor reads of 4 planned)"
+                          % arm, lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]",
+                      lines)
+        self.assertEqual([x for x in lines if " completions (" in x], [])
+
+    def test_one_read_decides_every_score_clause_at_once(self):
+        s, result, lines = self.one_missing(
+            "PASS if score at least 7 in 6 of 6; FAIL if score at most 6 in 1 or more; "
+            "otherwise INCONCLUSIVE")
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): unsettled: PASS, FAIL "
+                      "possible", lines)
+
+    def test_a_flag_clause_completes_both_ways(self):
+        s, result, lines = self.one_missing(
+            "FAIL if DOUBTS flagged in 1 or more; otherwise INCONCLUSIVE")
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): unsettled: FAIL, "
+                      "INCONCLUSIVE possible", lines)
+
+    def test_overall_completes_counted_lenses(self):
+        s, result, lines = self.one_missing(
+            SIX_PASS,
+            ["overall | PASS if score at least 7 in 12 of 12; otherwise INCONCLUSIVE"])
+        self.assertIn("rule r2 (overall) completions (missing reads: 1): unsettled: PASS, "
+                      "INCONCLUSIVE possible", lines)
+
+    def test_settled_when_the_missing_read_cannot_matter(self):
+        s, result, lines = self.one_missing(
+            "PASS if score at least 7 in 5 or more; otherwise INCONCLUSIVE")
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): settled: PASS", lines)
+
+    def test_a_lens_not_counted_has_no_completions(self):
+        s, result, lines = self.done(fake_reader=RANK + ["manager | omit SCORE | read 1"],
+                                     rules=["manager | " + SIX_PASS])
+        self.assertIn("missing l2 version: 0 of 6 planned reads (failed 0, not run 0)", lines)
+        self.assertEqual([x for x in lines if x.startswith("rule r1 (l2) completions")], [])
+
+
 if __name__ == "__main__":
     unittest.main()
