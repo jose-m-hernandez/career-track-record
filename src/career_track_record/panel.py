@@ -18,6 +18,7 @@ import re
 from fractions import Fraction
 
 from career_track_record import reader_harness as harness
+from career_track_record import stats
 
 # File names inside a read folder, and in the run folder. Every use goes through these.
 READ_DOCUMENT = "DOCUMENT.txt"
@@ -780,6 +781,25 @@ def _scores_line(label, pairs):
         max(scores))
 
 
+SIDE_TEXT = {"two": "two-sided", "greater": "one-sided greater", "less": "one-sided less"}
+
+
+def _evidence_line(label, clause, rule, recs, sidedness):
+    """The evidence line of one clause: its count, its interval, and its p against a share."""
+    n = len(recs)
+    k = len([x for x in recs if clause.holds_for(x.reply)])
+    head = "%s evidence: %s: %d of %d counted reads; " % (label, clause.test(), k, n)
+    if n == 0:
+        return head + "interval not computed"
+    low, high = stats.wilson(k, n)
+    if rule.null_share is None:
+        return head + "95%% interval %s to %s" % (low, high)
+    p = stats.p_text(stats.binomial_p(k, n, sidedness, rule.null_share))
+    return head + ("p = %s %s against %s (reads may be correlated; may be too small); "
+                   "95%% interval %s to %s" % (p, SIDE_TEXT[sidedness], rule.null_share_text,
+                                               low, high))
+
+
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
@@ -924,8 +944,13 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif rule.lens not in counted:
             verdict = "INCONCLUSIVE"
             reasons.append(gate_reason[rule.lens])
-        out.append("%s verdict: %s" % (label, verdict))
+        out.append("%s verdict: %s [not blind: %d of %d counted reads]"
+                   % (label, verdict, len([x for x in recs if x.read.reader in not_blind]),
+                      len(recs)))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
+        for kind, clause in rule.clauses:
+            out.append(_evidence_line(label, clause, rule, recs, plan.sidedness))
 
+    out.append(harness.VALIDITY_LINE)
     return harness.finish_result(folder, out, records, log, stopped)

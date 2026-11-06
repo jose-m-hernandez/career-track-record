@@ -906,10 +906,7 @@ _percent = harness.percent
 _mean = harness.mean
 
 
-VALIDITY_LINE = ("validity: the readers are models standing in for human screeners, and that "
-                 "stand-in has not been checked against human ratings. Reads from one model "
-                 "and prompt may not be independent, so each p-value assumes independence "
-                 "and may be too small.")
+VALIDITY_LINE = harness.VALIDITY_LINE
 
 SIDE_TEXT = {"two": "two-sided", "greater": "one-sided greater", "less": "one-sided less"}
 

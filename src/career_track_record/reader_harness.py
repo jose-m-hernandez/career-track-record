@@ -33,6 +33,11 @@ PROMPT_LABEL = "PROMPT.txt (built into the tool)"
 FAKE = "fake"
 DEFAULT_READ_TIMEOUT = 600
 
+VALIDITY_LINE = ("validity: the readers are models standing in for human screeners, and that "
+                 "stand-in has not been checked against human ratings. Reads from one model "
+                 "and prompt may not be independent, so each p-value assumes independence "
+                 "and may be too small.")
+
 # Everything printed that came from an argument, a file name or a file's contents goes through
 # this one function (the one ``tone`` and ``barred`` print paths with), so that no value can
 # split a line or hide in an invisible character.
