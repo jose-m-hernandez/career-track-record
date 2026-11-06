@@ -1,12 +1,12 @@
 # Reader panel: behaviour spec
 
-Status: draft. Revision 3 below is not signed; its owner signs the text between the draft markers as it stands. It is built on revision 2, which its owner signed on 2026-11-05 (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010); until revision 3 is signed, revision 2 is the spec.
+Status: accepted.
 Date: 2026-11-05.
-Revision: 3. A draft: the text between the markers below (sha256 81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf) is revision 3 in full. It is revision 2's signed text (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010) with replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift.
+Revision: 3. The signed spec (sha256 81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf) is reproduced below verbatim. Its owner signed it on 2026-11-05. It revises revision 2's signed text (sha256 30b42df506ccfe2054bd40aeee2d8fa47b0dc20e3475554bee7f3a913bc1c010) with replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift.
 
-## Draft spec (revision 3, not signed)
+## Signed spec
 
-<!-- draft spec begins: sha256 81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf -->
+<!-- signed spec begins: sha256 81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf -->
 # Reader panel: behaviour spec
 
 Status: revision 3, drafted on 2026-11-05 for the owner's signature, after revision 2. Revision 1 is draft 0.2 as its owner signed it on 2026-11-05, which settled every decision in § 9.
@@ -337,4 +337,4 @@ As in reader-ab.md's build interpretations, with the read folder holding exactly
 - Two anchors fix two points on a scale. A lens that ranks them correctly can still be wrong about the version; the gate rules out a lens that cannot see, not one that sees badly. More anchors, or anchors closer to the version, are a change for a later revision.
 - Set the strong threshold at or above the score the version must reach.
 - The ceiling stops reads once the tally reaches it, so one costly read can overshoot it, the same as in `ab`.
-<!-- draft spec ends -->
+<!-- signed spec ends -->

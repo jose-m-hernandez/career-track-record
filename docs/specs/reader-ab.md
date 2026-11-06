@@ -1,12 +1,12 @@
 # Reader A/B harness: behaviour spec
 
-Status: draft. Revision 3 below is not signed; its owner signs the text between the draft markers as it stands. It is built on revision 2, which its owner signed on 2026-11-05 (sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6); until revision 3 is signed, revision 2 is the spec.
+Status: accepted.
 Date: 2026-11-05.
-Revision: 3. A draft: the text between the markers below (sha256 d6e3bc81be4897e3e75de824787bd5724168962c96f9ca161d91195c81aef160) is revision 3 in full. It is revision 2's signed text (sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6) with a sensitivity arm, replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift. The build interpretations of revision 1.1 follow it and still apply.
+Revision: 3. The signed spec (sha256 3b581c40da031b943ae5280a6881235c5b5b6c27d8568db1d3d3e85851ee1f6f) is reproduced below verbatim. Its owner signed it on 2026-11-05. It revises revision 2's signed text (sha256 9bb098e138a03df8ffbf6e077dde0868f3c71b2305050e831015113d57d840a6) with a sensitivity arm, replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift. The build interpretations of revision 1.1 follow it and still apply.
 
-## Draft spec (revision 3, not signed)
+## Signed spec
 
-<!-- draft spec begins: sha256 d6e3bc81be4897e3e75de824787bd5724168962c96f9ca161d91195c81aef160 -->
+<!-- signed spec begins: sha256 3b581c40da031b943ae5280a6881235c5b5b6c27d8568db1d3d3e85851ee1f6f -->
 # Reader A/B harness: behaviour spec
 
 Status: revision 3, drafted on 2026-11-05 for the owner's signature, after revision 2. Revision 1 was accepted with all six decisions (§ 9) settled: 1 to 5 by the owner on 2026-10-28, and 6 by the owner on 2026-10-29.
@@ -348,7 +348,7 @@ Tests 10.58 to 10.76 are new in revision 3. They add a fixture, `base-weak`: the
 - 10.74: 10.73's plan with `min-valid-reads: 5` and the A/A gate tripped as in 10.8: the verdict stays INCONCLUSIVE with the A/A reason; nothing is lifted.
 - 10.75: A replicate of 10.1 (a second folder whose plan adds only `replicate-of`) gives `replicate of: <the first freeze's sha256>` and `hypothesis h1 replicate: first run skills-top 6 of 6, this run 6 of 6; Fisher exact p = 1.0000 two-sided`, and the first run folder stays byte-identical. A replicate whose plan differs from the first in any other line, or whose version file has changed since the first freeze, is refused by `freeze`, naming the file.
 - 10.76: Readers `reader-1 | fake | reader-group f1` and `reader-2 | fake | reader-group f1`: the result has `reader-group f1: 12 valid reads` (every valid read of every arm), and every verdict is as in 10.1.
-<!-- draft spec ends -->
+<!-- signed spec ends -->
 
 ## Build interpretations (maintainer, 2026-10-29)
 
