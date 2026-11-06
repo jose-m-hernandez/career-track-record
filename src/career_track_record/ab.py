@@ -17,6 +17,7 @@ import re
 from fractions import Fraction
 
 from career_track_record import reader_harness as harness
+from career_track_record import stats
 
 # File names inside a read folder, and in the run folder. Every use goes through these.
 READ_A = "A.txt"
@@ -905,6 +906,14 @@ _percent = harness.percent
 _mean = harness.mean
 
 
+VALIDITY_LINE = ("validity: the readers are models standing in for human screeners, and that "
+                 "stand-in has not been checked against human ratings. Reads from one model "
+                 "and prompt may not be independent, so each p-value assumes independence "
+                 "and may be too small.")
+
+SIDE_TEXT = {"two": "two-sided", "greater": "one-sided greater", "less": "one-sided less"}
+
+
 def _clause_holds(clause, valid, picks):
     if clause is None:
         return False
@@ -1016,6 +1025,13 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("A/A gate: passed (%d of %d valid A/A reads clearly or strongly "
                        "non-TIE; threshold %s)" % (strong, len(aa_valid),
                                                  plan.noise_threshold))
+    if aa_valid:
+        strong = len([x for x in aa_valid
+                      if x.reply.choice != "TIE" and x.reply.strength in STRONG])
+        low, high = stats.wilson(strong, len(aa_valid))
+        out.append("A/A gate interval: %s to %s (95%%, Wilson)" % (low, high))
+    else:
+        out.append("A/A gate interval: not computed")
 
     # position
     position = {}
@@ -1053,9 +1069,11 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         first, second = plan.comparisons[hyp.comparison - 1]
         rule = ["%s if %s" % (kind, clause.text()) for kind, clause in hyp.clauses]
         verdict = "INCONCLUSIVE"
+        decider = None
         for kind, clause in hyp.clauses:
             if _clause_holds(clause, len(recs), picks):
                 verdict = kind
+                decider = clause
                 break
         reasons = []
         if gate == "tripped":
@@ -1071,9 +1089,38 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         out.append("hypothesis %s counts: valid=%d %s=%d %s=%d tie=%d" % (
             hyp.name, len(recs), first, picks.get(first, 0), second,
             picks.get(second, 0), ties))
-        out.append("hypothesis %s verdict: %s" % (hyp.name, verdict))
+        blind_count = len([x for x in recs if x.read.reader in not_blind])
+        out.append("hypothesis %s verdict: %s [not blind: %d of %d valid reads]"
+                   % (hyp.name, verdict, blind_count, len(recs)))
         for reason in reasons:
             out.append("hypothesis %s reason: %s" % (hyp.name, reason))
+        n = sum(picks.values())
+        if n == 0:
+            out.append("hypothesis %s evidence: no non-TIE pick, %d TIE; "
+                       "p and interval not computed" % (hyp.name, ties))
+            continue
+        k = picks.get(second, 0)
+        p = stats.binomial_p(k, n, plan.sidedness)
+        low, high = stats.wilson(k, n)
+        out.append("hypothesis %s evidence: %s %d of %d non-TIE picks, %d TIE; "
+                   "p = %s %s (reads may be correlated; may be too small); "
+                   "95%% interval %s to %s" % (
+                       hyp.name, _show(second), k, n, ties, stats.p_text(p),
+                       SIDE_TEXT[plan.sidedness], low, high))
+        if reasons:
+            continue
+        if verdict in ("SUPPORTED", "REFUTED"):
+            tested = second if plan.sidedness == "greater" else first
+            if plan.sidedness != "two" and decider.version != tested:
+                out.append("hypothesis %s flag: one-sided test: this direction not tested"
+                           % hyp.name)
+            elif p >= plan.alpha:
+                out.append("hypothesis %s flag: evidence disagrees: %s at p = %s, "
+                           "at or above alpha %s" % (hyp.name, verdict, stats.p_text(p),
+                                                     plan.alpha_text))
+        elif p < plan.alpha:
+            out.append("hypothesis %s flag: evidence disagrees: INCONCLUSIVE at p = %s, "
+                       "below alpha %s" % (hyp.name, stats.p_text(p), plan.alpha_text))
 
     # mechanisms
     def matching(recs, mech):
@@ -1107,7 +1154,9 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
-        out.append("%s verdict: %s (SUPPORTED at %d or more)" % (label, verdict, mech.k))
+        blind_count = len([x for x in recs if x.read.reader in not_blind])
+        out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d of %d valid reads]"
+                   % (label, verdict, mech.k, blind_count, len(recs)))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
 
@@ -1139,5 +1188,6 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                    % (max(aa_scores) - min(aa_scores), max(aa_scores), min(aa_scores)))
     else:
         out.append("A/A score spread: none (no valid A/A read)")
+    out.append(VALIDITY_LINE)
 
     return harness.finish_result(folder, out, records, log, stopped)

@@ -390,7 +390,7 @@ class AbCli(CliBase):
         self.assertEqual((code, out, err), (0, "freeze written: plan.txt.freeze\n", ""))
         code, out, err = track("ab", "run", s.plan_path)
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("hypothesis h1 verdict: SUPPORTED\n", out)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]\n", out)
         self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
                       "non-TIE; threshold 1/2)\n", out)
         self.assertEqual(out, s.read("result-1.txt"))
