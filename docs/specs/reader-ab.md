@@ -2,11 +2,11 @@
 
 Status: draft. Revision 3 below is not signed, and neither is revision 2, on which it is built; its owner signs revision 2 first, then the text between the draft markers as it stands. Until then, revision 1.2 (signed, sha256 a9e1b896030bd4fbc0c5c553b6f8394debfb403e3963d54b9587ba04fad18f53) is the spec the tool is built to.
 Date: 2026-11-05.
-Revision: 3. A draft: the text between the markers below (sha256 5b9b949fe2f2f29e999bb1037fcba71ec70d8b26e93e9e49eabba139e91822dc) is revision 3 in full. It is revision 2's draft text (sha256 183c52588837f56d2ad5bf99460f6ff3147e8f76f533602884a7ec8db61e9bd2) with a sensitivity arm, replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift. The build interpretations of revision 1.1 follow it and still apply.
+Revision: 3. A draft: the text between the markers below (sha256 d31b0370666c665226d92508b0cff9800cab2cb37e2991b4fc919f017f95fd47) is revision 3 in full. It is revision 2's draft text (sha256 d8e31e9accbd4ba085f4b8c6158af89b2393fa2071fd7a49c99dee572c95ab97) with a sensitivity arm, replicate runs, a read floor, not-blind reads kept out of every verdict, and the lift. The build interpretations of revision 1.1 follow it and still apply.
 
 ## Draft spec (revision 3, not signed)
 
-<!-- draft spec begins: sha256 5b9b949fe2f2f29e999bb1037fcba71ec70d8b26e93e9e49eabba139e91822dc -->
+<!-- draft spec begins: sha256 d31b0370666c665226d92508b0cff9800cab2cb37e2991b4fc919f017f95fd47 -->
 # Reader A/B harness: behaviour spec
 
 Status: revision 3, drafted on 2026-11-05 for the owner's signature, after revision 2. Revision 1 was accepted with all six decisions (§ 9) settled: 1 to 5 by the owner on 2026-10-28, and 6 by the owner on 2026-10-29.
@@ -55,7 +55,7 @@ The plan is a plain-text file the user writes before any read. Each line is `key
 - `versions`: each version file, with a short name;
 - `comparisons`: one or more comparisons, each written `X vs Y` in version names. The tool adds the A/A arm (below) when the plan leaves it out, and says so in the result;
 - `aa-version`: the version used in both slots of the A/A arm (default: the second version of the first comparison);
-- `readers`: each reader's name and command (§ 5.1), whether it is `not-blind` (§ 5.5), and optionally the `family` it belongs to, a name shared by readers that are alike (for example, one model behind two commands) (§ 5.5);
+- `readers`: each reader's name and command (§ 5.1), whether it is `not-blind` (§ 5.5), and optionally the `reader-group` it belongs to, a name shared by readers that are alike (for example, one model behind two commands) (§ 5.5);
 - `reads-per-reader`: reads per arm for each reader (default 3, which gives 6 reads per arm with two readers);
 - `hypotheses`: each with its decision rule written as counts of valid reads. For example, "SUPPORTED if Y is preferred in 6 of 6; REFUTED if X is preferred in 4 or more; otherwise INCONCLUSIVE";
 - `mechanisms` (optional): a case-insensitive pattern, the reply fields it is matched against, and the count of matching replies that supports it. The default fields are every free-text field: `DROVE-IT`, `DOUBTS`, `UNDERSOLD`, `OVEREXPLAINED`, `OWNED`, `FLAG-FIXES`, and the rationale part of `PREFER` (§ 5.4);
@@ -145,7 +145,7 @@ A reply that is missing `READ`, `SCORE-A`, `SCORE-B` or `PREFER`, or whose `PREF
 
 ### 5.5 Blindness
 
-The prompt tells the reader that it knows nothing about the candidate, and the `PRIOR` field asks what it knew before reading. Any `PRIOR` other than `nothing` is flagged on that read in the result. A reader known to receive the user's identity from its own environment is marked `not-blind` in the plan. Its reads are reported separately and are never counted in a verdict, a gate or a mechanism count: from revision 3, everything in § 6 counts reads from blind readers only. Every verdict line says how many reads it left out because their reader is marked `not-blind` (§ 6.1). A reader's `family`, when given, is reported with its reads, and the result counts valid reads per family; a family changes no verdict.
+The prompt tells the reader that it knows nothing about the candidate, and the `PRIOR` field asks what it knew before reading. Any `PRIOR` other than `nothing` is flagged on that read in the result. A reader known to receive the user's identity from its own environment is marked `not-blind` in the plan. Its reads are reported separately and are never counted in a verdict, a gate or a mechanism count: from revision 3, everything in § 6 counts reads from blind readers only. Every verdict line says how many reads it left out because their reader is marked `not-blind` (§ 6.1). A reader's `reader-group`, when given, is reported with its reads, and the result counts valid reads per reader group; a reader group changes no verdict.
 
 ## 6. Scoring
 
@@ -174,13 +174,13 @@ Nothing in this section changes a verdict. Each line is reported beside the verd
 - **The top of the scale.** The built-in prompt asks for scores from 1 to 10. For each arm, the result counts the valid reads that score both slots at 10 or more, and the valid reads that give both slots the same score. When every valid read of an arm scores both slots at 10 or more, the scores cannot show a difference in that arm, and the result says that preference is the only measure there.
 - **Not-blind reads.** Each hypothesis and mechanism verdict line ends with the number of valid reads it left out because their reader is marked `not-blind` (§ 5.5).
 - **Sensitivity gate evidence.** The gate's share gets the exact one-sided p-value against 1/2 (the chance that `k` or more of `n` valid sensitivity reads prefer `X` if readers picked at random, TIEs counted as reads that do not prefer `X`) and its 95% Wilson interval.
-- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt are not independent, so each p-value assumes an independence the reads may not have and may be too small. Each p-value carries a short form of the same caveat on the same line.
+- **What the reads stand for.** Every result carries one validity line: the readers are models standing in for human screeners, that stand-in has not been checked against human ratings, and reads from one model and prompt may not be independent, so each p-value assumes an independence the reads may not have and may be too small. Each p-value carries a short form of the same caveat on the same line.
 
 #### Printed forms
 
 In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`, `c2` and so on, and `<h>` is the hypothesis name. A p-value is printed rounded half up to 4 decimal places, or as `< 0.0001` when it rounds to 0. An interval's lower end is rounded down and its upper end rounded up, to 3 decimal places. `<side>` is `two-sided`, `one-sided greater` or `one-sided less`.
 
-- `hypothesis <h> evidence: <Y> <k> of <n> non-TIE picks, <t> TIE; p = <p> <side> (reads correlated; may be too small); 95% interval <lo> to <hi>`
+- `hypothesis <h> evidence: <Y> <k> of <n> non-TIE picks, <t> TIE; p = <p> <side> (reads may be correlated; may be too small); 95% interval <lo> to <hi>`
 - With no pick: `hypothesis <h> evidence: no non-TIE pick, <t> TIE; p and interval not computed`
 - `hypothesis <h> flag: evidence disagrees: <verdict> at p = <p>, at or above alpha <alpha>`, or `... below alpha <alpha>` for an INCONCLUSIVE verdict. `<alpha>` is printed as the plan wrote it, or `0.05` by default.
 - `missing <arm>: <m> of <planned> planned reads (failed <f>, not run <r>)`, one line per arm, `m` = `f` + `r`.
@@ -192,13 +192,13 @@ In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`,
 - `A/A gate interval: <lo> to <hi> (95%, Wilson)`, the interval for the gate's own share (non-TIE `clearly` or `strongly` reads over valid A/A reads), or `A/A gate interval: not computed` when the A/A arm has no valid read.
 - Every hypothesis verdict line and mechanism verdict line ends with ` [not blind: <b> reads left out]`.
 - `sensitivity gate: passed (<k> of <n> valid sensitivity reads prefer <X>; threshold <t>)`, `sensitivity gate: failed (...)` with the same parentheses, `sensitivity gate: not evaluated (<v> valid reads of <p> planned)`, or `sensitivity gate: not tested`, on the line after the A/A gate line.
-- `sensitivity gate evidence: p = <p> one-sided greater (reads correlated; may be too small); 95% interval <lo> to <hi>`, when the gate was evaluated.
+- `sensitivity gate evidence: p = <p> one-sided greater (reads may be correlated; may be too small); 95% interval <lo> to <hi>`, when the gate was evaluated.
 - `sensitivity score gap <reader>: <gap>`, one line per reader with a valid sensitivity read, with `<gap>` printed as the score lines print a mean.
 - A hypothesis reason line `hypothesis <h> reason: below the read floor (<v> valid reads, floor <f>)`, and a mechanism reason line of the same form.
 - After a lift, the verdict line gives the lifted verdict, and the reason line reads `hypothesis <h> reason: lifted from INCONCLUSIVE: settled under every completion of <m> missing reads; read floor <f> met`.
 - In a replicate: `replicate of: <first freeze sha256>`, and per hypothesis `hypothesis <h> replicate: first run <Y> <k1> of <n1>, this run <k2> of <n2>; Fisher exact p = <p> two-sided`.
-- `family <name>: <v> valid reads`, one line per family named in the plan, counting its valid reads across every arm.
-- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt are not independent, so each p-value assumes independence and may be too small.`
+- `reader-group <name>: <v> valid reads`, one line per reader group named in the plan, counting its valid reads across every arm.
+- `validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.`
 
 ## 7. Output and exit status
 
@@ -212,7 +212,7 @@ In the forms below, `<Y>` is the second-listed version, `<arm>` is `aa` or `c1`,
 - the position shares;
 - failed reads and any cut;
 - the evidence lines of § 6.1: each hypothesis's sign test, interval, flag and completions, the missing reads per arm, the A/A gate interval, the score ceiling and separation per arm, any `DEAD` line, and the validity line;
-- the sensitivity gate, its counts, evidence and score gaps; any read-floor or lift reason; the counts per family; and, in a replicate, the comparison with the first run.
+- the sensitivity gate, its counts, evidence and score gaps; any read-floor or lift reason; the counts per reader group; and, in a replicate, the comparison with the first run.
 
 Every run writes a new result; an earlier result is never overwritten.
 
@@ -309,7 +309,7 @@ Unless a test says otherwise, the plan has one comparison (`base vs skills-top`)
 
 Tests 10.42 to 10.57 are new in revision 2 (10.32 to 10.41 are the build interpretations' tests, below). Where a test names "the example rule", the hypothesis is `SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE`.
 
-- 10.42: 10.1 with the example rule. The result has `hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; p = 0.0313 two-sided (reads correlated; may be too small); 95% interval 0.609 to 1.000`, the verdict line `hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]`, and no flag line. (The exact p-value is 1/32 = 0.03125, so rounding half to even would print 0.0312.)
+- 10.42: 10.1 with the example rule. The result has `hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; p = 0.0313 two-sided (reads may be correlated; may be too small); 95% interval 0.609 to 1.000`, the verdict line `hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]`, and no flag line. (The exact p-value is 1/32 = 0.03125, so rounding half to even would print 0.0312.)
 - 10.43: 10.42 with `sidedness: greater` prints `p = 0.0156 one-sided greater`. With `sidedness: less` it prints `p = 1.0000 one-sided less` and the flag line `hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 1.0000, at or above alpha 0.05`. The verdict is SUPPORTED in both.
 - 10.44: Reads 1 to 4 of the comparison `prefer containing "At a glance"`, reads 5 and 6 `prefer without "At a glance"`, and the hypothesis is `SUPPORTED if skills-top preferred in 4 or more; otherwise INCONCLUSIVE`. It is SUPPORTED, with `skills-top 4 of 6 non-TIE picks, 0 TIE; p = 0.6875 two-sided` and `95% interval 0.299 to 0.904` (the exact lower end, 0.29999…, is rounded down), and the flag line `hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 0.6875, at or above alpha 0.05`.
 - 10.45: `reads-per-reader: 4`, `prefer containing "At a glance"` on the comparison, `omit PREFER | read 8`, and the hypothesis `SUPPORTED if skills-top preferred in 8 of 8; otherwise INCONCLUSIVE`. Seven reads are valid, so the verdict is INCONCLUSIVE. The result has `skills-top 7 of 7 non-TIE picks, 0 TIE; p = 0.0156 two-sided`, `95% interval 0.645 to 1.000`, the flag line `hypothesis h1 flag: evidence disagrees: INCONCLUSIVE at p = 0.0156, below alpha 0.05`, `missing c1: 1 of 8 planned reads (failed 1, not run 0)`, `missing aa: 0 of 8 planned reads (failed 0, not run 0)` and `hypothesis h1 completions (missing reads: 1): unsettled: SUPPORTED, INCONCLUSIVE possible; p from 0.0078 to 0.0703`. Exit 1.
@@ -328,7 +328,7 @@ Tests 10.42 to 10.57 are new in revision 2 (10.32 to 10.41 are the build interpr
 
 Tests 10.58 to 10.76 are new in revision 3. They add a fixture, `base-weak`: the `base` résumé with one bullet's specific phrase, here called P, replaced by a vague one, so that P appears only in `base`. Where a test names "the sensitivity plan", the plan adds `sensitivity: base vs base-weak` and a `sensitivity-scope` naming that bullet's line.
 
-- 10.58: The sensitivity plan with `s | prefer containing "P"` and the comparison as 10.1: `sensitivity gate: passed (6 of 6 valid sensitivity reads prefer base; threshold 5/6)`, `sensitivity gate evidence: p = 0.0156 one-sided greater (reads correlated; may be too small); 95% interval 0.609 to 1.000`, the comparison SUPPORTED, exit 0.
+- 10.58: The sensitivity plan with `s | prefer containing "P"` and the comparison as 10.1: `sensitivity gate: passed (6 of 6 valid sensitivity reads prefer base; threshold 5/6)`, `sensitivity gate evidence: p = 0.0156 one-sided greater (reads may be correlated; may be too small); 95% interval 0.609 to 1.000`, the comparison SUPPORTED, exit 0.
 - 10.59: The sensitivity plan with `s | tie`: the gate fails (0 of 6), and the comparison is INCONCLUSIVE with a reason naming the sensitivity gate. Exit 0.
 - 10.60: `sensitivity: base vs base` exits 2 before reading.
 - 10.61: A `base-weak` that also differs from `base` outside `sensitivity-scope` exits 2 before reading and prints the line.
@@ -346,7 +346,7 @@ Tests 10.58 to 10.76 are new in revision 3. They add a fixture, `base-weak`: the
 - 10.73: The rule `SUPPORTED if skills-top preferred in 5 of 6; otherwise INCONCLUSIVE`, `prefer containing "At a glance"`, `omit PREFER | read 1`: five valid reads, so the rule gives INCONCLUSIVE, and every completion gives SUPPORTED. Without a read floor the verdict stays INCONCLUSIVE, with `completions (missing reads: 1): settled: SUPPORTED`. With `min-valid-reads: 5` the verdict is SUPPORTED, with the reason `lifted from INCONCLUSIVE: settled under every completion of 1 missing reads; read floor 5 met`. Exit 1 in both.
 - 10.74: 10.73's plan with `min-valid-reads: 5` and the A/A gate tripped as in 10.8: the verdict stays INCONCLUSIVE with the A/A reason; nothing is lifted.
 - 10.75: A replicate of 10.1 (a second folder whose plan adds only `replicate-of`) gives `replicate of: <the first freeze's sha256>` and `hypothesis h1 replicate: first run skills-top 6 of 6, this run 6 of 6; Fisher exact p = 1.0000 two-sided`, and the first run folder stays byte-identical. A replicate whose plan differs from the first in any other line, or whose version file has changed since the first freeze, is refused by `freeze`, naming the file.
-- 10.76: Readers `reader-1 | fake | family f1` and `reader-2 | fake | family f1`: the result has `family f1: 12 valid reads` (every valid read of every arm), and every verdict is as in 10.1.
+- 10.76: Readers `reader-1 | fake | reader-group f1` and `reader-2 | fake | reader-group f1`: the result has `reader-group f1: 12 valid reads` (every valid read of every arm), and every verdict is as in 10.1.
 <!-- draft spec ends -->
 
 ## Build interpretations (maintainer, 2026-10-29)
