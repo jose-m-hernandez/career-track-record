@@ -15,6 +15,7 @@ through the harness it shares with ``ab`` (``reader_harness``).
 import hashlib
 import os
 import re
+from fractions import Fraction
 
 from career_track_record import reader_harness as harness
 
@@ -100,10 +101,11 @@ class Lens(object):
     """A lens: a reader role, read from a plain-text prompt file. ``arm`` is l1, l2 and so
     on in plan order."""
 
-    def __init__(self, name, path, arm):
+    def __init__(self, name, path, arm, max=None):
         self.name = name
         self.path = path
         self.arm = arm
+        self.max = max
 
 
 class FakeRule(object):
@@ -183,10 +185,12 @@ class Rule(object):
     (verdict, Clause) with verdict PASS or FAIL; the first that holds decides, and when none
     holds the verdict is INCONCLUSIVE. ``name`` is r1, r2, ... in plan order."""
 
-    def __init__(self, name, lens, clauses=()):
+    def __init__(self, name, lens, clauses=(), null_share=None, null_share_text=None):
         self.name = name
         self.lens = lens
         self.clauses = list(clauses)
+        self.null_share = null_share
+        self.null_share_text = null_share_text
 
 
 class Plan(object):
@@ -197,7 +201,7 @@ class Plan(object):
     def __init__(self, posting, version, anchors, lenses, readers, strong_at_least,
                  weak_at_most, fake_rules=(), reads_per_reader=3,
                  anchor_reads_per_reader=1, rules=(), spend_ceiling=None, amends=None,
-                 read_timeout=DEFAULT_READ_TIMEOUT):
+                 read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two"):
         self.posting = posting
         self.version = version
         self.anchors = dict(anchors)
@@ -212,6 +216,7 @@ class Plan(object):
         self.spend_ceiling = spend_ceiling
         self.amends = amends
         self.read_timeout = read_timeout
+        self.sidedness = sidedness
 
     def document_path(self, document):
         if document == VERSION:
@@ -240,7 +245,7 @@ class Plan(object):
 _LIST_KEYS = ("anchors", "lenses", "readers", "rules", "fake-reader")
 _SCALAR_KEYS = ("posting", "version", "reads-per-reader", "anchor-reads-per-reader",
                 "anchor-strong-at-least", "anchor-weak-at-most", "spend-ceiling", "amends",
-                "read-timeout")
+                "read-timeout", "sidedness")
 _NAME = harness.NAME
 _CLAUSE = re.compile(r"(PASS|FAIL) if (?:score at (least|most) (-?[0-9]+)"
                      r"|([A-Z-]+) (flagged|not flagged)) in "
@@ -294,6 +299,13 @@ def parse_text(text):
         got = state.integer(number, "read-timeout", value)
         timeout = got if got is not None else DEFAULT_READ_TIMEOUT
     amends = scalars["amends"][1] if "amends" in scalars else None
+    sidedness = "two"
+    if "sidedness" in scalars:
+        number, value = scalars["sidedness"]
+        if value in ("two", "greater", "less"):
+            sidedness = value
+        else:
+            state.bad(number, "sidedness is two, greater or less")
 
     # anchors
     anchors = {}
@@ -314,6 +326,18 @@ def parse_text(text):
         parts = state.fields(number, item)
         if parts is None:
             continue
+        lens_max = None
+        if len(parts) == 3 and parts[2].startswith("max "):
+            text_max = parts[2][len("max "):]
+            if not re.fullmatch(r"-?[0-9]+", text_max):
+                state.bad(number, "a lens's max is a whole number: %s" % _short(text_max))
+                continue
+            lens_max = int(text_max)
+            if strong_at_least is not None and lens_max < strong_at_least:
+                state.bad(number, "max %d is below anchor-strong-at-least (%d)"
+                          % (lens_max, strong_at_least))
+                continue
+            parts = parts[:2]
         if len(parts) != 2:
             state.bad(number, "a lens is written: name | file")
         elif not _NAME.match(parts[0]):
@@ -324,7 +348,7 @@ def parse_text(text):
             state.bad(number, "the lens %s is named twice" % parts[0])
         else:
             lens_names.append(parts[0])
-            lenses.append(Lens(parts[0], parts[1], "l%d" % (len(lenses) + 1)))
+            lenses.append(Lens(parts[0], parts[1], "l%d" % (len(lenses) + 1), max=lens_max))
     arms = dict((lens.name, lens.arm) for lens in lenses)
 
     # readers
@@ -336,6 +360,16 @@ def parse_text(text):
         parts = state.fields(number, item)
         if parts is None:
             continue
+        null_share = null_share_text = None
+        if len(parts) == 3 and parts[2].startswith("null-share "):
+            text_share = parts[2][len("null-share "):]
+            found = re.fullmatch(r"([0-9]+)/([0-9]+)", text_share)
+            if not found or not 0 < int(found.group(1)) < int(found.group(2)):
+                state.bad(number, "null-share is written n/d, strictly between 0 and 1")
+                continue
+            null_share = Fraction(int(found.group(1)), int(found.group(2)))
+            null_share_text = text_share
+            parts = parts[:2]
         if len(parts) != 2 or (parts[0] != "overall" and parts[0] not in arms):
             state.bad(number, "a rule is written: <lens> | <rule>, or overall | <rule>, "
                       "with the lens written as in lenses")
@@ -353,7 +387,8 @@ def parse_text(text):
                     break
         if clauses is not None:
             lens = None if parts[0] == "overall" else arms[parts[0]]
-            rules.append(Rule("r%d" % (len(rules) + 1), lens, clauses))
+            rules.append(Rule("r%d" % (len(rules) + 1), lens, clauses,
+                              null_share=null_share, null_share_text=null_share_text))
 
     # the fake reader
     has_fake = any(r.kind == "fake" for r in readers)
@@ -388,7 +423,7 @@ def parse_text(text):
     return Plan(posting, version, anchors, lenses, readers, strong_at_least, weak_at_most,
                 fake_rules=fake_rules, reads_per_reader=reads_per_reader,
                 anchor_reads_per_reader=anchor_reads, rules=rules, spend_ceiling=ceiling,
-                amends=amends, read_timeout=timeout)
+                amends=amends, read_timeout=timeout, sidedness=sidedness)
 
 
 def _rule_clauses(state, number, rule):
