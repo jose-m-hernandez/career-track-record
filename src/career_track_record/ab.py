@@ -17,6 +17,7 @@ import re
 from fractions import Fraction
 
 from career_track_record import reader_harness as harness
+from career_track_record import stats
 
 # File names inside a read folder, and in the run folder. Every use goes through these.
 READ_A = "A.txt"
@@ -207,7 +208,8 @@ class Plan(object):
     def __init__(self, posting, versions, comparisons, readers, fake_rules=(),
                  reads_per_reader=3, hypotheses=(), mechanisms=(), change_scope=(),
                  noise_threshold=Fraction(1, 2), spend_ceiling=None, aa_version=None,
-                 amends=None, read_timeout=DEFAULT_READ_TIMEOUT):
+                 amends=None, read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two",
+                 alpha=Fraction(1, 20), alpha_text="0.05"):
         self.posting = posting
         self.versions = list(versions)
         self.comparisons = list(comparisons)
@@ -222,6 +224,9 @@ class Plan(object):
         self.aa_version = aa_version
         self.amends = amends
         self.read_timeout = read_timeout
+        self.sidedness = sidedness
+        self.alpha = alpha
+        self.alpha_text = alpha_text
 
     def version_path(self, name):
         for version, path in self.versions:
@@ -247,7 +252,7 @@ class Plan(object):
 _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
               "change-scope", "fake-reader")
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
-                "spend-ceiling", "amends", "read-timeout")
+                "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
 _FRACTION = re.compile(r"([0-9]+)/([0-9]+)\Z")
@@ -336,6 +341,22 @@ def parse_text(text):
             state.bad(number, "noise-threshold is written as a fraction n/d")
         else:
             noise = Fraction(int(match.group(1)), int(match.group(2)))
+    sidedness = "two"
+    if "sidedness" in scalars:
+        number, value = scalars["sidedness"]
+        if value in ("two", "greater", "less"):
+            sidedness = value
+        else:
+            state.bad(number, "sidedness is two, greater or less")
+    alpha = Fraction(1, 20)
+    alpha_text = "0.05"
+    if "alpha" in scalars:
+        number, value = scalars["alpha"]
+        if re.fullmatch(r"0\.[0-9]+", value) and value.strip("0.") != "":
+            alpha = Fraction(value)
+            alpha_text = value
+        else:
+            state.bad(number, "alpha is written as 0. followed by digits, not all zero")
     ceiling = None
     if "spend-ceiling" in scalars:
         number, value = scalars["spend-ceiling"]
@@ -444,7 +465,8 @@ def parse_text(text):
                 reads_per_reader=reads_per_reader, hypotheses=hypotheses,
                 mechanisms=mechanisms, change_scope=change_scope, noise_threshold=noise,
                 spend_ceiling=ceiling, aa_version=aa_version, amends=amends,
-                read_timeout=timeout)
+                read_timeout=timeout, sidedness=sidedness, alpha=alpha,
+                alpha_text=alpha_text)
 
 
 def _hypothesis_clauses(state, number, rule, pair):
@@ -884,12 +906,49 @@ _percent = harness.percent
 _mean = harness.mean
 
 
+VALIDITY_LINE = harness.VALIDITY_LINE
+
+SIDE_TEXT = {"two": "two-sided", "greater": "one-sided greater", "less": "one-sided less"}
+
+
 def _clause_holds(clause, valid, picks):
     if clause is None:
         return False
     if clause.n is None:
         return picks.get(clause.version, 0) >= clause.k
     return valid == clause.n and picks.get(clause.version, 0) >= clause.k
+
+
+def _completions_line(plan, hyp, recs, picks, first, second, m):
+    """Say whether the rule's verdict would hold whatever the m missing reads said.
+
+    Reads the rule's clauses alone: no A/A gate, no position. Reported only."""
+    x0 = picks.get(first, 0)
+    y0 = picks.get(second, 0)
+    verdicts = set()
+    exact = []
+    for x in range(m + 1):
+        for y in range(m + 1 - x):
+            valid = len(recs) + m
+            counts = {first: x0 + x, second: y0 + y}
+            verdict = "INCONCLUSIVE"
+            for kind, clause in hyp.clauses:
+                if _clause_holds(clause, valid, counts):
+                    verdict = kind
+                    break
+            verdicts.add(verdict)
+            if x0 + x + y0 + y >= 1:
+                exact.append(stats.binomial_p(y0 + y, x0 + x + y0 + y, plan.sidedness))
+    seen = [v for v in ("SUPPORTED", "REFUTED", "INCONCLUSIVE") if v in verdicts]
+    if exact:
+        spread = "p from %s to %s" % (stats.p_text(min(exact)), stats.p_text(max(exact)))
+    else:
+        spread = "p not computed"
+    if len(seen) == 1:
+        text = "settled: %s" % seen[0]
+    else:
+        text = "unsettled: %s possible" % ", ".join(seen)
+    return "hypothesis %s completions (missing reads: %d): %s; %s" % (hyp.name, m, text, spread)
 
 
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
@@ -973,6 +1032,19 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                 label, arm, len(recs),
                 " ".join("%s=%d" % (v, picks.get(v, 0)) for v in versions), ties))
 
+    # missing reads, per arm, and a dead run
+    missing = {}
+    for arm, _first, _second in arms:
+        mine = [x for x in records if x.read.arm == arm]
+        failed = len([x for x in mine if x.status == "failed"])
+        not_run = len([x for x in mine if x.status not in ("valid", "failed")])
+        missing[arm] = failed + not_run
+        out.append("missing %s: %d of %d planned reads (failed %d, not run %d)"
+                   % (arm, failed + not_run, len([r for r in reads if r.arm == arm]),
+                      failed, not_run))
+    if not any(x.status == "valid" for x in records):
+        out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
+
     # A/A gate
     aa_planned = len([r for r in reads if r.arm == AA])
     aa_valid = valid_in(AA)
@@ -995,6 +1067,13 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("A/A gate: passed (%d of %d valid A/A reads clearly or strongly "
                        "non-TIE; threshold %s)" % (strong, len(aa_valid),
                                                  plan.noise_threshold))
+    if aa_valid:
+        strong = len([x for x in aa_valid
+                      if x.reply.choice != "TIE" and x.reply.strength in STRONG])
+        low, high = stats.wilson(strong, len(aa_valid))
+        out.append("A/A gate interval: %s to %s (95%%, Wilson)" % (low, high))
+    else:
+        out.append("A/A gate interval: not computed")
 
     # position
     position = {}
@@ -1032,9 +1111,11 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         first, second = plan.comparisons[hyp.comparison - 1]
         rule = ["%s if %s" % (kind, clause.text()) for kind, clause in hyp.clauses]
         verdict = "INCONCLUSIVE"
+        decider = None
         for kind, clause in hyp.clauses:
             if _clause_holds(clause, len(recs), picks):
                 verdict = kind
+                decider = clause
                 break
         reasons = []
         if gate == "tripped":
@@ -1050,9 +1131,41 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         out.append("hypothesis %s counts: valid=%d %s=%d %s=%d tie=%d" % (
             hyp.name, len(recs), first, picks.get(first, 0), second,
             picks.get(second, 0), ties))
-        out.append("hypothesis %s verdict: %s" % (hyp.name, verdict))
+        blind_count = len([x for x in recs if x.read.reader in not_blind])
+        out.append("hypothesis %s verdict: %s [not blind: %d of %d valid reads]"
+                   % (hyp.name, verdict, blind_count, len(recs)))
         for reason in reasons:
             out.append("hypothesis %s reason: %s" % (hyp.name, reason))
+        n = sum(picks.values())
+        if n == 0:
+            out.append("hypothesis %s evidence: no non-TIE pick, %d TIE; "
+                       "p and interval not computed" % (hyp.name, ties))
+        else:
+            k = picks.get(second, 0)
+            p = stats.binomial_p(k, n, plan.sidedness)
+            low, high = stats.wilson(k, n)
+            out.append("hypothesis %s evidence: %s %d of %d non-TIE picks, %d TIE; "
+                       "p = %s %s (reads may be correlated; may be too small); "
+                       "95%% interval %s to %s" % (
+                           hyp.name, _show(second), k, n, ties, stats.p_text(p),
+                           SIDE_TEXT[plan.sidedness], low, high))
+            if reasons:
+                pass
+            elif verdict in ("SUPPORTED", "REFUTED"):
+                tested = second if plan.sidedness == "greater" else first
+                if plan.sidedness != "two" and decider.version != tested:
+                    out.append("hypothesis %s flag: one-sided test: this direction not tested"
+                               % hyp.name)
+                elif p >= plan.alpha:
+                    out.append("hypothesis %s flag: evidence disagrees: %s at p = %s, "
+                               "at or above alpha %s" % (hyp.name, verdict, stats.p_text(p),
+                                                         plan.alpha_text))
+            elif p < plan.alpha:
+                out.append("hypothesis %s flag: evidence disagrees: INCONCLUSIVE at p = %s, "
+                           "below alpha %s" % (hyp.name, stats.p_text(p), plan.alpha_text))
+        if missing[arm]:
+            out.append(_completions_line(plan, hyp, recs, picks, first, second,
+                                         missing[arm]))
 
     # mechanisms
     def matching(recs, mech):
@@ -1086,7 +1199,9 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
-        out.append("%s verdict: %s (SUPPORTED at %d or more)" % (label, verdict, mech.k))
+        blind_count = len([x for x in recs if x.read.reader in not_blind])
+        out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d of %d valid reads]"
+                   % (label, verdict, mech.k, blind_count, len(recs)))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
 
@@ -1118,5 +1233,17 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                    % (max(aa_scores) - min(aa_scores), max(aa_scores), min(aa_scores)))
     else:
         out.append("A/A score spread: none (no valid A/A read)")
+    for arm, _first, _second in arms:
+        recs = valid_in(arm)
+        ceiling = len([x for x in recs
+                       if x.reply.score_a >= 10 and x.reply.score_b >= 10])
+        same = len([x for x in recs if x.reply.score_a == x.reply.score_b])
+        out.append("scores %s ceiling: %d of %d valid reads score both slots at 10 or more"
+                   % (arm, ceiling, len(recs)))
+        out.append("scores %s separation: %d of %d valid reads give both slots the same score"
+                   % (arm, same, len(recs)))
+        if recs and ceiling == len(recs):
+            out.append("scores %s: at the ceiling; preference is the only measure" % arm)
+    out.append(VALIDITY_LINE)
 
     return harness.finish_result(folder, out, records, log, stopped)

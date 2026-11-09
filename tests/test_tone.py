@@ -939,6 +939,20 @@ class K12PinsCase(ToneCase):
             name, errors=1, body=finding(
                 name, 1, "error", "turnkey", "A 3.5 turnkey plan.")))
 
+    def test_only_a_line_feed_a_carriage_return_or_both_start_a_line(self):
+        # Section 3.1: a line ends at a line feed, a carriage return, or a carriage return
+        # and a line feed. A vertical tab, form feed, file/group/record separator, next
+        # line (U+0085), line separator or paragraph separator (which str.splitlines would
+        # break on) starts no line, so the finding is on line 1 and the next on line 2.
+        for ch in ("\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"):
+            with self.subTest(char=hex(ord(ch))):
+                name = os.path.join(self.tmp, "sep.txt")
+                write_bytes(name, ("A%sturnkey one.\nturnkey two.\n" % ch).encode("utf-8"))
+                self.assertRun(["--rules", os.path.join(FX, R1), name], 1, one_file(
+                    name, errors=2, body=finding(
+                        name, 1, "error", "turnkey", "A turnkey one.")
+                    + finding(name, 2, "error", "turnkey", "turnkey two.")))
+
     def test_stale_exemptions_print_in_exemption_order(self):
         # Section 5, stale anchors: "one line per stale exemption, in exemption order".
         # The exemptions name the rules in the reverse of the rule file's order.

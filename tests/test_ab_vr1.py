@@ -64,7 +64,7 @@ class MechanismCase(unittest.TestCase):
         self.assertIn("mechanism xx in c1 A/A floor: 3 of 6 valid reads", lines)
         self.assertIn("mechanism xx in c1 separation: separates the versions from the A/A "
                       "floor", lines)
-        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 3 or more)", lines)
+        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 of 5 valid reads]", lines)
 
     def test_vr1_den_mech_counts_not_shares(self):
         # 3 of 6 is a lower share than the floor's 2 of 3, though the count is higher.
@@ -76,7 +76,7 @@ class MechanismCase(unittest.TestCase):
         self.assertIn("mechanism xx in c1 count: 3 of 6 valid reads", lines)
         self.assertIn("mechanism xx in c1 A/A floor: 2 of 3 valid reads", lines)
         self.assertIn("mechanism xx in c1 separation: unable to separate the versions", lines)
-        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more)",
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]",
                       lines)
 
     def test_vr1_mech_matches_not_replies(self):
@@ -90,7 +90,7 @@ class MechanismCase(unittest.TestCase):
         self.assertIn("mechanism xx in c1 A/A floor: 0 of 6 valid reads", lines)
         self.assertIn("mechanism xx in c1 separation: separates the versions from the A/A "
                       "floor", lines)
-        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 2 or more)",
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 2 or more) [not blind: 0 of 6 valid reads]",
                       lines)
 
     def test_vr1_mech_k_gt(self):
@@ -99,10 +99,10 @@ class MechanismCase(unittest.TestCase):
         _s, result, lines = done(self, mechanisms=[MECH_XX], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
         self.assertIn("mechanism xx in c1 count: 3 of 6 valid reads", lines)
-        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 3 or more)", lines)
+        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]", lines)
         fewer = items('write "xx" in DOUBTS', reads=[1, 2])
         _s, _result, lines = done(self, mechanisms=[MECH_XX], fake_reader=fewer)
-        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more)",
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]",
                       lines)
 
     def test_vr1_mech_prefer_whole_line(self):
@@ -116,7 +116,7 @@ class MechanismCase(unittest.TestCase):
         self.assertIn("mechanism slightly in c1 separation: unable to separate the versions",
                       lines)
         self.assertIn("mechanism slightly in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more)", lines)
+                      "(SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]", lines)
 
 
 class HypothesisCountCase(unittest.TestCase):
@@ -127,7 +127,7 @@ class HypothesisCountCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn("hypothesis h1 rule: SUPPORTED if skills-top preferred in 3 of 4", lines)
         self.assertIn("hypothesis h1 counts: valid=6 base=0 skills-top=6 tie=0", lines)
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 6 valid reads]", lines)
         self.assertEqual([x for x in lines if x.startswith("hypothesis h1 reason")], [])
 
 
@@ -145,7 +145,7 @@ class PositionCase(unittest.TestCase):
                       lines)
         # The count alone would support it (skills-top is picked once, in slot A of read 2).
         self.assertIn("hypothesis h1 counts: valid=6 base=1 skills-top=1 tie=4", lines)
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 6 valid reads]", lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
 
     def test_vr1_pos_overall_lt1(self):
@@ -157,7 +157,7 @@ class PositionCase(unittest.TestCase):
                       lines)
         self.assertIn("position overall: 1 of 1 non-TIE picks in slot A (100%): "
                       "not assessable", lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]", lines)
 
     def test_vr1_pos_overall_for_arm(self):
         # c1 is all slot B, so its position is INCONCLUSIVE; the position of the whole run
@@ -173,7 +173,7 @@ class PositionCase(unittest.TestCase):
                       lines)
         # The counts alone would support it: skills-top is picked 3 times of 6.
         self.assertIn("hypothesis h1 counts: valid=6 base=3 skills-top=3 tie=0", lines)
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 6 valid reads]", lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
 
 
@@ -191,7 +191,7 @@ class SpendInTheNoiseArmCase(unittest.TestCase):
         self.assertEqual((s.reply_count("aa"), s.reply_count("c1")), (3, 0))
         self.assertIn("A/A gate: not evaluated (3 valid reads of 6 planned)", lines)
         self.assertIn("cut: ran 3 of 12 planned reads at spend ceiling 3", lines)
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 0 valid reads]", lines)
         self.assertIn("hypothesis h1 reason: the A/A gate was not evaluated", lines)
         self.assertIn("exit status: 1", lines)
 

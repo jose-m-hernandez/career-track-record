@@ -15,6 +15,7 @@ import sys
 import tempfile
 import unicodedata
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "src")
@@ -360,6 +361,13 @@ class ListSourceCase(RunCase):
         self.assertRun(["--list", L1] + CTRL + ["clean.txt"], 0, OK_CLEAN,
                        env_extra={"BARRED_STRINGS_PATH": os.path.join(FX, "no-such-list")})
 
+    def test_an_empty_option_value_is_not_the_variable(self):
+        # --list "" is a list given, and an empty one: the variable is read only when
+        # --list is absent.
+        self.assertCannot(["--list", ""] + CTRL + ["clean.txt"],
+                          "no list (give --list or set BARRED_STRINGS_PATH)",
+                          env_extra={"BARRED_STRINGS_PATH": os.path.join(FX, L1)})
+
     def test_variable_pointing_nowhere_cannot_run(self):
         with tempfile.TemporaryDirectory() as tmp:
             gone = os.path.join(tmp, "gone.txt")
@@ -580,6 +588,13 @@ class FileNameCase(RunCase):
         self.assertRun(["--list", L1] + CTRL + ["moonshot-plain.txt"], 1,
                        "FAIL  file #1: 1 entries\nfile #1:0: entry #4 (file name)\n"
                        "file #1:13: entry #4 (1 x)\n")
+
+    def test_name_lines_follow_the_list_order(self):
+        # "moonshot" is entry #4 and "fix it" is entry #5; the name holds both.
+        self.assertEqual(
+            temp_run([("fix it moonshot.txt", CLEAN)]),
+            (1, "FAIL  file #1: 2 entries\nfile #1:0: entry #4 (file name)\n"
+                "file #1:0: entry #5 (file name)\n", ""))
 
     def test_dead_file_with_a_matching_name_has_no_finding_lines(self):
         self.assertRun(["--list", L1] + CTRL + ["moonshot-short.txt"], 2,
@@ -1323,6 +1338,24 @@ Report wording from your own barred list, by entry number only.
 
 exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
 """
+
+
+class CatchAllCase(unittest.TestCase):
+    """Anything unforeseen is one plain line, never a traceback (spec section 7)."""
+
+    def test_run_turns_any_exception_into_an_internal_error(self):
+        with mock.patch.object(barred, "_run", side_effect=RuntimeError("boom")):
+            result = barred.run(list_path=L1_PATH, files=["clean.txt"],
+                                controls=["Example Corp"])
+        self.assertEqual((result.exit_code, result.ran, result.text, result.error),
+                         (2, False, "", "cannot run: internal error"))
+
+    def test_a_file_that_fails_unexpectedly_is_dead(self):
+        with mock.patch.object(barred, "_read_text", side_effect=RuntimeError("boom")):
+            result = barred.run(list_path=L1_PATH, files=[os.path.join(FX, "clean.txt")],
+                                controls=["Example Corp"])
+        self.assertEqual((result.exit_code, result.ran), (2, True))
+        self.assertEqual(result.text, "DEAD  %s: cannot read\n" % os.path.join(FX, "clean.txt"))
 
 
 class HelpCase(RunCase):

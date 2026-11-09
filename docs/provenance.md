@@ -9,12 +9,12 @@ This ledger lists every file in the repository once, with the harness and model 
 | .github/workflows/ci.yml | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | .gitignore | not recorded | not recorded | not recorded |
 | AGENTS.md | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
-| CHANGELOG.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
+| CHANGELOG.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | CONTRIBUTING.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | LICENSE | not recorded | not recorded | not recorded |
 | LICENSE-COMMERCIAL.md | not recorded | not recorded | not recorded |
-| METHOD.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
-| README.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
+| METHOD.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
+| README.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | SECURITY.md | not recorded | not recorded | not recorded |
 | ci/__init__.py | not recorded | not recorded | not recorded |
 | ci/barred_strings.py | not recorded | not recorded | not recorded |
@@ -30,30 +30,31 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/decisions/2026-10-29-a-reader-command-is-the-one-outside-program-a-user-names.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-11-01-every-file-has-a-provenance-row.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | docs/decisions/2026-11-05-the-reader-commands-share-one-harness.md | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
-| docs/provenance.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
+| docs/provenance.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | docs/specs/barred.md | claude-code | claude-opus-5-5 | 2026-11-05 |
 | docs/specs/claims.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | docs/specs/cli.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | docs/specs/keyword-scan.md | not recorded | not recorded | not recorded |
-| docs/specs/reader-ab.md | claude-code | claude-sonnet-5-5 | 2026-11-01 |
-| docs/specs/reader-panel.md | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
+| docs/specs/reader-ab.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
+| docs/specs/reader-panel.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | docs/specs/tone-and-tells.md | claude-code | claude-opus-5-5 | 2026-11-05 |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | not recorded | not recorded | not recorded |
-| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-02 |
+| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | src/career_track_record/__main__.py | not recorded | not recorded | not recorded |
-| src/career_track_record/ab.py | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-05 |
+| src/career_track_record/ab.py | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-06 |
 | src/career_track_record/ab_reader_command.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
 | src/career_track_record/barred.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | src/career_track_record/claims.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | src/career_track_record/cli.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | src/career_track_record/data/tone-default.json | not recorded | not recorded | not recorded |
 | src/career_track_record/keywords.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
-| src/career_track_record/panel.py | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
+| src/career_track_record/panel.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | src/career_track_record/pdf_text.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | src/career_track_record/posting_file.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | src/career_track_record/quote_check.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
-| src/career_track_record/reader_harness.py | claude-code | claude-fable-5-1 | 2026-11-05 |
+| src/career_track_record/reader_harness.py | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-06 |
+| src/career_track_record/stats.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
 | src/career_track_record/tone.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/__init__.py | not recorded | not recorded | not recorded |
 | tests/fixtures/ab/base.txt | not recorded | not recorded | not recorded |
@@ -190,30 +191,33 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/fixtures/tone/make_fixtures.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/fixtures/tone/rules-r1.json | not recorded | not recorded | not recorded |
 | tests/fixtures/tone/rules-r2.json | not recorded | not recorded | not recorded |
-| tests/test_ab.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
+| tests/test_ab.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
 | tests/test_ab_escape.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
 | tests/test_ab_live.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
 | tests/test_ab_reader_command.py | not recorded | not recorded | not recorded |
+| tests/test_ab_rev2.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
 | tests/test_ab_run_failures.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
-| tests/test_ab_vr1.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
-| tests/test_ab_vr2.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
-| tests/test_barred.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
+| tests/test_ab_vr1.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
+| tests/test_ab_vr2.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
+| tests/test_barred.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
 | tests/test_barred_pdf_layout.py | claude-code | claude-opus-5-5 | 2026-11-05 |
 | tests/test_barred_strings.py | not recorded | not recorded | not recorded |
 | tests/test_claims.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_claims_runs.py | claude-code | claude-sonnet-5-5 | 2026-11-04 |
 | tests/test_claims_sources.py | claude-code | claude-opus-5-5 | 2026-11-05 |
-| tests/test_cli.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| tests/test_cli.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
 | tests/test_keywords.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_no_network.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_output_failures.py | not recorded | not recorded | not recorded |
 | tests/test_packaging.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
-| tests/test_panel.py | claude-code | claude-fable-5-1, claude-opus-5-5 | 2026-11-05 |
+| tests/test_panel.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
+| tests/test_panel_rev2.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
 | tests/test_pdf_text.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_posting_file.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_provenance.py | claude-code | claude-sonnet-5-5 | 2026-11-01 |
 | tests/test_quote_check.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_source_hygiene.py | not recorded | not recorded | not recorded |
-| tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
-| tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-02 |
+| tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
+| tests/test_stats.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
+| tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
 | tests/test_tone_pdf.py | not recorded | not recorded | not recorded |

@@ -135,7 +135,7 @@ class MechanismSearchCase(unittest.TestCase):
         self.assertIn("mechanism too long in c1 A/A floor: 1 of 6 valid reads", lines)
         self.assertIn("mechanism too long in c1 separation: separates the versions from "
                       "the A/A floor", lines)
-        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more)",
+        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]",
                       lines)
 
     def test_vr2_x8_a_mid_text_floor_stops_a_mechanism_from_separating(self):
@@ -155,7 +155,7 @@ class MechanismSearchCase(unittest.TestCase):
         self.assertIn("mechanism too long in c1 separation: unable to separate the "
                       "versions", lines)
         self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more)", lines)
+                      "(SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]", lines)
 
 
 class EmptyScopePatternCase(unittest.TestCase):

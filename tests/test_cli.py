@@ -303,6 +303,16 @@ class TopLevelHelpListsToolsCli(CliBase):
                 self.assertIn(line, lines)
 
 
+class CommandNameIsExactCli(CliBase):
+    def test_a_name_that_only_starts_like_a_command_is_not_that_command(self):
+        for name in ("barredx", "tonex", "claimsx"):
+            with self.subTest(name=name):
+                code, out, err = track(name, "--help")
+                self.assertEqual((code, out), (2, ""))
+                self.assertTrue(err.startswith("usage: track-record [-h] command"), err)
+                self.assertIn("invalid choice: '%s'" % name, err)
+
+
 def track_with_broken_stdout(*args):
     """Run with standard output a pipe whose reader is already gone."""
     env = dict(os.environ, PYTHONPATH="src", PYTHONDONTWRITEBYTECODE="1")
@@ -380,7 +390,7 @@ class AbCli(CliBase):
         self.assertEqual((code, out, err), (0, "freeze written: plan.txt.freeze\n", ""))
         code, out, err = track("ab", "run", s.plan_path)
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("hypothesis h1 verdict: SUPPORTED\n", out)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]\n", out)
         self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
                       "non-TIE; threshold 1/2)\n", out)
         self.assertEqual(out, s.read("result-1.txt"))

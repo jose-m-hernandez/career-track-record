@@ -15,8 +15,10 @@ through the harness it shares with ``ab`` (``reader_harness``).
 import hashlib
 import os
 import re
+from fractions import Fraction
 
 from career_track_record import reader_harness as harness
+from career_track_record import stats
 
 # File names inside a read folder, and in the run folder. Every use goes through these.
 READ_DOCUMENT = "DOCUMENT.txt"
@@ -100,10 +102,11 @@ class Lens(object):
     """A lens: a reader role, read from a plain-text prompt file. ``arm`` is l1, l2 and so
     on in plan order."""
 
-    def __init__(self, name, path, arm):
+    def __init__(self, name, path, arm, max=None):
         self.name = name
         self.path = path
         self.arm = arm
+        self.max = max
 
 
 class FakeRule(object):
@@ -183,10 +186,12 @@ class Rule(object):
     (verdict, Clause) with verdict PASS or FAIL; the first that holds decides, and when none
     holds the verdict is INCONCLUSIVE. ``name`` is r1, r2, ... in plan order."""
 
-    def __init__(self, name, lens, clauses=()):
+    def __init__(self, name, lens, clauses=(), null_share=None, null_share_text=None):
         self.name = name
         self.lens = lens
         self.clauses = list(clauses)
+        self.null_share = null_share
+        self.null_share_text = null_share_text
 
 
 class Plan(object):
@@ -197,7 +202,7 @@ class Plan(object):
     def __init__(self, posting, version, anchors, lenses, readers, strong_at_least,
                  weak_at_most, fake_rules=(), reads_per_reader=3,
                  anchor_reads_per_reader=1, rules=(), spend_ceiling=None, amends=None,
-                 read_timeout=DEFAULT_READ_TIMEOUT):
+                 read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two"):
         self.posting = posting
         self.version = version
         self.anchors = dict(anchors)
@@ -212,6 +217,7 @@ class Plan(object):
         self.spend_ceiling = spend_ceiling
         self.amends = amends
         self.read_timeout = read_timeout
+        self.sidedness = sidedness
 
     def document_path(self, document):
         if document == VERSION:
@@ -240,7 +246,7 @@ class Plan(object):
 _LIST_KEYS = ("anchors", "lenses", "readers", "rules", "fake-reader")
 _SCALAR_KEYS = ("posting", "version", "reads-per-reader", "anchor-reads-per-reader",
                 "anchor-strong-at-least", "anchor-weak-at-most", "spend-ceiling", "amends",
-                "read-timeout")
+                "read-timeout", "sidedness")
 _NAME = harness.NAME
 _CLAUSE = re.compile(r"(PASS|FAIL) if (?:score at (least|most) (-?[0-9]+)"
                      r"|([A-Z-]+) (flagged|not flagged)) in "
@@ -294,6 +300,13 @@ def parse_text(text):
         got = state.integer(number, "read-timeout", value)
         timeout = got if got is not None else DEFAULT_READ_TIMEOUT
     amends = scalars["amends"][1] if "amends" in scalars else None
+    sidedness = "two"
+    if "sidedness" in scalars:
+        number, value = scalars["sidedness"]
+        if value in ("two", "greater", "less"):
+            sidedness = value
+        else:
+            state.bad(number, "sidedness is two, greater or less")
 
     # anchors
     anchors = {}
@@ -314,6 +327,18 @@ def parse_text(text):
         parts = state.fields(number, item)
         if parts is None:
             continue
+        lens_max = None
+        if len(parts) == 3 and parts[2].startswith("max "):
+            text_max = parts[2][len("max "):]
+            if not re.fullmatch(r"-?[0-9]+", text_max):
+                state.bad(number, "a lens's max is a whole number: %s" % _short(text_max))
+                continue
+            lens_max = int(text_max)
+            if strong_at_least is not None and lens_max < strong_at_least:
+                state.bad(number, "max %d is below anchor-strong-at-least (%d)"
+                          % (lens_max, strong_at_least))
+                continue
+            parts = parts[:2]
         if len(parts) != 2:
             state.bad(number, "a lens is written: name | file")
         elif not _NAME.match(parts[0]):
@@ -324,7 +349,7 @@ def parse_text(text):
             state.bad(number, "the lens %s is named twice" % parts[0])
         else:
             lens_names.append(parts[0])
-            lenses.append(Lens(parts[0], parts[1], "l%d" % (len(lenses) + 1)))
+            lenses.append(Lens(parts[0], parts[1], "l%d" % (len(lenses) + 1), max=lens_max))
     arms = dict((lens.name, lens.arm) for lens in lenses)
 
     # readers
@@ -336,6 +361,16 @@ def parse_text(text):
         parts = state.fields(number, item)
         if parts is None:
             continue
+        null_share = null_share_text = None
+        if len(parts) == 3 and parts[2].startswith("null-share "):
+            text_share = parts[2][len("null-share "):]
+            found = re.fullmatch(r"([0-9]+)/([0-9]+)", text_share)
+            if not found or not 0 < int(found.group(1)) < int(found.group(2)):
+                state.bad(number, "null-share is written n/d, strictly between 0 and 1")
+                continue
+            null_share = Fraction(int(found.group(1)), int(found.group(2)))
+            null_share_text = text_share
+            parts = parts[:2]
         if len(parts) != 2 or (parts[0] != "overall" and parts[0] not in arms):
             state.bad(number, "a rule is written: <lens> | <rule>, or overall | <rule>, "
                       "with the lens written as in lenses")
@@ -353,7 +388,8 @@ def parse_text(text):
                     break
         if clauses is not None:
             lens = None if parts[0] == "overall" else arms[parts[0]]
-            rules.append(Rule("r%d" % (len(rules) + 1), lens, clauses))
+            rules.append(Rule("r%d" % (len(rules) + 1), lens, clauses,
+                              null_share=null_share, null_share_text=null_share_text))
 
     # the fake reader
     has_fake = any(r.kind == "fake" for r in readers)
@@ -388,7 +424,7 @@ def parse_text(text):
     return Plan(posting, version, anchors, lenses, readers, strong_at_least, weak_at_most,
                 fake_rules=fake_rules, reads_per_reader=reads_per_reader,
                 anchor_reads_per_reader=anchor_reads, rules=rules, spend_ceiling=ceiling,
-                amends=amends, read_timeout=timeout)
+                amends=amends, read_timeout=timeout, sidedness=sidedness)
 
 
 def _rule_clauses(state, number, rule):
@@ -745,6 +781,70 @@ def _scores_line(label, pairs):
         max(scores))
 
 
+SIDE_TEXT = {"two": "two-sided", "greater": "one-sided greater", "less": "one-sided less"}
+
+
+def _evidence_line(label, clause, rule, recs, sidedness):
+    """The evidence line of one clause: its count, its interval, and its p against a share."""
+    n = len(recs)
+    k = len([x for x in recs if clause.holds_for(x.reply)])
+    head = "%s evidence: %s: %d of %d counted reads; " % (label, clause.test(), k, n)
+    if n == 0:
+        return head + "interval not computed"
+    low, high = stats.wilson(k, n)
+    if rule.null_share is None:
+        return head + "95%% interval %s to %s" % (low, high)
+    p = stats.p_text(stats.binomial_p(k, n, sidedness, rule.null_share))
+    return head + ("p = %s %s against %s (reads may be correlated; may be too small); "
+                   "95%% interval %s to %s" % (p, SIDE_TEXT[sidedness], rule.null_share_text,
+                                               low, high))
+
+
+def _possible_verdicts(rule, recs, m):
+    """The verdicts ``rule`` could reach if ``m`` more version reads came in, each scoring
+    anything and flagging any fields; one read decides all of the score clauses at once.
+    Returns them in the order PASS, FAIL, INCONCLUSIVE."""
+    clauses = [clause for _kind, clause in rule.clauses]
+    thresholds = [c.threshold for c in clauses if c.kind in ("at least", "at most")]
+    scores = sorted(set(t + d for t in thresholds for d in (-1, 0, 1))) if thresholds else [0]
+    fields = sorted(set(c.field for c in clauses if c.kind in ("flagged", "not flagged")))
+    flag_sets = [[]]
+    for field in fields:
+        flag_sets = flag_sets + [s + [field] for s in flag_sets]
+    vectors = set()
+    for score in scores:
+        for flags in flag_sets:
+            vector = []
+            for c in clauses:
+                if c.kind == "at least":
+                    vector.append(1 if score >= c.threshold else 0)
+                elif c.kind == "at most":
+                    vector.append(1 if score <= c.threshold else 0)
+                elif c.kind == "flagged":
+                    vector.append(1 if c.field in flags else 0)
+                else:
+                    vector.append(0 if c.field in flags else 1)
+            vectors.add(tuple(vector))
+    totals = set([tuple(0 for _c in clauses)])
+    for _i in range(m):
+        totals = set(tuple(a + b for a, b in zip(total, vector))
+                     for total in totals for vector in vectors)
+    base = [len([x for x in recs if c.holds_for(x.reply)]) for c in clauses]
+    n = len(recs) + m
+    found = set()
+    for total in totals:
+        verdict = "INCONCLUSIVE"
+        for (kind, clause), have, extra in zip(rule.clauses, base, total):
+            count = have + extra
+            holds = count >= clause.k if clause.n is None else (n == clause.n
+                                                               and count >= clause.k)
+            if holds:
+                verdict = kind
+                break
+        found.add(verdict)
+    return [v for v in ("PASS", "FAIL", "INCONCLUSIVE") if v in found]
+
+
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
@@ -860,7 +960,46 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                        % (arm, field, len([x for x in version_recs
                                            if field in x.reply.flagged]),
                           len(version_recs)))
+        # the top of the scale: the version against the strong anchor, its spread, the room above
+        version_scores = [x.reply.score for x in version_recs]
+        strong_scores = [x.reply.score for x in strong_recs]
+        low_version = min(version_scores) if version_scores else None
+        high_strong = max(strong_scores) if strong_scores else None
+        spread = max(version_scores) - low_version if version_scores else None
+        if version_scores and strong_scores:
+            out.append("scores %s version against strong anchor: lowest version score %d, "
+                       "highest strong-anchor score %d" % (arm, low_version, high_strong))
+        else:
+            out.append("scores %s version against strong anchor: not assessable" % arm)
+        if version_scores:
+            out.append("scores %s version spread: %d (highest %d, lowest %d)"
+                       % (arm, spread, max(version_scores), low_version))
+        else:
+            out.append("scores %s version spread: not assessable" % arm)
+        if version_scores and strong_scores and low_version >= high_strong:
+            out.append("scores %s: the version scores at or above the strong anchor; "
+                       "this lens cannot rank it higher" % arm)
+        if len(version_scores) >= 2 and spread == 0:
+            out.append("scores %s: every read gives the version the same score" % arm)
+        if lens.max is not None:
+            if strong_scores:
+                out.append("scores %s room above the strong anchor: %d (scale maximum %d)"
+                           % (arm, lens.max - high_strong, lens.max))
+            else:
+                out.append("scores %s room above the strong anchor: not assessable "
+                           "(scale maximum %d)" % (arm, lens.max))
     out.append("counted lenses: %s" % (" ".join(counted) if counted else "none"))
+    missing_in = {}
+    for lens in plan.lenses:
+        planned = planned_in(lens.arm, VERSION)
+        version = [x for x in records if x.read.arm == lens.arm and x.read.document == VERSION]
+        failed = len([x for x in version if x.status == "failed"])
+        not_run = len([x for x in version if x.status not in ("valid", "failed")])
+        missing_in[lens.arm] = failed + not_run
+        out.append("missing %s version: %d of %d planned reads (failed %d, not run %d)"
+                   % (lens.arm, failed + not_run, len(planned), failed, not_run))
+    if not [x for x in records if x.status == "valid"]:
+        out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
 
     # rules
     for rule in plan.rules:
@@ -889,8 +1028,23 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif rule.lens not in counted:
             verdict = "INCONCLUSIVE"
             reasons.append(gate_reason[rule.lens])
-        out.append("%s verdict: %s" % (label, verdict))
+        out.append("%s verdict: %s [not blind: %d of %d counted reads]"
+                   % (label, verdict, len([x for x in recs if x.read.reader in not_blind]),
+                      len(recs)))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
+        for kind, clause in rule.clauses:
+            out.append(_evidence_line(label, clause, rule, recs, plan.sidedness))
+        arms = counted if rule.lens is None else ([rule.lens] if rule.lens in counted else [])
+        m = sum(missing_in[arm] for arm in arms)
+        if m >= 1:
+            possible = _possible_verdicts(rule, recs, m)
+            if len(possible) == 1:
+                out.append("%s completions (missing reads: %d): settled: %s"
+                           % (label, m, possible[0]))
+            else:
+                out.append("%s completions (missing reads: %d): unsettled: %s possible"
+                           % (label, m, ", ".join(possible)))
 
+    out.append(harness.VALIDITY_LINE)
     return harness.finish_result(folder, out, records, log, stopped)

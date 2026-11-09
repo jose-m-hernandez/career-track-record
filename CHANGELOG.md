@@ -6,6 +6,33 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-06
+
+### Added
+
+- `career_track_record/stats.py`: the exact binomial p-value and the 95% Wilson interval the reader commands will print beside their verdicts, with the spec's rounding (p half up to 4 places; the interval's ends rounded outward to 3).
+- `track-record ab` plans take two optional keys from the Reader A/B spec revision 2: `sidedness` (`two`, `greater` or `less`; default `two`) and `alpha` (written `0.` and digits, not all zero; default `0.05`). `freeze` refuses any other form, naming the plan line.
+- `track-record ab` results put the evidence of the Reader A/B spec revision 2 beside each verdict: the exact sign-test p-value and the 95% Wilson interval for the second-listed version's share of non-TIE picks, a flag when that evidence disagrees with the verdict (or a line saying a one-sided test did not look at the verdict's direction), the A/A gate's own interval, the count of not-blind reads on every verdict line, and one validity line. No verdict or exit status changes.
+- `track-record ab` results count each arm's missing reads (failed, and not run), say for each hypothesis whether its verdict would hold whatever the missing reads had said, with the range of the p-value, and print a `DEAD` line when no read is valid. These lines never change a verdict, and a dead run still exits 1.
+- `track-record ab` results say, for each arm, how many valid reads scored both slots at 10 or more and how many gave both the same score, and say when every read is at the ceiling, so that preference is the only measure there.
+- `track-record panel` plans take three optional items from the reader panel spec revision 2: `max <n>` on a lens (the top of its own scale, at or above `anchor-strong-at-least`), `null-share <n>/<d>` on a rule (the share of reads expected to pass each test by chance, strictly between 0 and 1), and `sidedness` (`two`, `greater` or `less`). `freeze` refuses any other form, naming the plan line.
+- `track-record panel` results put the evidence of the reader panel spec revision 2 beside each verdict: a 95% Wilson interval for each clause count, an exact p-value against the rule's `null-share` when it declares one, the count of not-blind reads on every rule verdict line, and one validity line, the same as `ab`'s. No verdict or exit status changes.
+- `track-record panel` results count each lens's missing version reads (failed, and not run), say for each rule whether its verdict would hold whatever the missing reads had said, and print a `DEAD` line when no read is valid. These lines never change a verdict, and a dead run still exits 1.
+- `track-record panel` results give, for each lens, the version's lowest score beside the strong anchor's highest and the version's spread, say when the lens cannot rank the version above the strong anchor or gives every read the same score, and, when the lens names `max`, the room between the strong anchor and the top of its scale.
+
+### Changed
+
+- The Reader A/B spec, docs/specs/reader-ab.md, is revision 2, signed by its owner: it puts an exact p-value, an interval and the missing reads beside each verdict, says when a one-sided test did not look at a verdict's direction, and corrects what section 1 claims for the A/A control. It changes no verdict, exit status or prompt.
+- The reader panel spec, docs/specs/reader-panel.md, is revision 2, signed by its owner: it puts an interval beside each clause count, an exact p-value when a rule names a share to test against, and the missing reads beside each verdict, and its inner status line and decisions now read as signed. It changes no verdict, exit status or prompt.
+- The README says what a reader result means and what the reader tools' controls show, and METHOD.md's status line says how Reader A/B relates to rule 6.
+- The Reader A/B and reader panel specs are revision 2.1: each adds the maintainer's build interpretations of revision 2 after its signed text (no flag beside an A/A-gate or position reason line; where the new lines go; how the completions are tried; the panel's rule labels, its room line with no strong-anchor read, and no p when a rule counts no read). The signed text is unchanged.
+
+### Fixed
+
+- 0.6.0's package reported its version as 0.5.0; 0.7.0 corrects the version string.
+
+## [0.6.0] - 2026-11-05
+
 ### Added
 
 - `track-record panel`, the reader panel: it reads one version of your copy blind through lenses you name, each a reader role given as a plain-text prompt file frozen with the plan. Every lens also reads a planted strong anchor and a planted weak anchor; a lens that does not rank them is not counted. Rules per lens and overall end PASS, FAIL or INCONCLUSIVE. The plan format, freeze, `--live` rule, spend ceiling and fake reader are those of `ab`. A lens defines its own scale (the built-in prompt states none, and a score of 0 is valid), and the built-in prompt tells the reader to write exactly `none` for a free-text field with nothing material. `freeze` refuses a PASS clause `score at least <n>` above `anchor-strong-at-least`. Its spec, docs/specs/reader-panel.md, is revision 1, signed by its owner.
