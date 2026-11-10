@@ -181,5 +181,128 @@ class PanelBlindOnlyCase(unittest.TestCase):
         self.assertEqual(panel.prompt_sha256(), PANEL_PROMPT_SHA256_0_7_0)
 
 
+ONE_MISSING = RANK + ["recruiter | version | omit SCORE | read 5"]
+FIVE_OF_SIX = "recruiter | PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE"
+BACKWARDS = ["recruiter | strong | score 2", "recruiter | weak | score 9",
+             "recruiter | version | score 7"] + RANK[3:]
+LIFT_5 = ("rule r1 (l1) reason: lifted from INCONCLUSIVE: settled under every completion of "
+          "1 missing reads; read floor 5 met")
+
+
+class PanelReadFloorCase(unittest.TestCase):
+    def done(self, **overrides):
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def test_10_40_below_the_floor(self):
+        s, result, lines = self.done(fake_reader=ONE_MISSING, rules=["recruiter | " + SIX_PASS],
+                                     min_valid_reads="6")
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) reason: below the read floor (5 counted reads, floor 6)", lines)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_at_the_floor_an_unsettled_rule_stays_as_it_is(self):
+        s, result, lines = self.done(fake_reader=ONE_MISSING, rules=["recruiter | " + SIX_PASS],
+                                     min_valid_reads="5")
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): unsettled: PASS, "
+                      "INCONCLUSIVE possible", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertFalse([x for x in lines if x.startswith("rule r1 (l1) reason:")])
+
+    def test_10_41_without_a_floor_nothing_is_lifted(self):
+        s, result, lines = self.done(fake_reader=ONE_MISSING, rules=[FIVE_OF_SIX])
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): settled: PASS", lines)
+        self.assertFalse([x for x in lines if x.startswith("rule r1 (l1) reason:")])
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_41_a_floor_met_lifts_a_settled_completion(self):
+        s, result, lines = self.done(fake_reader=ONE_MISSING, rules=[FIVE_OF_SIX],
+                                     min_valid_reads="5")
+        verdict = "rule r1 (l1) verdict: PASS [not blind: 0 reads left out]"
+        self.assertIn(verdict, lines)
+        self.assertEqual(lines[lines.index(verdict) + 1], LIFT_5)
+        own = [x for x in lines if x.startswith("rule r1 (l1) ")]
+        self.assertEqual(own[-1], "rule r1 (l1) completions (missing reads: 1): settled: PASS")
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_42_nothing_is_lifted_under_the_gate(self):
+        s, result, lines = self.done(
+            fake_reader=BACKWARDS + ["recruiter | version | omit SCORE | read 5"],
+            rules=[FIVE_OF_SIX], min_valid_reads="5")
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        gate = lines.index("rule r1 (l1) reason: the anchor gate failed on l1")
+        self.assertEqual(lines[gate + 1],
+                         "rule r1 (l1) reason: below the read floor (0 counted reads, floor 5)")
+        self.assertFalse([x for x in lines if "lifted from" in x])
+        self.assertFalse([x for x in lines if x.startswith("rule r1 (l1) completions")])
+
+    def test_no_counted_lens_gives_both_reasons(self):
+        s, result, lines = self.done(
+            fake_reader=["recruiter | score 5", "manager | score 5",
+                         "recruiter | version | omit SCORE | read 5"],
+            rules=["overall | PASS if score at least 5 in 11 of 12; otherwise INCONCLUSIVE"],
+            min_valid_reads="1")
+        self.assertIn("counted lenses: none", lines)
+        gate = lines.index("rule r1 (overall) reason: no lens is counted")
+        self.assertEqual(lines[gate + 1],
+                         "rule r1 (overall) reason: below the read floor (0 counted reads, floor 1)")
+        self.assertFalse([x for x in lines if "lifted from" in x])
+
+    def test_a_settled_fail_is_lifted(self):
+        s, result, lines = self.done(
+            fake_reader=RANK + ["recruiter | version | score 3",
+                                "recruiter | version | omit SCORE | read 5"],
+            rules=["recruiter | FAIL if score at most 4 in 5 of 6; otherwise INCONCLUSIVE"],
+            min_valid_reads="5")
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): settled: FAIL", lines)
+        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
+        self.assertIn(LIFT_5, lines)
+
+    def test_a_settled_inconclusive_lifts_nothing(self):
+        s, result, lines = self.done(
+            fake_reader=RANK + ["recruiter | version | score 5",
+                                "recruiter | version | omit SCORE | read 5"],
+            rules=["recruiter | " + SIX_PASS], min_valid_reads="5")
+        self.assertIn("rule r1 (l1) completions (missing reads: 1): settled: INCONCLUSIVE", lines)
+        self.assertFalse([x for x in lines if x.startswith("rule r1 (l1) reason:")])
+
+    def test_no_missing_read_means_no_lift(self):
+        s, result, lines = self.done(
+            fake_reader=RANK,
+            rules=["recruiter | FAIL if score at most 4 in 5 of 6; otherwise INCONCLUSIVE"],
+            min_valid_reads="5")
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertFalse([x for x in lines if x.startswith("rule r1 (l1) completions")
+                          or x.startswith("rule r1 (l1) reason:")])
+
+    def test_an_overall_rule_is_lifted_too(self):
+        s, result, lines = self.done(
+            fake_reader=ONE_MISSING,
+            rules=["overall | PASS if score at least 7 in 11 of 12; otherwise INCONCLUSIVE"],
+            min_valid_reads="11")
+        self.assertIn("rule r1 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (overall) reason: lifted from INCONCLUSIVE: settled under every "
+                      "completion of 1 missing reads; read floor 11 met", lines)
+        self.assertIn("rule r1 (overall) completions (missing reads: 1): settled: PASS", lines)
+
+    def test_the_floor_counts_blind_reads_only(self):
+        s, result, lines = self.done(readers=NB, fake_reader=RANK, rules=[THREE_UP],
+                                     min_valid_reads="4")
+        self.assertIn("rule r1 (l1) reason: below the read floor (3 counted reads, floor 4)", lines)
+
+    def test_min_valid_reads_refusals(self):
+        for value in ("0", "x"):
+            with self.subTest(value=value):
+                s = Setup(self, fake_reader=RANK, min_valid_reads=value)
+                result = s.freeze()
+                self.assertEqual(result.exit_code, 2, result.error)
+                number = s.line_of("min-valid-reads")
+                self.assertIn("plan line %d: min-valid-reads must be a positive whole number"
+                              % number, result.error.splitlines())
+                self.assertFalse(s.exists("plan.txt.freeze"))
+
+
 if __name__ == "__main__":
     unittest.main()

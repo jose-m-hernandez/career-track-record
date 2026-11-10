@@ -202,7 +202,7 @@ class Plan(object):
     def __init__(self, posting, version, anchors, lenses, readers, strong_at_least,
                  weak_at_most, fake_rules=(), reads_per_reader=3,
                  anchor_reads_per_reader=1, rules=(), spend_ceiling=None, amends=None,
-                 read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two"):
+                 read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two", min_valid_reads=None):
         self.posting = posting
         self.version = version
         self.anchors = dict(anchors)
@@ -218,6 +218,7 @@ class Plan(object):
         self.amends = amends
         self.read_timeout = read_timeout
         self.sidedness = sidedness
+        self.min_valid_reads = min_valid_reads
 
     def document_path(self, document):
         if document == VERSION:
@@ -246,7 +247,7 @@ class Plan(object):
 _LIST_KEYS = ("anchors", "lenses", "readers", "rules", "fake-reader")
 _SCALAR_KEYS = ("posting", "version", "reads-per-reader", "anchor-reads-per-reader",
                 "anchor-strong-at-least", "anchor-weak-at-most", "spend-ceiling", "amends",
-                "read-timeout", "sidedness")
+                "read-timeout", "sidedness", "min-valid-reads")
 _NAME = harness.NAME
 _CLAUSE = re.compile(r"(PASS|FAIL) if (?:score at (least|most) (-?[0-9]+)"
                      r"|([A-Z-]+) (flagged|not flagged)) in "
@@ -307,6 +308,11 @@ def parse_text(text):
             sidedness = value
         else:
             state.bad(number, "sidedness is two, greater or less")
+
+    min_valid_reads = None
+    if "min-valid-reads" in scalars:
+        number, value = scalars["min-valid-reads"]
+        min_valid_reads = state.integer(number, "min-valid-reads", value, minimum=1)
 
     # anchors
     anchors = {}
@@ -424,7 +430,8 @@ def parse_text(text):
     return Plan(posting, version, anchors, lenses, readers, strong_at_least, weak_at_most,
                 fake_rules=fake_rules, reads_per_reader=reads_per_reader,
                 anchor_reads_per_reader=anchor_reads, rules=rules, spend_ceiling=ceiling,
-                amends=amends, read_timeout=timeout, sidedness=sidedness)
+                amends=amends, read_timeout=timeout, sidedness=sidedness,
+                min_valid_reads=min_valid_reads)
 
 
 def _rule_clauses(state, number, rule):
@@ -1040,6 +1047,22 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif rule.lens not in counted:
             verdict = "INCONCLUSIVE"
             reasons.append(gate_reason[rule.lens])
+        floor = plan.min_valid_reads
+        below = floor is not None and len(recs) < floor
+        if below:
+            verdict = "INCONCLUSIVE"
+            reasons.append("below the read floor (%d counted reads, floor %d)"
+                           % (len(recs), floor))
+        arms = counted if rule.lens is None else ([rule.lens] if rule.lens in counted else [])
+        m = sum(missing_in[arm] for arm in arms)
+        possible = _possible_verdicts(rule, recs, m) if m >= 1 else None
+        # a lift: settled under every completion, and nothing but the clauses made it INCONCLUSIVE
+        if (floor is not None and not below and not reasons and verdict == "INCONCLUSIVE"
+                and possible is not None and len(possible) == 1
+                and possible[0] in ("PASS", "FAIL")):
+            verdict = possible[0]
+            reasons.append("lifted from INCONCLUSIVE: settled under every completion of %d "
+                           "missing reads; read floor %d met" % (m, floor))
         covered = [x.arm for x in plan.lenses] if rule.lens is None else [rule.lens]
         left_out = sum(len(valid_in(arm, VERSION, not_blind)) for arm in covered)
         out.append("%s verdict: %s [not blind: %d reads left out]" % (label, verdict, left_out))
@@ -1047,10 +1070,7 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("%s reason: %s" % (label, reason))
         for kind, clause in rule.clauses:
             out.append(_evidence_line(label, clause, rule, recs, plan.sidedness))
-        arms = counted if rule.lens is None else ([rule.lens] if rule.lens in counted else [])
-        m = sum(missing_in[arm] for arm in arms)
-        if m >= 1:
-            possible = _possible_verdicts(rule, recs, m)
+        if possible is not None:
             if len(possible) == 1:
                 out.append("%s completions (missing reads: %d): settled: %s"
                            % (label, m, possible[0]))
