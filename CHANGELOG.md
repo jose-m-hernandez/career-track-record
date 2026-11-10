@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `career_track_record/stats.py` gains the two-sided Fisher exact p-value, computed exactly, that a replicate run will print beside each count it compares with its first run.
+
 ### Changed
 
 - The Reader A/B spec, docs/specs/reader-ab.md, is revision 3, signed by its owner, built on revision 2. Revision 2 puts an exact p-value, an interval and the missing reads beside each verdict, says when a one-sided test did not look at a verdict's direction, and corrects what section 1 claims for the A/A control. Revision 3 adds an optional sensitivity arm (a version against a copy weakened on purpose), replicate runs and an optional read floor, and lets a settled completion lift an INCONCLUSIVE when the plan sets a floor. **It changes verdicts:** reads from a reader marked `not-blind` are no longer counted in any verdict.

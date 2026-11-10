@@ -12,7 +12,7 @@ from fractions import Fraction
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
-from career_track_record.stats import binomial_p, p_text, wilson  # noqa: E402
+from career_track_record.stats import binomial_p, fisher_p, p_text, wilson  # noqa: E402
 
 
 class StatsCase(unittest.TestCase):
@@ -71,6 +71,46 @@ class StatsCase(unittest.TestCase):
             with self.subTest(i=i):
                 with self.assertRaises(ValueError):
                     call()
+
+
+class FisherCase(unittest.TestCase):
+
+    ROWS = [
+        ((6, 6, 6, 6), Fraction(1), "1.0000"),
+        ((6, 6, 0, 6), Fraction(1, 462), "0.0022"),
+        ((5, 6, 1, 6), Fraction(37, 462), "0.0801"),
+        ((4, 6, 1, 5), Fraction(8, 33), "0.2424"),
+        ((2, 3, 6, 6), Fraction(1, 3), "0.3333"),
+        ((3, 6, 0, 6), Fraction(2, 11), "0.1818"),
+        ((1, 4, 3, 4), Fraction(17, 35), "0.4857"),
+    ]
+
+    def test_fisher_p_known_values(self):
+        for args, want, text in self.ROWS:
+            with self.subTest(args=args):
+                self.assertEqual(fisher_p(*args), want)
+                self.assertEqual(p_text(fisher_p(*args)), text)
+
+    def test_fisher_p_is_exact_and_symmetric(self):
+        for args, _want, _text in self.ROWS:
+            k1, n1, k2, n2 = args
+            with self.subTest(args=args):
+                self.assertIsInstance(fisher_p(*args), Fraction)
+                self.assertEqual(fisher_p(k1, n1, k2, n2), fisher_p(k2, n2, k1, n1))
+                self.assertEqual(fisher_p(k1, n1, k2, n2),
+                                 fisher_p(n1 - k1, n1, n2 - k2, n2))
+
+    def test_fisher_p_with_an_empty_side_is_one(self):
+        self.assertEqual(fisher_p(0, 0, 3, 6), Fraction(1))
+        self.assertEqual(fisher_p(4, 6, 0, 0), Fraction(1))
+        self.assertEqual(fisher_p(0, 0, 0, 0), Fraction(1))
+
+    def test_fisher_p_refuses_bad_counts(self):
+        for args in [(-1, 6, 0, 6), (7, 6, 0, 6), (0, 6, 7, 6),
+                     (0, -1, 0, 6), (0, 6, 0, -1), (0, 6, -1, 6)]:
+            with self.subTest(args=args):
+                with self.assertRaises(ValueError):
+                    fisher_p(*args)
 
 
 if __name__ == "__main__":
