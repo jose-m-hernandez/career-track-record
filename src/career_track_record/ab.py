@@ -50,6 +50,7 @@ changed_lines = harness.changed_lines
 read_text = harness.read_text
 
 AA = "aa"
+SENS = "s"
 LABELS = ("READ", "PRIOR", "SCORE-A", "SCORE-B", "PREFER", "DROVE-IT", "DOUBTS",
           "UNDERSOLD", "OVEREXPLAINED", "OWNED", "FLAG-FIXES")
 FREE_TEXT_FIELDS = ("DROVE-IT", "DOUBTS", "UNDERSOLD", "OVEREXPLAINED", "OWNED",
@@ -100,8 +101,8 @@ add a comma and a short reason on the same line. For no preference write
 class FakeRule(object):
     """One rule of the fake reader. Build one with the class methods below.
 
-    ``arms`` names the arms it applies to ("aa", "c1", "c2", ...); by default every
-    comparison and not the A/A arm. ``on_reads`` is a set of read numbers counted across
+    ``arms`` names the arms it applies to ("aa", "s", "c1", "c2", ...); by default every
+    comparison and neither the A/A arm nor the sensitivity arm. ``on_reads`` is a set of read numbers counted across
     the arm; a preference rule gives TIE on every other read of the arm."""
 
     PREFERENCE_KINDS = ("containing", "not-containing", "tie", "slot", "random")
@@ -209,7 +210,8 @@ class Plan(object):
                  reads_per_reader=3, hypotheses=(), mechanisms=(), change_scope=(),
                  noise_threshold=Fraction(1, 2), spend_ceiling=None, aa_version=None,
                  amends=None, read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two",
-                 alpha=Fraction(1, 20), alpha_text="0.05"):
+                 alpha=Fraction(1, 20), alpha_text="0.05", sensitivity=None,
+                 sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6)):
         self.posting = posting
         self.versions = list(versions)
         self.comparisons = list(comparisons)
@@ -227,6 +229,9 @@ class Plan(object):
         self.sidedness = sidedness
         self.alpha = alpha
         self.alpha_text = alpha_text
+        self.sensitivity = sensitivity
+        self.sensitivity_scope = list(sensitivity_scope)
+        self.sensitivity_threshold = sensitivity_threshold
 
     def version_path(self, name):
         for version, path in self.versions:
@@ -250,9 +255,10 @@ class Plan(object):
 # ------------------------------------------------------------------ the plan file
 
 _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
-              "change-scope", "fake-reader")
+              "change-scope", "sensitivity-scope", "fake-reader")
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
-                "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha")
+                "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha",
+                "sensitivity", "sensitivity-threshold")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
 _FRACTION = re.compile(r"([0-9]+)/([0-9]+)\Z")
@@ -357,6 +363,28 @@ def parse_text(text):
             alpha_text = value
         else:
             state.bad(number, "alpha is written as 0. followed by digits, not all zero")
+    sensitivity = None
+    if "sensitivity" in scalars:
+        number, value = scalars["sensitivity"]
+        match = _COMPARISON.match(value)
+        if not match:
+            state.bad(number, "sensitivity is written: X vs W")
+        elif match.group(1) not in names or match.group(2) not in names:
+            state.bad(number, "the sensitivity pair names a version the plan does not have")
+        else:
+            sensitivity = (match.group(1), match.group(2))
+    sensitivity_threshold = Fraction(5, 6)
+    if "sensitivity-threshold" in scalars:
+        number, value = scalars["sensitivity-threshold"]
+        match = _FRACTION.match(value)
+        if not match or int(match.group(2)) == 0:
+            state.bad(number, "sensitivity-threshold is written as a fraction n/d")
+        else:
+            got = Fraction(int(match.group(1)), int(match.group(2)))
+            if got <= Fraction(1, 2) or got > 1:
+                state.bad(number, "sensitivity-threshold must be above 1/2 and at most 1")
+            else:
+                sensitivity_threshold = got
     ceiling = None
     if "spend-ceiling" in scalars:
         number, value = scalars["spend-ceiling"]
@@ -384,7 +412,8 @@ def parse_text(text):
         if len(rest) != 1:
             state.bad(number, "a hypothesis is written: [comparison |] rule")
             continue
-        clauses = _hypothesis_clauses(state, number, rest[0], comparisons[comparison - 1])
+        clauses = _hypothesis_clauses(state, number, rest[0], comparisons[comparison - 1],
+                                      sensitivity)
         if clauses is not None:
             hypotheses.append(Hypothesis("h%d" % (len(hypotheses) + 1), comparison, clauses))
 
@@ -437,12 +466,34 @@ def parse_text(text):
             else:
                 change_scope.append((comparison, parts[0]))
 
+    # sensitivity scope
+    sensitivity_scope = []
+    for number, item in lists.get("sensitivity-scope", []):
+        parts = state.fields(number, item)
+        if parts is None:
+            continue
+        if len(parts) != 1:
+            state.bad(number, "a sensitivity-scope item is a pattern")
+        elif state.pattern(number, parts[0]):
+            if re.fullmatch(parts[0], "") or re.search(parts[0], ""):
+                state.bad(number, "a sensitivity-scope pattern must not match empty text")
+            else:
+                sensitivity_scope.append(parts[0])
+    if "sensitivity" in scalars and not lists.get("sensitivity-scope"):
+        state.bad(scalars["sensitivity"][0], "a sensitivity pair needs a sensitivity-scope")
+    if "sensitivity-scope" in lists and "sensitivity" not in scalars:
+        for number, raw in enumerate(harness.LINE_BREAK.split(text), 1):
+            if raw[:1] not in " \t" and raw.partition(":")[0].strip() == "sensitivity-scope":
+                state.bad(number, "sensitivity-scope needs a sensitivity pair")
+                break
+
     # the fake reader
     has_fake = any(r.kind == "fake" for r in readers)
     reads = len(readers) * reads_per_reader
     rules, rule_lines = [], []
     for number, item in lists.get("fake-reader", []):
-        rule = _fake_rule(state, number, item, comparison_text, reads)
+        rule = _fake_rule(state, number, item, comparison_text, reads,
+                          "sensitivity" in scalars)
         if rule is not None:
             rules.append(rule)
             rule_lines.append(number)
@@ -466,11 +517,14 @@ def parse_text(text):
                 mechanisms=mechanisms, change_scope=change_scope, noise_threshold=noise,
                 spend_ceiling=ceiling, aa_version=aa_version, amends=amends,
                 read_timeout=timeout, sidedness=sidedness, alpha=alpha,
-                alpha_text=alpha_text)
+                alpha_text=alpha_text, sensitivity=sensitivity,
+                sensitivity_scope=sensitivity_scope,
+                sensitivity_threshold=sensitivity_threshold)
 
 
-def _hypothesis_clauses(state, number, rule, pair):
-    """The ordered (verdict, Clause) list of a hypothesis rule, or None."""
+def _hypothesis_clauses(state, number, rule, pair, sensitivity=None):
+    """The ordered (verdict, Clause) list of a hypothesis rule, or None. A clause may not
+    name a version of the sensitivity pair."""
     pieces = rule.split("; ")
     if pieces[-1] != "otherwise INCONCLUSIVE":
         state.bad(number, "a hypothesis rule ends with: otherwise INCONCLUSIVE")
@@ -485,6 +539,11 @@ def _hypothesis_clauses(state, number, rule, pair):
             ok = False
             continue
         verdict, version = match.group(1), match.group(2)
+        if sensitivity is not None and version in sensitivity:
+            state.bad(number, "a hypothesis may not name a version of the sensitivity pair: "
+                      "%s" % _short(version))
+            ok = False
+            continue
         if version not in pair:
             state.bad(number, "the hypothesis names %s, which is not in its comparison"
                       % _short(version))
@@ -505,15 +564,20 @@ def _hypothesis_clauses(state, number, rule, pair):
     return clauses if ok else None
 
 
-def _fake_rule(state, number, item, comparison_text, reads):
+def _fake_rule(state, number, item, comparison_text, reads, has_pair=False):
     """One FakeRule from a fake-reader item, or None with a problem recorded."""
     parts = state.fields(number, item)
     if parts is None:
         return None
     arms = None
-    if len(parts) > 1 and (parts[0] in ("all", AA) or parts[0] in comparison_text):
+    if len(parts) > 1 and (parts[0] in ("all", AA, SENS) or parts[0] in comparison_text):
+        if parts[0] == SENS and not has_pair:
+            state.bad(number, "an s rule needs a sensitivity pair")
+            return None
         if parts[0] == AA:
             arms = [AA]
+        elif parts[0] == SENS:
+            arms = [SENS]
         elif parts[0] != "all":
             arms = ["c%d" % (comparison_text.index(parts[0]) + 1)]
         parts = parts[1:]
@@ -614,9 +678,12 @@ def _verify(plan_path, with_prompt):
 # ------------------------------------------------------------------ the isolation check
 
 def _arms(plan):
-    """(arm id, first version, second version): the A/A arm, then each comparison."""
+    """(arm id, first version, second version): the A/A arm, the sensitivity arm when the
+    plan has a pair, then each comparison."""
     aa = plan.effective_aa_version()
     arms = [(AA, aa, aa)]
+    if plan.sensitivity is not None:
+        arms.append((SENS, plan.sensitivity[0], plan.sensitivity[1]))
     for index, (first, second) in enumerate(plan.comparisons, 1):
         arms.append(("c%d" % index, first, second))
     return arms
@@ -641,7 +708,7 @@ def _isolation_problems(plan, plan_path):
                     texts[name] = None
         return texts[name]
 
-    for index, (arm, first, second) in enumerate(_arms(plan)):
+    for arm, first, second in _arms(plan):
         a, b = lines_of(first), lines_of(second)
         if a is None or b is None:
             continue
@@ -655,12 +722,17 @@ def _isolation_problems(plan, plan_path):
             problems.append("%s: no changed line; a file compared with itself is the "
                             "control, not a test" % label)
             continue
-        scope = [pattern for comparison, pattern in plan.change_scope
-                 if comparison in (None, index)]
+        if arm == SENS:
+            scope, what = plan.sensitivity_scope, "sensitivity"
+        else:
+            index = int(arm[1:])
+            scope = [pattern for comparison, pattern in plan.change_scope
+                     if comparison in (None, index)]
+            what = "change"
         for mark, line in changes:
             if not any(re.search(pattern, line) for pattern in scope):
-                problems.append("%s: changed line outside the change scope: %s %s"
-                                % (arm, mark, _show(line)))
+                problems.append("%s: changed line outside the %s scope: %s %s"
+                                % (arm, what, mark, _show(line)))
     return problems
 
 
@@ -759,7 +831,7 @@ def _planned_reads(plan):
 
 def _applies(rule, read):
     if rule.arms is None:
-        return read.arm != AA
+        return read.arm not in (AA, SENS)
     return read.arm in rule.arms
 
 

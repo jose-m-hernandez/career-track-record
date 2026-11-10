@@ -10,6 +10,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `career_track_record/stats.py` gains the two-sided Fisher exact p-value, computed exactly, that a replicate run will print beside each count it compares with its first run.
 - `track-record ab` and `track-record panel` readers can name a reader group (`reader-group <name>`), for readers that are alike, such as one model behind two commands. The result counts each group's valid reads; a group changes no verdict.
+- `track-record ab` plans can name a sensitivity pair (`sensitivity: X vs W`, with `sensitivity-scope` and an optional `sensitivity-threshold`, default 5/6): a version against a copy of it weakened on purpose. It runs as its own arm, `s`, after the A/A arm and before the comparisons, and gets the isolation check against `sensitivity-scope`. Fake-reader rules reach it only when they name `s`.
 
 ### Changed
 

@@ -57,6 +57,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | src/career_track_record/stats.py | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | src/career_track_record/tone.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/__init__.py | not recorded | not recorded | not recorded |
+| tests/fixtures/ab/base-weak.txt | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | tests/fixtures/ab/base.txt | not recorded | not recorded | not recorded |
 | tests/fixtures/ab/golden/10-1.txt | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | tests/fixtures/ab/golden/10-11.txt | claude-code | claude-sonnet-5-5 | 2026-11-10 |

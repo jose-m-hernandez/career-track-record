@@ -2,8 +2,10 @@
 
 import os
 import re
+import shutil
 import sys
 import unittest
+from fractions import Fraction
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
@@ -15,6 +17,11 @@ from tests.test_ab import (  # noqa: E402
 NB = ["r1 | fake", "r2 | fake | not-blind"]
 THREE = "SUPPORTED if skills-top preferred in 3 or more; otherwise INCONCLUSIVE"
 REFUTED_AT_TWO = "REFUTED if base preferred in 2 or more; otherwise INCONCLUSIVE"
+P = "ninety minutes"
+WEAK_VERSIONS = ["base | base.txt", "skills-top | skills-top.txt", "base-weak | base-weak.txt"]
+SENSITIVITY = dict(versions=WEAK_VERSIONS, sensitivity="base vs base-weak",
+                   sensitivity_scope=["^hours to "])
+SKILLS_SIX = "SUPPORTED if skills-top preferred in 6 of 6; otherwise INCONCLUSIVE"
 GOLDEN = os.path.join(ROOT, "tests", "fixtures", "ab", "golden")
 AB_PROMPT_SHA256_0_7_0 = "567b9bc16d86abfe4af935a844e28a1b6d2d257aa4f93b6ab3de8e97ce1fdd14"
 
@@ -239,6 +246,170 @@ class ReaderGroupCase(unittest.TestCase):
             with self.subTest(reader=reader):
                 s = Setup(self, hypotheses=[SIX], readers=[reader, "r2 | fake"])
                 self.assertRefused(s, line_text, message)
+
+
+class SensitivityArmCase(unittest.TestCase):
+    def setup(self, **overrides):
+        s = Setup(self, **dict(SENSITIVITY, **overrides))
+        shutil.copyfile(os.path.join(ROOT, "tests", "fixtures", "ab", "base-weak.txt"),
+                        os.path.join(s.folder, "base-weak.txt"))
+        return s
+
+    def done(self, **overrides):
+        overrides.setdefault("hypotheses", [SKILLS_SIX])
+        s = self.setup(**overrides)
+        frozen = s.freeze()
+        self.assertEqual(frozen.exit_code, 0, frozen.error)
+        result = s.run()
+        return s, result, s.result_lines()
+
+    def assertRefused(self, s, line_text, message):
+        """Freeze exits 2, names the plan line number, and writes no freeze file."""
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 2, result.error)
+        self.assertFalse(result.ran)
+        number = s.line_of(line_text)
+        self.assertIn("plan line %d: %s" % (number, message), result.error.splitlines())
+        self.assertFalse(s.exists("plan.txt.freeze"))
+        self.assertFalse(s.exists(ab.READS_DIR))
+
+    def test_10_68_threshold_and_pairing_refusals(self):
+        above = "sensitivity-threshold must be above 1/2 and at most 1"
+        fraction = "sensitivity-threshold is written as a fraction n/d"
+        cases = [
+            (dict(sensitivity_threshold="1/2"), "sensitivity-threshold", above),
+            (dict(sensitivity_threshold="2/5"), "sensitivity-threshold", above),
+            (dict(sensitivity_threshold="7/6"), "sensitivity-threshold", above),
+            (dict(sensitivity_threshold="0.8"), "sensitivity-threshold", fraction),
+            (dict(sensitivity_threshold="5/0"), "sensitivity-threshold", fraction),
+            (dict(sensitivity_scope=None), "sensitivity:",
+             "a sensitivity pair needs a sensitivity-scope"),
+            (dict(sensitivity=None), "sensitivity-scope",
+             "sensitivity-scope needs a sensitivity pair"),
+        ]
+        for overrides, line_text, message in cases:
+            with self.subTest(overrides=overrides):
+                s = self.setup(**overrides)
+                self.assertRefused(s, line_text, message)
+
+    def test_10_68_good_thresholds_freeze(self):
+        s = self.setup(sensitivity_threshold="4/6")
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
+        self.assertEqual(s.plan.sensitivity_threshold, Fraction(2, 3))
+        s = self.setup(sensitivity_threshold="1/1")
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
+        self.assertEqual(s.plan.sensitivity_threshold, Fraction(1))
+        s = self.setup()
+        self.assertEqual(s.freeze().exit_code, 0)
+        self.assertEqual(s.plan.sensitivity_threshold, Fraction(5, 6))
+        self.assertEqual(s.plan.sensitivity, ("base", "base-weak"))
+        self.assertEqual(s.plan.sensitivity_scope, ["^hours to"])
+
+    def test_10_70_a_hypothesis_may_not_name_either_version_of_the_pair(self):
+        message = "a hypothesis may not name a version of the sensitivity pair: "
+        cases = [
+            ("SUPPORTED if base-weak preferred in 2 or more; otherwise INCONCLUSIVE",
+             "base-weak preferred", "base-weak"),
+            ("REFUTED if base preferred in 2 or more; otherwise INCONCLUSIVE",
+             "base preferred", "base"),
+        ]
+        for rule, line_text, name in cases:
+            with self.subTest(name=name):
+                s = self.setup(hypotheses=[rule])
+                self.assertRefused(s, line_text, message + name)
+
+    def test_the_pair_is_two_versions_of_the_plan(self):
+        cases = [
+            (dict(sensitivity="base vs nope"), "base vs nope",
+             "the sensitivity pair names a version the plan does not have"),
+            (dict(sensitivity="base-weak"), "sensitivity: base-weak",
+             "sensitivity is written: X vs W"),
+            (dict(sensitivity_scope=["base vs base-weak | ^hours"]), "| ^hours",
+             "a sensitivity-scope item is a pattern"),
+            (dict(sensitivity_scope=["x?"]), "x?",
+             "a sensitivity-scope pattern must not match empty text"),
+        ]
+        for overrides, line_text, message in cases:
+            with self.subTest(overrides=overrides):
+                s = self.setup(**overrides)
+                self.assertRefused(s, line_text, message)
+
+    def test_10_60_a_pair_of_one_file_stops_before_reading(self):
+        s = self.setup(sensitivity="base vs base")
+        self.assertEqual(s.freeze().exit_code, 0)
+        result = s.run()
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("s (base vs base): no changed line; a file compared with itself is "
+                      "the control, not a test", result.error)
+        self.assertFalse(s.exists(ab.READS_DIR))
+
+    def test_10_61_a_change_outside_the_sensitivity_scope_stops_before_reading(self):
+        s = self.setup()
+        s.edit("base-weak.txt", lambda text: text.replace("Lakeside City", "Riverside Town"))
+        self.assertEqual(s.freeze().exit_code, 0)
+        result = s.run()
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("s: changed line outside the sensitivity scope: "
+                      "+ marlow.quenby@example.com | 555-0100 | Riverside Town", result.error)
+        self.assertFalse(s.exists(ab.READS_DIR))
+
+    def test_the_s_arm_runs_after_aa_and_before_the_comparisons(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE])
+        ids = [x.split(":")[0][len("key "):] for x in lines if x.startswith("key ")]
+        expected = ["%s/%d" % (arm, n) for arm in ("aa", "s", "c1") for n in range(1, 7)]
+        self.assertEqual(ids, expected)
+        self.assertIn("key s/1: reader=r1 A=base B=base-weak", lines)
+        self.assertIn("key s/2: reader=r1 A=base-weak B=base", lines)
+        self.assertIn("slot split s r1: base in slot A 2, base-weak in slot A 1", lines)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_10_64_the_spend_ceiling_cuts_the_s_arm(self):
+        s, result, lines = self.done(spend_ceiling="9", fake_reader=[PREFER_GLANCE])
+        self.assertIn("cut: ran 9 of 18 planned reads at spend ceiling 9", lines)
+        third = [x for x in lines if x.startswith("read s/3:")]
+        self.assertEqual(len(third), 1)
+        self.assertFalse(third[0].endswith("not run"))
+        self.assertIn("read s/4: reader=r2 A=base-weak B=base not run", lines)
+        c1 = [x for x in lines if x.startswith("read c1/")]
+        self.assertEqual(len(c1), 6)
+        for line in c1:
+            self.assertTrue(line.endswith("not run"), line)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_67_all_does_not_reach_s(self):
+        s, result, lines = self.done(fake_reader=["all | prefer slot B"])
+        self.assertIn("reads all readers s: valid=6 base=0 base-weak=0 tie=6", lines)
+
+    def test_an_s_rule_reaches_only_s(self):
+        s, result, lines = self.done(fake_reader=['s | prefer containing "%s"' % P])
+        self.assertIn("reads all readers s: valid=6 base=6 base-weak=0 tie=0", lines)
+        self.assertIn("reads all readers c1: valid=6 base=0 skills-top=0 tie=6", lines)
+        self.assertIn("reads all readers aa: valid=6 skills-top=0 tie=6", lines)
+
+    def test_an_s_rule_without_a_pair_is_refused(self):
+        s = Setup(self, fake_reader=["s | tie"])
+        self.assertRefused(s, "s | tie", "an s rule needs a sensitivity pair")
+
+    def test_a_random_seed_on_s_uses_s_as_the_arm_text(self):
+        s, result, lines = self.done(fake_reader=["s | random seed 7"])
+        for k in range(1, 7):
+            pick = ab.random_pick(7, "s", k)
+            self.assertIn(pick, ("A", "B", "TIE"))
+            expected = "prefer=TIE" if pick == "TIE" else "prefer=%s, slightly" % pick
+            line = [x for x in lines if x.startswith("read s/%d:" % k)]
+            self.assertEqual(len(line), 1)
+            self.assertIn(expected, line[0])
+
+    def test_two_preference_rules_on_s_are_refused(self):
+        s = self.setup(fake_reader=["s | tie", "s | prefer slot A"])
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 2, result.error)
+        number = s.line_of("s | prefer slot A")
+        prefix = "plan line %d: two preference rules apply to read 1 of s" % number
+        self.assertTrue([x for x in result.error.splitlines() if x.startswith(prefix)],
+                        result.error)
 
 
 if __name__ == "__main__":
