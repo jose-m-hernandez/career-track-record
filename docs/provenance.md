@@ -40,7 +40,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/specs/tone-and-tells.md | claude-code | claude-opus-5-5 | 2026-11-05 |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | not recorded | not recorded | not recorded |
-| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
+| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-10 |
 | src/career_track_record/__main__.py | not recorded | not recorded | not recorded |
 | src/career_track_record/ab.py | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-10 |
 | src/career_track_record/ab_reader_command.py | claude-code | claude-sonnet-5-5 | 2026-10-30 |
