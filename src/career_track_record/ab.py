@@ -1150,6 +1150,33 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("A/A gate: passed (%d of %d valid A/A reads clearly or strongly "
                        "non-TIE; threshold %s)" % (strong, len(aa_valid),
                                                  plan.noise_threshold))
+    # sensitivity gate: of the blind readers' valid reads of the pair, how many prefer X
+    sens_gate = "not tested"
+    if plan.sensitivity is not None:
+        sens_x = plan.sensitivity[0]
+        sens_planned = len([r for r in blind_reads if r.arm == SENS])
+        sens_valid = valid_in(SENS)
+        if sens_planned == 0 or len(sens_valid) < sens_planned:
+            sens_gate = "not evaluated"
+            out.append("sensitivity gate: not evaluated (%d valid reads of %d planned)"
+                       % (len(sens_valid), sens_planned))
+        else:
+            sens_k = len([x for x in sens_valid if _pick(x)[0] == sens_x])
+            sens_n = len(sens_valid)
+            if Fraction(sens_k, sens_n) < plan.sensitivity_threshold:
+                sens_gate = "failed"
+            else:
+                sens_gate = "passed"
+            out.append("sensitivity gate: %s (%d of %d valid sensitivity reads prefer %s; "
+                       "threshold %s)" % (sens_gate, sens_k, sens_n, sens_x,
+                                          plan.sensitivity_threshold))
+            low, high = stats.wilson(sens_k, sens_n)
+            out.append("sensitivity gate evidence: p = %s one-sided greater (reads may be "
+                       "correlated; may be too small); 95%% interval %s to %s"
+                       % (stats.p_text(stats.binomial_p(sens_k, sens_n, "greater")),
+                          low, high))
+    else:
+        out.append("sensitivity gate: not tested")
     if aa_valid:
         strong = len([x for x in aa_valid
                       if x.reply.choice != "TIE" and x.reply.strength in STRONG])
@@ -1207,6 +1234,13 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
+        if sens_gate == "failed":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate failed: the readers did not detect the "
+                           "planted difference")
+        elif sens_gate == "not evaluated":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate was not evaluated")
         if position[arm] == "INCONCLUSIVE":
             verdict = "INCONCLUSIVE"
             reasons.append("position is INCONCLUSIVE on %s" % arm)
@@ -1282,6 +1316,13 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
+        if sens_gate == "failed":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate failed: the readers did not detect the "
+                           "planted difference")
+        elif sens_gate == "not evaluated":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate was not evaluated")
         left_out = len(valid_not_blind_in(arm))
         out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d reads left out]"
                    % (label, verdict, mech.k, left_out))
@@ -1327,6 +1368,25 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                    % (arm, same, len(recs)))
         if recs and ceiling == len(recs):
             out.append("scores %s: at the ceiling; preference is the only measure" % arm)
+    if plan.sensitivity is not None:
+        sens_x, sens_w = plan.sensitivity
+        for reader in plan.readers:
+            if reader.name in not_blind:
+                continue
+            mine = {sens_x: [], sens_w: []}
+            for x in valid_in(SENS):
+                if x.read.reader != reader.name:
+                    continue
+                for version, mark in ((x.read.slot_a, x.reply.score_a),
+                                      (x.read.slot_b, x.reply.score_b)):
+                    mine[version].append(mark)
+            if mine[sens_x]:
+                gap = (Fraction(sum(mine[sens_x]), len(mine[sens_x]))
+                       - Fraction(sum(mine[sens_w]), len(mine[sens_w])))
+                text = "%.2f" % float(gap)
+                if text == "-0.00":
+                    text = "0.00"
+                out.append("sensitivity score gap %s: %s" % (reader.name, text))
     groups = []
     for reader in plan.readers:
         if reader.group is not None and reader.group not in groups:
