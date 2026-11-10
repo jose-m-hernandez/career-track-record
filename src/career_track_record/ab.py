@@ -211,7 +211,8 @@ class Plan(object):
                  noise_threshold=Fraction(1, 2), spend_ceiling=None, aa_version=None,
                  amends=None, read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two",
                  alpha=Fraction(1, 20), alpha_text="0.05", sensitivity=None,
-                 sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6), min_valid_reads=None):
+                 sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6), min_valid_reads=None,
+                 replicate_of=None):
         self.posting = posting
         self.versions = list(versions)
         self.comparisons = list(comparisons)
@@ -225,6 +226,7 @@ class Plan(object):
         self.spend_ceiling = spend_ceiling
         self.aa_version = aa_version
         self.amends = amends
+        self.replicate_of = replicate_of
         self.read_timeout = read_timeout
         self.sidedness = sidedness
         self.alpha = alpha
@@ -258,7 +260,7 @@ class Plan(object):
 _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
               "change-scope", "sensitivity-scope", "fake-reader")
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
-                "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha",
+                "spend-ceiling", "amends", "replicate-of", "read-timeout", "sidedness", "alpha",
                 "sensitivity", "sensitivity-threshold", "min-valid-reads")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
@@ -400,6 +402,13 @@ def parse_text(text):
         got = state.integer(number, "read-timeout", value)
         timeout = got if got is not None else DEFAULT_READ_TIMEOUT
     amends = scalars["amends"][1] if "amends" in scalars else None
+    replicate_of = None
+    if "replicate-of" in scalars:
+        number, replicate_of = scalars["replicate-of"]
+        if not replicate_of.endswith(harness.FREEZE_SUFFIX):
+            state.bad(number, "replicate-of must name a .freeze file")
+        if "amends" in scalars:
+            state.bad(number, "a plan may not carry both replicate-of and amends")
 
     # readers
     readers = harness.parse_readers(state, lists.get("readers", []))
@@ -525,7 +534,7 @@ def parse_text(text):
                 alpha_text=alpha_text, sensitivity=sensitivity,
                 sensitivity_scope=sensitivity_scope,
                 sensitivity_threshold=sensitivity_threshold,
-                min_valid_reads=min_valid_reads)
+                min_valid_reads=min_valid_reads, replicate_of=replicate_of)
 
 
 def _hypothesis_clauses(state, number, rule, pair, sensitivity=None):
@@ -668,6 +677,8 @@ def _inputs(plan, plan_path):
         items.append((path, os.path.join(folder, path)))
     if plan.amends is not None:
         items.append((plan.amends, os.path.join(folder, plan.amends)))
+    if plan.replicate_of is not None:
+        items.append((plan.replicate_of, os.path.join(folder, plan.replicate_of)))
     return harness.unique_inputs(items)
 
 
@@ -923,6 +934,21 @@ def run(plan_path, live=False):
         return Result(2, False, error=exc.line)
 
 
+def _first_folder(plan_path, plan):
+    """The folder of the first run, as the plan's replicate-of text names it, or None."""
+    if plan.replicate_of is None:
+        return None
+    return os.path.dirname(os.path.join(harness.folder_of(plan_path), plan.replicate_of))
+
+
+def _first_run_problems(plan_path, plan):
+    """A replicate waits for its first run: that folder must already hold a key."""
+    first = _first_folder(plan_path, plan)
+    if first is None or os.path.isfile(os.path.join(first, KEY_FILE)):
+        return []
+    return ["the first run has not run: %s" % _show(os.path.dirname(plan.replicate_of))]
+
+
 def _run(plan_path, live):
     folder = harness.folder_of(plan_path)
     plan, problems, recorded, freeze_hash = _verify(plan_path, with_prompt=True)
@@ -935,6 +961,8 @@ def _run(plan_path, live):
             except Unreadable as exc:
                 problems.append("cannot read %s: %s" % (_show(plan.posting), exc))
     problems += harness.run_folder_problems(folder)
+    if plan is not None:
+        problems += _first_run_problems(plan_path, plan)
     if problems:
         return Result(2, False, error="\n".join(problems))
     planned = _planned_reads(plan)
@@ -963,9 +991,13 @@ def _run(plan_path, live):
 
 def score(plan_path):
     """Score the replies in the run folder again, against the frozen plan. Writes a new result."""
-    return harness.score(plan_path, parse, _inputs, prompt_sha256(), 4,
-                         lambda plan, recorded, freeze_hash: _score_and_write(
-                             plan_path, plan, recorded, freeze_hash))
+    def write(plan, recorded, freeze_hash):
+        problems = _first_run_problems(plan_path, plan)
+        if problems:
+            return Result(2, False, error="\n".join(problems))
+        return _score_and_write(plan_path, plan, recorded, freeze_hash)
+
+    return harness.score(plan_path, parse, _inputs, prompt_sha256(), 4, write)
 
 
 # ------------------------------------------------------------------ scoring
@@ -1055,6 +1087,18 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     # lines, the not-blind reads line, DEAD and the tail still cover every reader.
     blind_records = [x for x in records if x.read.reader not in not_blind]
     blind_reads = [r for r in reads if r.reader not in not_blind]
+    first_blind = None
+    if plan.replicate_of is not None:
+        # The first run's folder is read, never written.
+        first_folder = _first_folder(plan_path, plan)
+        first_log = harness.load_log(first_folder)
+        first_cut = first_log.get("cut") == "yes"
+        first_stopped = first_log.get("stopped")
+        first_reads = [PlannedRead(*row) for row in harness.load_key(first_folder, 4)]
+        first_records = harness.records(first_folder, first_reads,
+                                        first_cut or first_stopped is not None,
+                                        harness.log_failures(first_log), parse_reply)
+        first_blind = [x for x in first_records if x.read.reader not in not_blind]
     out = []
 
     out.append("plan sha256: %s" % _show(recorded.get(os.path.basename(plan_path), "unknown")))
@@ -1062,6 +1106,8 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     if plan.amends is not None:
         out.append("amended freeze sha256: %s" % _show(recorded.get(plan.amends, "unknown")))
     out.append("prompt sha256: %s" % _show(recorded.get(PROMPT_LABEL, "unknown")))
+    if plan.replicate_of is not None:
+        out.append("replicate of: %s" % _show(recorded.get(plan.replicate_of, "unknown")))
     aa_version = plan.effective_aa_version()
     out.append("A/A arm: added by the tool, using version %s" % aa_version)
     if plan.aa_version is None:
@@ -1322,6 +1368,14 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         if missing[arm]:
             out.append(_completions_line(plan, hyp, recs, picks, first, second,
                                          missing[arm], outcomes))
+        if first_blind is not None:
+            first_picks, _first_ties = picks_in([x for x in first_blind
+                                                 if x.read.arm == arm and x.status == "valid"])
+            k1, n1 = first_picks.get(second, 0), sum(first_picks.values())
+            out.append("hypothesis %s replicate: first run %s %d of %d, this run %d of %d; "
+                       "Fisher exact p = %s two-sided"
+                       % (hyp.name, _show(second), k1, n1, picks.get(second, 0), n,
+                          stats.p_text(stats.fisher_p(k1, n1, picks.get(second, 0), n))))
 
     # mechanisms
     def matching(recs, mech):

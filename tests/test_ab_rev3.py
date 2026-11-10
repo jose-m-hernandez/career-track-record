@@ -1,5 +1,6 @@
 """Tests for revision 3 of the Reader A/B spec (docs/specs/reader-ab.md). All data here is invented."""
 
+import hashlib
 import os
 import re
 import shutil
@@ -690,12 +691,285 @@ class ReadFloorCase(unittest.TestCase):
         self.assertIn("hypothesis h1 reason: below the read floor (3 valid reads, floor 4)",
                       lines)
 
+    def test_the_floor_reason_follows_position(self):
+        s, result, lines = self.done(
+            hypotheses=["REFUTED if base preferred in 3 of 6; otherwise INCONCLUSIVE"],
+            fake_reader=["prefer slot A", "omit PREFER | read 2"], min_valid_reads="6")
+        first = "hypothesis h1 reason: position is INCONCLUSIVE on c1"
+        second = "hypothesis h1 reason: below the read floor (5 valid reads, floor 6)"
+        self.assertIn(first, lines)
+        self.assertIn(second, lines)
+        self.assertEqual(lines.index(first) + 1, lines.index(second))
+
+    def test_a_mechanism_at_the_floor_is_not_below_it(self):
+        s, result, lines = self.done(
+            mechanisms=[TOO_LONG],
+            fake_reader=items(WRITE_TOO_LONG, reads=[1, 2, 3, 4]) + ["omit PREFER | read 6"],
+            min_valid_reads="5")
+        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) "
+                      "[not blind: 0 reads left out]", lines)
+        self.assertFalse([x for x in lines if "below the read floor" in x])
+
+    def test_an_unsettled_completion_lifts_nothing(self):
+        s, result, lines = self.done(
+            hypotheses=["SUPPORTED if skills-top preferred in 4 of 6; "
+                        "REFUTED if base preferred in 2 of 6; otherwise INCONCLUSIVE"],
+            fake_reader=items(PREFER_GLANCE, reads=[4, 5, 6])
+            + items(WITHOUT_GLANCE, reads=[2, 3]) + ["omit PREFER | read 1"],
+            min_valid_reads="5")
+        self.assertIn("hypothesis h1 completions (missing reads: 1): unsettled: SUPPORTED, "
+                      "REFUTED possible; p from 0.6875 to 1.0000", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 reason:")])
+
     def test_min_valid_reads_refusals(self):
         for value in ("0", "x"):
             with self.subTest(value=value):
                 s = Setup(self, hypotheses=[SIX], min_valid_reads=value)
                 self.assertRefused(s, "min-valid-reads",
                                    "min-valid-reads must be a positive whole number")
+
+
+REPL_ERR = ("the plan differs from the first plan in more than its replicate-of line: "
+            "plan.txt")
+
+
+class ReplicateCase(unittest.TestCase):
+    def rel(self, s, name):
+        return os.path.join("..", os.path.basename(s.folder), name)
+
+    def freeze_ok(self, s):
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
+        return result
+
+    def pair(self, run_first=True, **overrides):
+        overrides.setdefault("hypotheses", [SIX])
+        first = Setup(self, **overrides)
+        self.freeze_ok(first)
+        if run_first:
+            result = first.run()
+            self.assertEqual(result.exit_code, 0, result.error)
+        second = Setup(self, **dict(overrides, replicate_of=self.rel(first, "plan.txt.freeze")))
+        return first, second
+
+    def tree(self, folder):
+        digest = hashlib.sha256()
+        for where, dirs, names in os.walk(folder):
+            dirs.sort()
+            for name in sorted(names):
+                path = os.path.join(where, name)
+                digest.update(os.path.relpath(path, folder).encode("utf-8") + b"\0")
+                with open(path, "rb") as handle:
+                    digest.update(handle.read())
+        return digest.hexdigest()
+
+    def freeze_error(self, s):
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 2, result.error)
+        self.assertFalse(s.exists("plan.txt.freeze"))
+        return result.error.splitlines()
+
+    def sha(self, s, name):
+        with open(s.path(name), "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest()
+
+    def test_10_75_a_replicate_of_10_1(self):
+        first, second = self.pair(fake_reader=[PREFER_GLANCE])
+        before = self.tree(first.folder)
+        self.freeze_ok(second)
+        first_sha = self.sha(first, "plan.txt.freeze")
+        self.assertIn("%s  %s" % (first_sha, self.rel(first, "plan.txt.freeze")),
+                      second.read("plan.txt.freeze").splitlines())
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        lines = result.text.splitlines()
+        prompt = [i for i, x in enumerate(lines) if x.startswith("prompt sha256:")][0]
+        self.assertEqual(lines[prompt + 1], "replicate of: %s" % first_sha)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        line = ("hypothesis h1 replicate: first run skills-top 6 of 6, this run 6 of 6; "
+                "Fisher exact p = 1.0000 two-sided")
+        mine = [x for x in lines if x.startswith("hypothesis h1 ")]
+        self.assertEqual(mine[-1], line)
+        scored = second.score()
+        self.assertEqual(scored.exit_code, 0, scored.error)
+        self.assertIn(line, second.result_lines(2))
+        self.assertEqual(self.tree(first.folder), before)
+
+    def test_the_first_runs_blind_replies_are_read(self):
+        first, second = self.pair(readers=NB, fake_reader=[PREFER_GLANCE])
+
+        def swap(text):
+            return (text.replace("PREFER: A,", "PREFER: @@,").replace("PREFER: B,", "PREFER: A,")
+                    .replace("PREFER: @@,", "PREFER: B,"))
+
+        for k in (1, 2, 3):
+            first.edit(os.path.join("reads", "c1", str(k), "REPLY.txt"), swap)
+        self.freeze_ok(second)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        self.assertIn("hypothesis h1 replicate: first run skills-top 0 of 3, this run 3 of 3; "
+                      "Fisher exact p = 0.1000 two-sided", result.text.splitlines())
+
+    def test_one_replicate_line_per_hypothesis(self):
+        first, second = self.pair(hypotheses=[SIX, THREE], fake_reader=[PREFER_GLANCE])
+        self.freeze_ok(second)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        lines = result.text.splitlines()
+        for name in ("h1", "h2"):
+            self.assertIn("hypothesis %s replicate: first run skills-top 6 of 6, this run 6 "
+                          "of 6; Fisher exact p = 1.0000 two-sided" % name, lines)
+
+    def test_a_changed_line_is_refused(self):
+        first, second = self.pair(run_first=False)
+        text = first.read("plan.txt").replace("noise-threshold: 1/2", "noise-threshold: 2/3")
+        second.write("plan.txt", text + "replicate-of: %s\n" % self.rel(first, "plan.txt.freeze"))
+        self.assertIn(REPL_ERR, self.freeze_error(second))
+
+    def test_a_blank_or_comment_line_is_refused(self):
+        for extra in ("\n", "# a note\n"):
+            with self.subTest(extra=extra):
+                first, second = self.pair(run_first=False)
+                second.write("plan.txt", first.read("plan.txt") + extra + "replicate-of: %s\n"
+                             % self.rel(first, "plan.txt.freeze"))
+                self.assertIn(REPL_ERR, self.freeze_error(second))
+
+    def test_the_line_may_sit_anywhere_with_any_line_ending(self):
+        def inserted(text, line, ending):
+            parts = text.split(ending)
+            return ending.join(parts[:2] + [line] + parts[2:])
+
+        with self.subTest(form="a"):
+            first, second = self.pair(run_first=False)
+            line = "replicate-of: %s" % self.rel(first, "plan.txt.freeze")
+            second.write("plan.txt", inserted(first.read("plan.txt"), line, "\n"))
+            self.freeze_ok(second)
+        with self.subTest(form="b"):
+            first = Setup(self, hypotheses=[SIX])
+            first.write("plan.txt", first.read("plan.txt").replace("\n", "\r\n"))
+            self.freeze_ok(first)
+            second = Setup(self, hypotheses=[SIX])
+            line = "replicate-of: %s" % self.rel(first, "plan.txt.freeze")
+            second.write("plan.txt", inserted(first.read("plan.txt"), line, "\r\n"))
+            self.freeze_ok(second)
+        with self.subTest(form="c"):
+            first, second = self.pair(run_first=False)
+            second.write("plan.txt", first.read("plan.txt")
+                         + "replicate-of: %s" % self.rel(first, "plan.txt.freeze"))
+            self.freeze_ok(second)
+
+    def test_a_changed_input_is_refused(self):
+        for name in ("skills-top.txt", "posting.txt"):
+            with self.subTest(name=name):
+                first, second = self.pair(run_first=False)
+                second.edit(name, lambda text: text + "one more line\n")
+                self.assertIn("changed since the first freeze: %s" % name,
+                              self.freeze_error(second))
+
+    def test_the_first_freeze_must_exist_outside_this_folder(self):
+        first = Setup(self, hypotheses=[SIX])
+        self.freeze_ok(first)
+        with self.subTest(form="a"):
+            second = Setup(self, hypotheses=[SIX],
+                           replicate_of=self.rel(first, "nope.freeze"))
+            self.assertIn("missing input: %s" % self.rel(first, "nope.freeze"),
+                          self.freeze_error(second))
+        with self.subTest(form="b"):
+            second = Setup(self, hypotheses=[SIX], replicate_of="first.freeze")
+            shutil.copyfile(first.path("plan.txt.freeze"), second.path("first.freeze"))
+            self.assertIn("a freeze file already exists: first.freeze",
+                          self.freeze_error(second))
+
+    def test_replicate_of_names_a_freeze_file(self):
+        first = Setup(self, hypotheses=[SIX])
+        self.freeze_ok(first)
+        s = Setup(self, hypotheses=[SIX], replicate_of=self.rel(first, "plan.txt"))
+        self.assertIn("plan line %d: replicate-of must name a .freeze file"
+                      % s.line_of("replicate-of"), self.freeze_error(s))
+
+    def test_an_unreadable_first_freeze_is_refused(self):
+        third = Setup(self, hypotheses=[SIX])
+        with open(third.path("bad.freeze"), "wb") as handle:
+            handle.write(b"\xff\xfe\n")
+        s = Setup(self, hypotheses=[SIX], replicate_of=self.rel(third, "bad.freeze"))
+        self.assertIn("cannot read the freeze file: %s" % self.rel(third, "bad.freeze"),
+                      self.freeze_error(s))
+
+    def test_the_first_plan_must_be_there_and_unchanged(self):
+        with self.subTest(form="a"):
+            first = Setup(self, hypotheses=[SIX])
+            self.freeze_ok(first)
+            third = Setup(self, hypotheses=[SIX])
+            shutil.copyfile(first.path("plan.txt.freeze"), third.path("plan.txt.freeze"))
+            os.remove(third.path("plan.txt"))
+            s = Setup(self, hypotheses=[SIX])
+            s.write("plan.txt", first.read("plan.txt")
+                    + "replicate-of: %s\n" % self.rel(third, "plan.txt.freeze"))
+            self.assertIn("the first plan is missing: %s" % self.rel(third, "plan.txt"),
+                          self.freeze_error(s))
+        with self.subTest(form="b"):
+            first, second = self.pair(run_first=False)
+            first.edit("plan.txt", lambda text: text + "# changed\n")
+            self.assertIn("changed since the freeze: %s" % self.rel(first, "plan.txt"),
+                          self.freeze_error(second))
+
+    def zero_and_amended(self):
+        zero = Setup(self, hypotheses=[SIX])
+        self.freeze_ok(zero)
+        first = Setup(self, hypotheses=[SIX], amends=self.rel(zero, "plan.txt.freeze"))
+        self.freeze_ok(first)
+        return zero, first
+
+    def test_the_first_run_may_not_be_a_replicate_or_an_amendment(self):
+        with self.subTest(form="a"):
+            first, middle = self.pair(run_first=False)
+            self.freeze_ok(middle)
+            last = Setup(self, hypotheses=[SIX])
+            last.write("plan.txt", first.read("plan.txt")
+                       + "replicate-of: %s\n" % self.rel(middle, "plan.txt.freeze"))
+            self.assertIn("the first run is a replicate: %s" % self.rel(middle, "plan.txt"),
+                          self.freeze_error(last))
+        with self.subTest(form="b"):
+            zero, first = self.zero_and_amended()
+            s = Setup(self, hypotheses=[SIX])
+            text = "".join(x for x in first.read("plan.txt").splitlines(True)
+                           if not x.startswith("amends:"))
+            s.write("plan.txt", text + "replicate-of: %s\n" % self.rel(first, "plan.txt.freeze"))
+            self.assertIn("the first run is an amendment: %s" % self.rel(first, "plan.txt"),
+                          self.freeze_error(s))
+
+    def test_a_replicate_may_not_also_amend(self):
+        first = Setup(self, hypotheses=[SIX])
+        self.freeze_ok(first)
+        zero = Setup(self, hypotheses=[SIX])
+        self.freeze_ok(zero)
+        second = Setup(self, hypotheses=[SIX],
+                       replicate_of=self.rel(first, "plan.txt.freeze"),
+                       amends=self.rel(zero, "plan.txt.freeze"))
+        self.assertIn("plan line %d: a plan may not carry both replicate-of and amends"
+                      % second.line_of("replicate-of"), self.freeze_error(second))
+
+    def test_run_waits_for_the_first_run(self):
+        first, second = self.pair(run_first=False, fake_reader=[PREFER_GLANCE])
+        self.freeze_ok(second)
+        result = second.run()
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("the first run has not run: %s" % os.path.dirname(self.rel(first, "plan.txt")),
+                      result.error.splitlines())
+        self.assertFalse(second.exists(ab.KEY_FILE))
+        self.assertFalse(second.exists(ab.READS_DIR))
+
+    def test_score_needs_the_first_runs_key(self):
+        first, second = self.pair(fake_reader=[PREFER_GLANCE])
+        self.freeze_ok(second)
+        self.assertEqual(second.run().exit_code, 0)
+        os.rename(first.path("key.txt"), first.path("key-moved.txt"))
+        result = second.score()
+        self.assertEqual(result.exit_code, 2)
+        self.assertIn("the first run has not run: %s" % os.path.dirname(self.rel(first, "plan.txt")),
+                      result.error.splitlines())
+        self.assertFalse(second.exists("result-2.txt"))
 
 
 if __name__ == "__main__":
