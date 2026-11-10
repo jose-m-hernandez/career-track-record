@@ -1,5 +1,6 @@
 """Tests for revision 3 of the reader panel spec (docs/specs/reader-panel.md). All data here is invented."""
 
+import hashlib
 import os
 import re
 import sys
@@ -302,6 +303,147 @@ class PanelReadFloorCase(unittest.TestCase):
                 self.assertIn("plan line %d: min-valid-reads must be a positive whole number"
                               % number, result.error.splitlines())
                 self.assertFalse(s.exists("plan.txt.freeze"))
+
+
+class PanelReplicateCase(unittest.TestCase):
+    def rel(self, s, name):
+        return os.path.join("..", os.path.basename(s.folder), name)
+
+    def freeze_ok(self, s):
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
+        return result
+
+    def pair(self, run_first=True, **overrides):
+        overrides.setdefault("fake_reader", RANK)
+        overrides.setdefault("rules", ["recruiter | " + SIX_PASS])
+        first = Setup(self, **overrides)
+        self.freeze_ok(first)
+        if run_first:
+            result = first.run()
+            self.assertEqual(result.exit_code, 0, result.error)
+        second = Setup(self, **dict(overrides, replicate_of=self.rel(first, "plan.txt.freeze")))
+        return first, second
+
+    def freeze_error(self, s):
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 2, result.error)
+        self.assertFalse(s.exists("plan.txt.freeze"))
+        return result.error.splitlines()
+
+    def sha(self, s, name):
+        with open(s.path(name), "rb") as handle:
+            return hashlib.sha256(handle.read()).hexdigest()
+
+    def test_10_43_a_replicate_of_10_1(self):
+        first, second = self.pair()
+        before = first.tree_hashes()
+        self.freeze_ok(second)
+        first_sha = self.sha(first, "plan.txt.freeze")
+        self.assertIn("%s  %s" % (first_sha, self.rel(first, "plan.txt.freeze")),
+                      second.read("plan.txt.freeze").splitlines())
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        lines = result.text.splitlines()
+        prompt = [i for i, x in enumerate(lines) if x.startswith("prompt sha256:")][0]
+        self.assertEqual(lines[prompt + 1], "replicate of: %s" % first_sha)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        wanted = ["rule r1 (l1) replicate: score at least 7: first run 6 of 6, this run 6 of 6; "
+                  "Fisher exact p = 1.0000 two-sided",
+                  "rule r1 (l1) replicate: score at most 4: first run 0 of 6, this run 0 of 6; "
+                  "Fisher exact p = 1.0000 two-sided"]
+        mine = [x for x in lines if x.startswith("rule r1 (l1) ")]
+        self.assertEqual(mine[-2:], wanted)
+        scored = second.score()
+        self.assertEqual(scored.exit_code, 0, scored.error)
+        for line in wanted:
+            self.assertIn(line, second.result_lines(2))
+        self.assertEqual(first.tree_hashes(), before)
+
+    def test_10_43_a_changed_lens_file_is_refused(self):
+        first, second = self.pair(run_first=False)
+        second.edit("recruiter.lens.txt", lambda text: text + "one more line\n")
+        self.assertIn("changed since the first freeze: recruiter.lens.txt",
+                      self.freeze_error(second))
+
+    def test_the_first_runs_blind_replies_are_read(self):
+        first, second = self.pair(readers=NB)
+        for k in (5, 6, 7):
+            first.edit(os.path.join("reads", "l1", str(k), "REPLY.txt"),
+                       lambda text: text.replace("SCORE: 7", "SCORE: 3"))
+        self.freeze_ok(second)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        lines = result.text.splitlines()
+        self.assertIn("rule r1 (l1) replicate: score at least 7: first run 0 of 3, this run 3 "
+                      "of 3; Fisher exact p = 0.1000 two-sided", lines)
+        self.assertIn("rule r1 (l1) replicate: score at most 4: first run 3 of 3, this run 0 "
+                      "of 3; Fisher exact p = 0.1000 two-sided", lines)
+
+    def test_the_first_run_counts_its_own_lenses(self):
+        first, second = self.pair()
+        for k in (1, 2):
+            first.edit(os.path.join("reads", "l1", str(k), "REPLY.txt"),
+                       lambda text: text.replace("SCORE: 9", "SCORE: 2"))
+        self.freeze_ok(second)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        self.assertIn("rule r1 (l1) replicate: score at least 7: first run 0 of 0, this run 6 "
+                      "of 6; Fisher exact p = 1.0000 two-sided", result.text.splitlines())
+
+    def test_an_overall_rule_compares_every_counted_lens(self):
+        first, second = self.pair(rules=[OVERALL_12])
+        self.freeze_ok(second)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        self.assertIn("rule r1 (overall) replicate: score at least 7: first run 12 of 12, this "
+                      "run 12 of 12; Fisher exact p = 1.0000 two-sided", result.text.splitlines())
+
+    def test_a_changed_line_is_refused(self):
+        first, second = self.pair(run_first=False)
+        text = first.read("plan.txt").replace("anchor-weak-at-most: 4", "anchor-weak-at-most: 3")
+        second.write("plan.txt", text + "replicate-of: %s\n" % self.rel(first, "plan.txt.freeze"))
+        self.assertIn("the plan differs from the first plan in more than its replicate-of "
+                      "line: plan.txt", self.freeze_error(second))
+
+    def test_replicate_of_parse_refusals(self):
+        first = Setup(self, fake_reader=RANK)
+        self.freeze_ok(first)
+        with self.subTest(form="a"):
+            s = Setup(self, fake_reader=RANK, replicate_of=self.rel(first, "plan.txt"))
+            self.assertIn("plan line %d: replicate-of must name a .freeze file"
+                          % s.line_of("replicate-of"), self.freeze_error(s))
+        with self.subTest(form="b"):
+            zero = Setup(self, fake_reader=RANK)
+            self.freeze_ok(zero)
+            s = Setup(self, fake_reader=RANK, replicate_of=self.rel(first, "plan.txt.freeze"),
+                      amends=self.rel(zero, "plan.txt.freeze"))
+            self.assertIn("plan line %d: a plan may not carry both replicate-of and amends"
+                          % s.line_of("replicate-of"), self.freeze_error(s))
+
+    def test_run_and_score_wait_for_the_first_run(self):
+        with self.subTest(form="a"):
+            first, second = self.pair(run_first=False)
+            self.freeze_ok(second)
+            result = second.run()
+            self.assertEqual(result.exit_code, 2, result.error)
+            self.assertIn("the first run has not run: %s"
+                          % os.path.dirname(self.rel(first, "plan.txt")),
+                          result.error.splitlines())
+            self.assertFalse(second.exists("key.txt"))
+            self.assertFalse(second.exists("reads"))
+        with self.subTest(form="b"):
+            first, second = self.pair()
+            self.freeze_ok(second)
+            result = second.run()
+            self.assertEqual(result.exit_code, 0, result.error)
+            os.rename(first.path("key.txt"), first.path("key-moved.txt"))
+            scored = second.score()
+            self.assertEqual(scored.exit_code, 2, scored.error)
+            self.assertIn("the first run has not run: %s"
+                          % os.path.dirname(self.rel(first, "plan.txt")),
+                          scored.error.splitlines())
+            self.assertFalse(second.exists("result-2.txt"))
 
 
 if __name__ == "__main__":

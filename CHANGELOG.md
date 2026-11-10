@@ -15,6 +15,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `track-record ab` plans can set a read floor (`min-valid-reads`). A comparison with fewer valid reads from blind readers is INCONCLUSIVE "below the read floor". With a floor set and met, a verdict that is INCONCLUSIVE only because reads are missing, and that every completion of those reads settles the same way, takes the settled verdict, and the result says it was lifted.
 - `track-record ab` plans can name a first run's freeze file (`replicate-of`), to run the same frozen plan again in a new folder. `freeze` refuses a replicate whose plan differs from the first in any other line, or whose inputs have changed since the first freeze. `run` waits until the first run has run, and never writes to its folder. Each hypothesis's result compares the two runs' counts with a two-sided Fisher exact p-value.
 - `track-record panel` plans can set a read floor (`min-valid-reads`). A rule that counts fewer valid reads from blind readers is INCONCLUSIVE "below the read floor". With a floor set and met, a rule that is INCONCLUSIVE only because reads are missing, and that every completion of those reads settles the same way, takes the settled verdict, and the result says it was lifted.
+- `track-record panel` plans can name a first run's freeze file (`replicate-of`), under the same freeze rules as `track-record ab`, with the lens files among the inputs that must be unchanged. Each rule's result compares each clause's counted reads in the two runs with a two-sided Fisher exact p-value.
 
 ### Changed
 
