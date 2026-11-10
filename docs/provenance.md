@@ -168,6 +168,8 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/fixtures/keywords/terms-t1.tsv | not recorded | not recorded | not recorded |
 | tests/fixtures/panel/anchor-strong.txt | claude-code | claude-fable-5-1 | 2026-11-05 |
 | tests/fixtures/panel/anchor-weak.txt | claude-code | claude-fable-5-1 | 2026-11-05 |
+| tests/fixtures/panel/golden/10-1.txt | claude-code | claude-sonnet-5-5 | 2026-11-10 |
+| tests/fixtures/panel/golden/10-3.txt | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | tests/fixtures/panel/hiring-manager.lens.txt | claude-code | claude-fable-5-1 | 2026-11-05 |
 | tests/fixtures/panel/recruiter.lens.txt | claude-code | claude-fable-5-1 | 2026-11-05 |
 | tests/fixtures/tone/case-11-01.txt | not recorded | not recorded | not recorded |
@@ -216,8 +218,8 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_no_network.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_output_failures.py | not recorded | not recorded | not recorded |
 | tests/test_packaging.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
-| tests/test_panel.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-06 |
-| tests/test_panel_rev2.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |
+| tests/test_panel.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-10 |
+| tests/test_panel_rev2.py | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | tests/test_panel_rev3.py | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | tests/test_pdf_text.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | tests/test_posting_file.py | claude-code | claude-sonnet-5-5 | 2026-10-20 |

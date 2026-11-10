@@ -183,7 +183,7 @@ class GateCase(unittest.TestCase):
         self.assertIn("rule r1 (l1): " + SIX_RULE, lines)
         self.assertIn("rule r1 (l1) count: score at least 7: 6 of 6 valid reads", lines)
         self.assertIn("rule r1 (l1) count: score at most 4: 0 of 6 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
         self.assertEqual([line for line in lines if "reason" in line], [])
         self.assertIn("read l1/5: reader=r1 document=version score=7 flagged=none flags=none",
                       lines)
@@ -201,14 +201,14 @@ class GateCase(unittest.TestCase):
                       "read l2/2 scored 5, below 7; weak read l2/3 scored 5, above 4; weak "
                       "read l2/4 scored 5, above 4)", lines)
         self.assertIn("lens l2: not counted (the anchor gate failed on l2)", lines)
-        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]", lines)
+        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("rule r2 (l2) reason: the anchor gate failed on l2", lines)
         self.assertIn("rule r2 (l2) count: score at least 7: 0 of 0 valid reads", lines)
         # The version's scores under the voided lens are still shown, not counted.
         self.assertIn("scores l2 version: scores=6 total=30 mean=5.00 lowest=5 highest=5",
                       lines)
         self.assertIn("lens l1: counted", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
         self.assertIn("counted lenses: l1", lines)
 
     def test_10_3_a_lens_that_ranks_the_anchors_backwards_fails_the_gate(self):
@@ -220,7 +220,7 @@ class GateCase(unittest.TestCase):
                       "read l2/2 scored 2, below 7; weak read l2/3 scored 9, above 4; weak "
                       "read l2/4 scored 9, above 4)", lines)
         self.assertIn("rule r1 (l2) count: score at least 7: 0 of 0 valid reads", lines)
-        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]", lines)
+        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
 
     def test_one_anchor_read_off_its_threshold_fails_the_gate(self):
         # Every anchor read must land on its side: one weak read at 5 fails the gate.
@@ -234,7 +234,7 @@ class GateCase(unittest.TestCase):
         _s, _result, lines = self.done(fake_reader=edge, rules=["manager | " + SIX_PASS])
         self.assertIn("anchor gate l2: passed (strong scores 7, 7, all at least 7; weak "
                       "scores 4, 4, all at most 4)", lines)
-        self.assertIn("rule r1 (l2) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l2) verdict: PASS [not blind: 0 reads left out]", lines)
 
     def test_10_4_a_failed_anchor_read_leaves_the_gate_not_evaluated(self):
         rules = RANK + ["manager | omit SCORE | read 1"]
@@ -246,9 +246,9 @@ class GateCase(unittest.TestCase):
         self.assertIn("anchor gate l2: not evaluated (3 valid anchor reads of 4 planned)",
                       lines)
         self.assertIn("lens l2: not counted (the anchor gate was not evaluated on l2)", lines)
-        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]", lines)
+        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("rule r1 (l2) reason: the anchor gate was not evaluated on l2", lines)
-        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
         self.assertIn("failed reads: 1", lines)
 
     def test_10_5_overall_rules_count_only_counted_lenses(self):
@@ -257,14 +257,14 @@ class GateCase(unittest.TestCase):
         # Both lenses counted: 12 version reads, all at 7.
         _s, _result, lines = self.done(fake_reader=RANK, rules=rules)
         self.assertIn("rule r1 (overall) count: score at least 7: 12 of 12 valid reads", lines)
-        self.assertIn("rule r1 (overall) verdict: PASS [not blind: 0 of 12 counted reads]", lines)
-        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 of 12 counted reads]", lines)
+        self.assertIn("rule r1 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
         # The manager lens voided: its 6 reads leave the count, so "12 of 12" cannot hold
         # and "6 or more" still does.
         _s, _result, lines = self.done(fake_reader=RANK_RECRUITER + FLAT_MANAGER, rules=rules)
         self.assertIn("rule r1 (overall) count: score at least 7: 6 of 6 valid reads", lines)
-        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 of 6 counted reads]", lines)
-        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
         self.assertEqual([line for line in lines if line.startswith("rule") and "reason" in
                           line], [])
 
@@ -274,7 +274,7 @@ class GateCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn("counted lenses: none", lines)
         self.assertIn("rule r1 (overall) count: score at least 7: 0 of 0 valid reads", lines)
-        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]", lines)
+        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("rule r1 (overall) reason: no lens is counted", lines)
 
 
@@ -301,10 +301,10 @@ class RuleCase(unittest.TestCase):
         self.assertIn("read l1/5: reader=r1 document=version score=7 flagged=DOUBTS "
                       "flags=none", lines)
         self.assertIn("rule r1 (l1) count: DOUBTS flagged: 4 of 6 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
         self.assertIn("rule r2 (l1) count: UNDERSOLD not flagged: 6 of 6 valid reads", lines)
-        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
-        self.assertIn("rule r3 (l1) verdict: INCONCLUSIVE [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r3 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
 
     def test_10_22_the_first_clause_that_holds_decides(self):
         pass_first = ("PASS if score at least 7 in 3 or more; FAIL if score at least 7 in "
@@ -313,8 +313,8 @@ class RuleCase(unittest.TestCase):
                       "3 or more; otherwise INCONCLUSIVE")
         _s, _result, lines = self.done(fake_reader=RANK, rules=["recruiter | " + pass_first,
                                                                 "recruiter | " + fail_first])
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
-        self.assertIn("rule r2 (l1) verdict: FAIL [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
 
     def test_k_of_m_needs_exactly_m_valid_reads(self):
         five_of_six = "PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE"
@@ -322,15 +322,15 @@ class RuleCase(unittest.TestCase):
         _s, result, lines = self.done(fake_reader=rules, rules=["recruiter | " + five_of_six])
         self.assertEqual(result.exit_code, 1)
         self.assertIn("rule r1 (l1) count: score at least 7: 5 of 5 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 5 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         _s, _result, lines = self.done(fake_reader=RANK, rules=["recruiter | " + five_of_six])
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
 
     def test_at_most_and_a_failing_version(self):
         low = RANK_RECRUITER[:2] + ["recruiter | version | score 3"]
         _s, _result, lines = self.done(fake_reader=low, rules=["recruiter | " + SIX_PASS])
         self.assertIn("rule r1 (l1) count: score at most 4: 6 of 6 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
         self.assertIn("scores l1 version: scores=6 total=18 mean=3.00 lowest=3 highest=3",
                       lines)
 
@@ -407,11 +407,11 @@ class ReadsCase(unittest.TestCase):
         self.assertIn("anchor gate l1: passed (strong scores 9, 9, all at least 7; weak "
                       "scores 2, 2, all at most 4)", lines)
         self.assertIn("rule r1 (l1) count: score at least 7: 2 of 2 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 2 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("read l1/7: reader=r1 document=version not run", lines)
         self.assertIn("anchor gate l2: not evaluated (0 valid anchor reads of 4 planned)",
                       lines)
-        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]", lines)
+        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("exit status: 1", lines)
 
     def test_10_15_the_fake_reader_can_score_by_the_document_text(self):
@@ -426,7 +426,7 @@ class ReadsCase(unittest.TestCase):
                       "scores 1, 1, all at most 4)", lines)
         self.assertIn("scores l1 version: scores=6 total=48 mean=8.00 lowest=8 highest=8",
                       lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
         # A rule whose text is in no document leaves the default score of 5.
         t = Setup(self, fake_reader=['score containing "no such text" 9'])
         self.assertEqual(t.frozen_run().exit_code, 0)
@@ -441,10 +441,9 @@ class ReadsCase(unittest.TestCase):
                       "flags=not-blind reader", lines)
         self.assertIn("read l1/8: reader=r2 document=version score=7 flagged=none flags=none",
                       lines)
-        self.assertIn("reads l1 version all readers: valid=6 of 6 planned", lines)
+        self.assertIn("reads l1 version blind readers: valid=3 of 3 planned", lines)
         self.assertIn("reads l1 version not-blind readers: valid=3", lines)
-        self.assertIn("scores l1 reader r1 version: scores=3 total=21 mean=7.00 lowest=7 "
-                      "highest=7", lines)
+        self.assertFalse([x for x in lines if x.startswith("scores l1 reader r1 ")])
 
     def test_10_23_the_fake_reader_starts_no_program(self):
         s = Setup(self, fake_reader=RANK)
@@ -473,7 +472,7 @@ class ReadsCase(unittest.TestCase):
         self.assertIn("read l1/5: reader=r1 document=version score=2 flagged=DOUBTS "
                       "flags=PRIOR missing", later)
         self.assertIn("rule r1 (l1) count: score at least 7: 5 of 6 valid reads", later)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 6 counted reads]", later)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", later)
 
     def test_10_24_a_second_run_is_refused_and_a_run_needs_a_freeze(self):
         s = Setup(self, fake_reader=RANK)
@@ -796,7 +795,7 @@ class PlanFileCase(unittest.TestCase):
         lines = s.result_lines()
         self.assertIn("anchor gate l1: passed (strong scores 10, 10, all at least 8; weak "
                       "scores 0, 0, all at most 1)", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
         self.assertEqual(panel.parse_reply(reply_text(SCORE="0")).score, 0)
         self.assertIsNone(panel.parse_reply(reply_text(SCORE="0")).failure)
 
@@ -826,7 +825,7 @@ class PlanFileCase(unittest.TestCase):
         self.assertEqual(s.frozen_run().exit_code, 0)
         self.assertIn("anchor gate l1: passed (strong scores 0, 0, all at least 0; weak "
                       "scores -5, -5, all at most -5)", s.result_lines())
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", s.result_lines())
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", s.result_lines())
 
 
 def reply_text(**changes):
@@ -1054,7 +1053,7 @@ class LiveReaderCase(unittest.TestCase):
         self.assertIn("read l1/6: reader=r2 document=version score=9 flagged=STRENGTHS,OWNED "
                       "flags=none", lines)
         self.assertIn("anchor gate l1: failed (weak read l1/4 scored 9, above 4)", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
 
 
 class CliCase(unittest.TestCase):
@@ -1100,7 +1099,7 @@ class CliCase(unittest.TestCase):
         self.assertEqual((code, out, err), (0, "freeze written: plan.txt.freeze\n", ""))
         code, out, err = track("panel", "run", s.plan_path)
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]\n", out)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]\n", out)
         self.assertIn("lens l1: counted\n", out)
         self.assertEqual(out, s.read("result-1.txt"))
         code, out, err = track("panel", "score", s.plan_path)

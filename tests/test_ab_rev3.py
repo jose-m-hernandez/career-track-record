@@ -859,6 +859,23 @@ class ReplicateCase(unittest.TestCase):
                          + "replicate-of: %s" % self.rel(first, "plan.txt.freeze"))
             self.freeze_ok(second)
 
+    def test_the_line_may_be_the_first_line_with_crlf(self):
+        first = Setup(self, hypotheses=[SIX])
+        first.write("plan.txt", first.read("plan.txt").replace("\n", "\r\n"))
+        self.freeze_ok(first)
+        second = Setup(self, hypotheses=[SIX])
+        second.write("plan.txt", "replicate-of: %s\r\n" % self.rel(first, "plan.txt.freeze")
+                     + first.read("plan.txt"))
+        self.freeze_ok(second)
+
+    def test_a_first_freeze_in_this_folder_is_named_once(self):
+        first = Setup(self, hypotheses=[SIX])
+        self.freeze_ok(first)
+        second = Setup(self, hypotheses=[SIX], replicate_of="first.freeze")
+        shutil.copyfile(first.path("plan.txt.freeze"), second.path("first.freeze"))
+        self.assertEqual(self.freeze_error(second),
+                         ["a freeze file already exists: first.freeze"])
+
     def test_a_changed_input_is_refused(self):
         for name in ("skills-top.txt", "posting.txt"):
             with self.subTest(name=name):

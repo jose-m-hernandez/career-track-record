@@ -854,6 +854,9 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     failures = harness.log_failures(log)
     records = harness.records(folder, reads, cut or stopped is not None, failures,
                               parse_reply)
+    # I-1 and D:130: from revision 3, reads from a not-blind reader are left out of every
+    # rule, anchor gate, score, flag count and missing-read count; valid_in and planned_in
+    # return blind readers' reads unless a caller names the readers it wants.
     not_blind = set(r.name for r in plan.readers if r.not_blind)
     out = []
 
@@ -895,22 +898,30 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
 
     def valid_in(arm, document, only=None):
         return [x for x in records if x.read.arm == arm and x.read.document == document
-                and x.status == "valid" and (only is None or x.read.reader in only)]
+                and x.status == "valid"
+                and (x.read.reader not in not_blind if only is None else x.read.reader in only)]
 
     def planned_in(arm, document):
-        return [r for r in reads if r.arm == arm and r.document == document]
+        return [r for r in reads if r.arm == arm and r.document == document
+                and r.reader not in not_blind]
 
     # each lens: its reads, its anchor gate, whether it is counted, its scores and flags
     counted = []
     gate_reason = {}
     for lens in plan.lenses:
         arm = lens.arm
+        who = "blind readers" if not_blind else "all readers"
         for document in ANCHORS:
-            out.append("reads %s %s: valid=%d of %d planned"
-                       % (arm, document, len(valid_in(arm, document)),
-                          len(planned_in(arm, document))))
-        out.append("reads %s version all readers: valid=%d of %d planned"
-                   % (arm, len(valid_in(arm, VERSION)), len(planned_in(arm, VERSION))))
+            if not_blind:
+                out.append("reads %s %s blind readers: valid=%d of %d planned"
+                           % (arm, document, len(valid_in(arm, document)),
+                              len(planned_in(arm, document))))
+            else:
+                out.append("reads %s %s: valid=%d of %d planned"
+                           % (arm, document, len(valid_in(arm, document)),
+                              len(planned_in(arm, document))))
+        out.append("reads %s version %s: valid=%d of %d planned"
+                   % (arm, who, len(valid_in(arm, VERSION)), len(planned_in(arm, VERSION))))
         out.append("reads %s version not-blind readers: valid=%d"
                    % (arm, len(valid_in(arm, VERSION, not_blind))))
         strong_recs, weak_recs = valid_in(arm, STRONG), valid_in(arm, WEAK)
@@ -992,7 +1003,8 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     missing_in = {}
     for lens in plan.lenses:
         planned = planned_in(lens.arm, VERSION)
-        version = [x for x in records if x.read.arm == lens.arm and x.read.document == VERSION]
+        version = [x for x in records if x.read.arm == lens.arm and x.read.document == VERSION
+                   and x.read.reader not in not_blind]
         failed = len([x for x in version if x.status == "failed"])
         not_run = len([x for x in version if x.status not in ("valid", "failed")])
         missing_in[lens.arm] = failed + not_run
@@ -1028,9 +1040,9 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif rule.lens not in counted:
             verdict = "INCONCLUSIVE"
             reasons.append(gate_reason[rule.lens])
-        out.append("%s verdict: %s [not blind: %d of %d counted reads]"
-                   % (label, verdict, len([x for x in recs if x.read.reader in not_blind]),
-                      len(recs)))
+        covered = [x.arm for x in plan.lenses] if rule.lens is None else [rule.lens]
+        left_out = sum(len(valid_in(arm, VERSION, not_blind)) for arm in covered)
+        out.append("%s verdict: %s [not blind: %d reads left out]" % (label, verdict, left_out))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
         for kind, clause in rule.clauses:
