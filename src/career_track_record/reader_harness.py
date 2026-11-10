@@ -242,8 +242,8 @@ def parse_readers(state, items):
                               % short(got))
                     ok = False
             else:
-                state.bad(number, "a reader's extra field is not-blind, cost <n> or "
-                          "reader-group <name>, once each: %s" % short(extra))
+                state.bad(number, "a reader's extra fields may be not-blind, cost <n> and "
+                          "reader-group <name>, each at most once: %s" % short(extra))
                 ok = False
         if command != FAKE:
             try:
@@ -483,9 +483,9 @@ def replicate_problems(plan_path, plan, inputs, parse):
         first_plan = None
     if first_plan is not None:
         if getattr(first_plan, "replicate_of", None) is not None:
-            problems.append("the first run is a replicate: %s" % show(first_name))
+            problems.append("replicate-of must name a first run, not a replicate: %s" % show(first_name))
         if getattr(first_plan, "amends", None) is not None:
-            problems.append("the first run is an amendment: %s" % show(first_name))
+            problems.append("replicate-of must name a first run, not an amendment: %s" % show(first_name))
     with open(first_path, "rb") as handle:
         first_bytes = handle.read()
     with open(plan_path, "rb") as handle:

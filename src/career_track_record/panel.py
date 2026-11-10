@@ -742,7 +742,7 @@ def _first_run_problems(plan_path, plan):
     first = _first_folder(plan_path, plan)
     if first is None or os.path.isfile(os.path.join(first, KEY_FILE)):
         return []
-    return ["the first run has not run: %s" % _show(os.path.dirname(plan.replicate_of))]
+    return ["the first run has not been run yet: %s" % _show(os.path.dirname(plan.replicate_of))]
 
 
 def _run(plan_path, live):
@@ -1010,16 +1010,16 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         who = "blind readers" if not_blind else "all readers"
         for document in ANCHORS:
             if not_blind:
-                out.append("reads %s %s blind readers: valid=%d of %d planned"
+                out.append("reads blind readers %s %s: valid=%d of %d planned"
                            % (arm, document, len(valid_in(arm, document)),
                               len(planned_in(arm, document))))
             else:
                 out.append("reads %s %s: valid=%d of %d planned"
                            % (arm, document, len(valid_in(arm, document)),
                               len(planned_in(arm, document))))
-        out.append("reads %s version %s: valid=%d of %d planned"
-                   % (arm, who, len(valid_in(arm, VERSION)), len(planned_in(arm, VERSION))))
-        out.append("reads %s version not-blind readers: valid=%d"
+        out.append("reads %s %s version: valid=%d of %d planned"
+                   % (who, arm, len(valid_in(arm, VERSION)), len(planned_in(arm, VERSION))))
+        out.append("reads not-blind readers %s version: valid=%d"
                    % (arm, len(valid_in(arm, VERSION, not_blind))))
         strong_recs, weak_recs = valid_in(arm, STRONG), valid_in(arm, WEAK)
         anchor_planned = len(planned_in(arm, STRONG)) + len(planned_in(arm, WEAK))

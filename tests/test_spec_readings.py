@@ -37,7 +37,7 @@ AB_REVISION_3 = [
     "the first clause of the lifted kind",
     "equal to the floor is not below it",
     "byte-identical to the first plan",
-    "the first run has not run",
+    "the first run has not been run yet",
     "capped at 1",
     "once per reader",
 ]
@@ -52,7 +52,7 @@ PANEL_RESTORED = {
 PANEL_REVISION_3 = [
     "counts blind readers only",
     "counts every reader's reads",
-    "version blind readers",
+    "reads blind readers <arm> version",
     "no per-reader score line",
     "whether or not that lens is counted",
     "a lens that is not counted gives its rule 0 counted reads",

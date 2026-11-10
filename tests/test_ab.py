@@ -529,7 +529,7 @@ class PlanFileCase(unittest.TestCase):
             (dict(readers=["r1 | fake | cost lots"]), "cost lots",
              "cost must be a whole number, 0 or more"),
             (dict(readers=["r1 | fake | cheap"]), "cheap",
-             "a reader's extra field is not-blind, cost <n> or reader-group <name>, once each: cheap"),
+             "a reader's extra fields may be not-blind, cost <n> and reader-group <name>, each at most once: cheap"),
             (dict(readers=["r1 | 'unbalanced"]), "unbalanced",
              "the reader command cannot be split into words"),
             (dict(change_scope=["("]), "(", "not a valid pattern: ("),

@@ -236,8 +236,8 @@ class ReaderGroupCase(unittest.TestCase):
         self.assertTrue(readers[1].not_blind)
 
     def test_reader_group_refusals(self):
-        extra = ("a reader's extra field is not-blind, cost <n> or reader-group <name>, "
-                 "once each: ")
+        extra = ("a reader's extra fields may be not-blind, cost <n> and reader-group <name>, "
+                 "each at most once: ")
         cases = [
             ("r1 | fake | reader-group g | reader-group h", "reader-group h",
              extra + "reader-group h"),
@@ -969,7 +969,7 @@ class ReplicateCase(unittest.TestCase):
             last = Setup(self, hypotheses=[SIX])
             last.write("plan.txt", first.read("plan.txt")
                        + "replicate-of: %s\n" % self.rel(middle, "plan.txt.freeze"))
-            self.assertIn("the first run is a replicate: %s" % self.rel(middle, "plan.txt"),
+            self.assertIn("replicate-of must name a first run, not a replicate: %s" % self.rel(middle, "plan.txt"),
                           self.freeze_error(last))
         with self.subTest(form="b"):
             zero, first = self.zero_and_amended()
@@ -977,7 +977,7 @@ class ReplicateCase(unittest.TestCase):
             text = "".join(x for x in first.read("plan.txt").splitlines(True)
                            if not x.startswith("amends:"))
             s.write("plan.txt", text + "replicate-of: %s\n" % self.rel(first, "plan.txt.freeze"))
-            self.assertIn("the first run is an amendment: %s" % self.rel(first, "plan.txt"),
+            self.assertIn("replicate-of must name a first run, not an amendment: %s" % self.rel(first, "plan.txt"),
                           self.freeze_error(s))
 
     def test_a_replicate_may_not_also_amend(self):
@@ -996,7 +996,7 @@ class ReplicateCase(unittest.TestCase):
         self.freeze_ok(second)
         result = second.run()
         self.assertEqual(result.exit_code, 2)
-        self.assertIn("the first run has not run: %s" % os.path.dirname(self.rel(first, "plan.txt")),
+        self.assertIn("the first run has not been run yet: %s" % os.path.dirname(self.rel(first, "plan.txt")),
                       result.error.splitlines())
         self.assertFalse(second.exists(ab.KEY_FILE))
         self.assertFalse(second.exists(ab.READS_DIR))
@@ -1008,7 +1008,7 @@ class ReplicateCase(unittest.TestCase):
         os.rename(first.path("key.txt"), first.path("key-moved.txt"))
         result = second.score()
         self.assertEqual(result.exit_code, 2)
-        self.assertIn("the first run has not run: %s" % os.path.dirname(self.rel(first, "plan.txt")),
+        self.assertIn("the first run has not been run yet: %s" % os.path.dirname(self.rel(first, "plan.txt")),
                       result.error.splitlines())
         self.assertFalse(second.exists("result-2.txt"))
 

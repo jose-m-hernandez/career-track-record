@@ -126,7 +126,7 @@ comparisons:
   base vs skills-top
 readers:
   reader-1 | fake
-  reader-2 | /path/to/my-reader.sh | not-blind | cost 3
+  reader-2 | /path/to/my-reader.sh | cost 3
 reads-per-reader: 3
 hypotheses:
   SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE
@@ -138,7 +138,7 @@ fake-reader:
   prefer containing "At a glance"
 ```
 
-A reader's program is an absolute path, as here, or a program name found on your `PATH`. `freeze` refuses a relative path such as `./my-reader.sh`, because each read runs inside a folder of its own. `not-blind` marks a reader you know gets your identity from its own setup, so its reads are also reported separately. `cost 3` is what one read costs, in a unit you choose; it feeds the spend estimate. Two readers with three reads each make six reads per comparison, which is what `6 of 6` counts. This plan has a live reader, so without `--live` it prints the commands and runs nothing, the fake reader included.
+A reader's program is an absolute path, as here, or a program name found on your `PATH`. `freeze` refuses a relative path such as `./my-reader.sh`, because each read runs inside a folder of its own. Mark a reader `not-blind` when you know it gets your identity from its own setup: its reads are reported separately and never counted toward a verdict. `cost 3` is what one read costs, in a unit you choose; it feeds the spend estimate. Two readers with three reads each make six reads per comparison, which is what `6 of 6` counts. This plan has a live reader, so without `--live` it prints the commands and runs nothing, the fake reader included.
 
 The tool has three subcommands:
 
@@ -154,7 +154,7 @@ Exit 0 means the run completed and was scored, whatever the verdicts, or it only
 - the exact p-value;
 - the 95% interval for the share of reads that picked one version;
 - how many reads were missing, and whether they could have changed the verdict;
-- how many reads were not blind.
+- how many reads were left out because their reader was not blind.
 
 It also prints one line on validity: reads from one model and prompt may not be independent, so the p-value may be too small. These lines never change a verdict. They help you judge how much to rely on it.
 
@@ -222,7 +222,7 @@ lenses:
   hiring-manager | hiring-manager.lens.txt
 readers:
   reader-1 | fake
-  reader-2 | /path/to/my-reader.sh | not-blind | cost 3
+  reader-2 | /path/to/my-reader.sh | cost 3
 anchor-strong-at-least: 7
 anchor-weak-at-most: 4
 rules:
@@ -243,7 +243,16 @@ The tool has the same three subcommands as `ab`:
     track-record panel run plan.txt [--live]
     track-record panel score plan.txt
 
-The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 1). Spec: [docs/specs/reader-panel.md](docs/specs/reader-panel.md).
+The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 3). Spec: [docs/specs/reader-panel.md](docs/specs/reader-panel.md).
+
+### Plan keys added in 0.8.0
+
+- `sensitivity: X vs W` (`ab`): a version `X` against a copy `W` of it weakened on purpose, run as its own arm before the comparisons. In the spec's words: "When the readers prefer the version, the run shows they could see that planted difference. Known limit: it does not show they could see one as small as the change under test." Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 1, § 3.1 and § 6.
+- `sensitivity-scope` (`ab`): the line patterns where `X` and `W` may differ, required with `sensitivity`. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 4.2.
+- `sensitivity-threshold` (`ab`): the share of valid sensitivity reads that must prefer `X`, above 1/2 and at most 1 (default 5/6). Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 6.
+- `min-valid-reads` (`ab`, `panel`): the read floor. A comparison or rule with fewer valid reads from blind readers is INCONCLUSIVE. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 6, [docs/specs/reader-panel.md](docs/specs/reader-panel.md) § 3.1 and § 6.
+- `replicate-of` (`ab`, `panel`): the freeze file of a first run of the same plan, to run it again in a new folder and compare the two runs' counts. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.2, [docs/specs/reader-panel.md](docs/specs/reader-panel.md) § 3.2.
+- `reader-group <name>` (`ab`, `panel`), a field on a reader's line: readers that are alike, such as one model behind two commands. The result counts each group's valid reads, and a group changes no verdict. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 5.5, [docs/specs/reader-panel.md](docs/specs/reader-panel.md) § 5.5.
 
 ## Coming
 

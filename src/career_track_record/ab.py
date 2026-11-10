@@ -946,7 +946,7 @@ def _first_run_problems(plan_path, plan):
     first = _first_folder(plan_path, plan)
     if first is None or os.path.isfile(os.path.join(first, KEY_FILE)):
         return []
-    return ["the first run has not run: %s" % _show(os.path.dirname(plan.replicate_of))]
+    return ["the first run has not been run yet: %s" % _show(os.path.dirname(plan.replicate_of))]
 
 
 def _run(plan_path, live):

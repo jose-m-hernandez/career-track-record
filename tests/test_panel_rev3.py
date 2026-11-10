@@ -60,10 +60,10 @@ class PanelBlindOnlyCase(unittest.TestCase):
         # 0.7.0: rule r1 (l1) verdict: PASS [not blind: 3 of 6 counted reads]
         s, result, lines = self.done(readers=NB, fake_reader=RANK, rules=["recruiter | " + SIX_PASS])
         for line in [
-                "reads l1 strong blind readers: valid=1 of 1 planned",
-                "reads l1 weak blind readers: valid=1 of 1 planned",
-                "reads l1 version blind readers: valid=3 of 3 planned",
-                "reads l1 version not-blind readers: valid=3",
+                "reads blind readers l1 strong: valid=1 of 1 planned",
+                "reads blind readers l1 weak: valid=1 of 1 planned",
+                "reads blind readers l1 version: valid=3 of 3 planned",
+                "reads not-blind readers l1 version: valid=3",
                 "anchor gate l1: passed (strong scores 9, all at least 7; weak scores 2, all at most 4)",
                 "scores l1 strong: scores=1 total=9 mean=9.00 lowest=9 highest=9",
                 "rule r1 (l1) count: score at least 7: 3 of 3 valid reads",
@@ -102,7 +102,7 @@ class PanelBlindOnlyCase(unittest.TestCase):
         s, result, lines = self.done(readers=NB, fake_reader=RANK + ["recruiter | strong | omit SCORE | read 2"],
                                      rules=[THREE_UP])
         for line in [
-                "reads l1 strong blind readers: valid=1 of 1 planned",
+                "reads blind readers l1 strong: valid=1 of 1 planned",
                 "anchor gate l1: passed (strong scores 9, all at least 7; weak scores 2, all at most 4)",
                 "lens l1: counted",
                 "rule r1 (l1) verdict: PASS [not blind: 3 reads left out]"]:
@@ -114,8 +114,8 @@ class PanelBlindOnlyCase(unittest.TestCase):
         s, result, lines = self.done(readers=["r1 | fake | not-blind", "r2 | fake | not-blind"],
                                      fake_reader=RANK, rules=["recruiter | " + SIX_PASS, OVERALL_12])
         for line in [
-                "reads l1 strong blind readers: valid=0 of 0 planned",
-                "reads l1 version blind readers: valid=0 of 0 planned",
+                "reads blind readers l1 strong: valid=0 of 0 planned",
+                "reads blind readers l1 version: valid=0 of 0 planned",
                 "anchor gate l1: not evaluated (0 valid anchor reads of 0 planned)",
                 "lens l1: not counted (the anchor gate was not evaluated on l1)",
                 "counted lenses: none",
@@ -147,7 +147,7 @@ class PanelBlindOnlyCase(unittest.TestCase):
                                      rules=["recruiter | " + SIX_PASS])
         for line in [
                 "missing l1 version: 0 of 3 planned reads (failed 0, not run 0)",
-                "reads l1 version not-blind readers: valid=2",
+                "reads not-blind readers l1 version: valid=2",
                 "rule r1 (l1) verdict: INCONCLUSIVE [not blind: 2 reads left out]"]:
             self.assertIn(line, lines)
         self.assertFalse([x for x in lines if x.startswith("rule r1 (l1) completions")])
@@ -176,6 +176,9 @@ class PanelBlindOnlyCase(unittest.TestCase):
                     golden = handle.read()
                 want = re.sub(r" \[not blind: ([0-9]+) of [0-9]+ counted reads\]",
                               r" [not blind: \1 reads left out]", golden)
+                # Revision 3's copy review puts the reader scope first, as ab does; the 0.7.0 goldens keep the old order.
+                want = re.sub(r"^reads (l[0-9]+) version all readers: ", r"reads all readers \1 version: ", want, flags=re.M)
+                want = re.sub(r"^reads (l[0-9]+) version not-blind readers: ", r"reads not-blind readers \1 version: ", want, flags=re.M)
                 self.assertEqual(result.text, want)
 
     def test_the_prompt_is_unchanged_from_0_7_0(self):
@@ -427,7 +430,7 @@ class PanelReplicateCase(unittest.TestCase):
             self.freeze_ok(second)
             result = second.run()
             self.assertEqual(result.exit_code, 2, result.error)
-            self.assertIn("the first run has not run: %s"
+            self.assertIn("the first run has not been run yet: %s"
                           % os.path.dirname(self.rel(first, "plan.txt")),
                           result.error.splitlines())
             self.assertFalse(second.exists("key.txt"))
@@ -440,7 +443,7 @@ class PanelReplicateCase(unittest.TestCase):
             os.rename(first.path("key.txt"), first.path("key-moved.txt"))
             scored = second.score()
             self.assertEqual(scored.exit_code, 2, scored.error)
-            self.assertIn("the first run has not run: %s"
+            self.assertIn("the first run has not been run yet: %s"
                           % os.path.dirname(self.rel(first, "plan.txt")),
                           scored.error.splitlines())
             self.assertFalse(second.exists("result-2.txt"))

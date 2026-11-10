@@ -371,7 +371,7 @@ class ReadsCase(unittest.TestCase):
         self.assertEqual([row[0] for row in rows], ["l1/%d" % n for n in range(1, 7)])
         lines = s.result_lines()
         self.assertIn("reads l1 strong: valid=2 of 2 planned", lines)
-        self.assertIn("reads l1 version all readers: valid=2 of 2 planned", lines)
+        self.assertIn("reads all readers l1 version: valid=2 of 2 planned", lines)
         self.assertIn("anchor gate l1: failed (strong read l1/1 scored 5, below 7; strong "
                       "read l1/2 scored 5, below 7; weak read l1/3 scored 5, above 4; weak "
                       "read l1/4 scored 5, above 4)", lines)
@@ -441,8 +441,8 @@ class ReadsCase(unittest.TestCase):
                       "flags=not-blind reader", lines)
         self.assertIn("read l1/8: reader=r2 document=version score=7 flagged=none flags=none",
                       lines)
-        self.assertIn("reads l1 version blind readers: valid=3 of 3 planned", lines)
-        self.assertIn("reads l1 version not-blind readers: valid=3", lines)
+        self.assertIn("reads blind readers l1 version: valid=3 of 3 planned", lines)
+        self.assertIn("reads not-blind readers l1 version: valid=3", lines)
         self.assertFalse([x for x in lines if x.startswith("scores l1 reader r1 ")])
 
     def test_10_23_the_fake_reader_starts_no_program(self):
