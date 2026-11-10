@@ -12,6 +12,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `track-record ab` and `track-record panel` readers can name a reader group (`reader-group <name>`), for readers that are alike, such as one model behind two commands. The result counts each group's valid reads; a group changes no verdict.
 - `track-record ab` plans can name a sensitivity pair (`sensitivity: X vs W`, with `sensitivity-scope` and an optional `sensitivity-threshold`, default 5/6): a version against a copy of it weakened on purpose. It runs as its own arm, `s`, after the A/A arm and before the comparisons, and gets the isolation check against `sensitivity-scope`. Fake-reader rules reach it only when they name `s`.
 - `track-record ab` results judge a sensitivity pair: when fewer than `sensitivity-threshold` of the valid sensitivity reads prefer the version over its weakened copy, or the arm has fewer valid reads than planned, every comparison and mechanism is INCONCLUSIVE, with the reason. The gate's line gives its count, a one-sided p-value and an interval, and each reader's score gap between the two. Without a pair, every result says `sensitivity gate: not tested`.
+- `track-record ab` plans can set a read floor (`min-valid-reads`). A comparison with fewer valid reads from blind readers is INCONCLUSIVE "below the read floor". With a floor set and met, a verdict that is INCONCLUSIVE only because reads are missing, and that every completion of those reads settles the same way, takes the settled verdict, and the result says it was lifted.
 
 ### Changed
 

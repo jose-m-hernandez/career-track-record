@@ -211,7 +211,7 @@ class Plan(object):
                  noise_threshold=Fraction(1, 2), spend_ceiling=None, aa_version=None,
                  amends=None, read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two",
                  alpha=Fraction(1, 20), alpha_text="0.05", sensitivity=None,
-                 sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6)):
+                 sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6), min_valid_reads=None):
         self.posting = posting
         self.versions = list(versions)
         self.comparisons = list(comparisons)
@@ -232,6 +232,7 @@ class Plan(object):
         self.sensitivity = sensitivity
         self.sensitivity_scope = list(sensitivity_scope)
         self.sensitivity_threshold = sensitivity_threshold
+        self.min_valid_reads = min_valid_reads
 
     def version_path(self, name):
         for version, path in self.versions:
@@ -258,7 +259,7 @@ _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
               "change-scope", "sensitivity-scope", "fake-reader")
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
                 "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha",
-                "sensitivity", "sensitivity-threshold")
+                "sensitivity", "sensitivity-threshold", "min-valid-reads")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
 _FRACTION = re.compile(r"([0-9]+)/([0-9]+)\Z")
@@ -385,6 +386,10 @@ def parse_text(text):
                 state.bad(number, "sensitivity-threshold must be above 1/2 and at most 1")
             else:
                 sensitivity_threshold = got
+    min_valid_reads = None
+    if "min-valid-reads" in scalars:
+        number, value = scalars["min-valid-reads"]
+        min_valid_reads = state.integer(number, "min-valid-reads", value, minimum=1)
     ceiling = None
     if "spend-ceiling" in scalars:
         number, value = scalars["spend-ceiling"]
@@ -519,7 +524,8 @@ def parse_text(text):
                 read_timeout=timeout, sidedness=sidedness, alpha=alpha,
                 alpha_text=alpha_text, sensitivity=sensitivity,
                 sensitivity_scope=sensitivity_scope,
-                sensitivity_threshold=sensitivity_threshold)
+                sensitivity_threshold=sensitivity_threshold,
+                min_valid_reads=min_valid_reads)
 
 
 def _hypothesis_clauses(state, number, rule, pair, sensitivity=None):
@@ -991,10 +997,9 @@ def _clause_holds(clause, valid, picks):
     return valid == clause.n and picks.get(clause.version, 0) >= clause.k
 
 
-def _completions_line(plan, hyp, recs, picks, first, second, m):
-    """Say whether the rule's verdict would hold whatever the m missing reads said.
-
-    Reads the rule's clauses alone: no A/A gate, no position. Reported only."""
+def _completion_outcomes(plan, hyp, recs, picks, first, second, m):
+    """The verdicts the rule's clauses could give, and the exact p-values, over every way
+    the m missing reads could have gone. Reads the clauses alone: no gate, no position."""
     x0 = picks.get(first, 0)
     y0 = picks.get(second, 0)
     verdicts = set()
@@ -1011,6 +1016,17 @@ def _completions_line(plan, hyp, recs, picks, first, second, m):
             verdicts.add(verdict)
             if x0 + x + y0 + y >= 1:
                 exact.append(stats.binomial_p(y0 + y, x0 + x + y0 + y, plan.sidedness))
+    return verdicts, exact
+
+
+def _completions_line(plan, hyp, recs, picks, first, second, m, outcomes=None):
+    """Say whether the rule's verdict would hold whatever the m missing reads said.
+
+    Reads the rule's clauses alone: no A/A gate, no position. Reported only. ``outcomes`` is
+    the result of ``_completion_outcomes`` when the caller already has it."""
+    if outcomes is None:
+        outcomes = _completion_outcomes(plan, hyp, recs, picks, first, second, m)
+    verdicts, exact = outcomes
     seen = [v for v in ("SUPPORTED", "REFUTED", "INCONCLUSIVE") if v in verdicts]
     if exact:
         spread = "p from %s to %s" % (stats.p_text(min(exact)), stats.p_text(max(exact)))
@@ -1244,6 +1260,29 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         if position[arm] == "INCONCLUSIVE":
             verdict = "INCONCLUSIVE"
             reasons.append("position is INCONCLUSIVE on %s" % arm)
+        floor = plan.min_valid_reads
+        below = floor is not None and len(recs) < floor
+        if below:
+            verdict = "INCONCLUSIVE"
+            reasons.append("below the read floor (%d valid reads, floor %d)"
+                           % (len(recs), floor))
+        outcomes = None
+        if missing[arm]:
+            outcomes = _completion_outcomes(plan, hyp, recs, picks, first, second,
+                                            missing[arm])
+        # a lift: settled under every completion, and nothing but the rule made it INCONCLUSIVE
+        lifted = False
+        if (floor is not None and not below and not reasons and verdict == "INCONCLUSIVE"
+                and outcomes is not None and len(outcomes[0]) == 1
+                and next(iter(outcomes[0])) in ("SUPPORTED", "REFUTED")):
+            verdict = next(iter(outcomes[0]))
+            lifted = True
+            reasons.append("lifted from INCONCLUSIVE: settled under every completion of %d "
+                           "missing reads; read floor %d met" % (missing[arm], floor))
+            for kind, clause in hyp.clauses:
+                if kind == verdict:
+                    decider = clause
+                    break
         out.append("hypothesis %s rule: %s" % (hyp.name, "; ".join(rule) or "none"))
         out.append("hypothesis %s counts: valid=%d %s=%d %s=%d tie=%d" % (
             hyp.name, len(recs), first, picks.get(first, 0), second,
@@ -1266,7 +1305,7 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                        "95%% interval %s to %s" % (
                            hyp.name, _show(second), k, n, ties, stats.p_text(p),
                            SIDE_TEXT[plan.sidedness], low, high))
-            if reasons:
+            if reasons and not lifted:
                 pass
             elif verdict in ("SUPPORTED", "REFUTED"):
                 tested = second if plan.sidedness == "greater" else first
@@ -1282,7 +1321,7 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                            "below alpha %s" % (hyp.name, stats.p_text(p), plan.alpha_text))
         if missing[arm]:
             out.append(_completions_line(plan, hyp, recs, picks, first, second,
-                                         missing[arm]))
+                                         missing[arm], outcomes))
 
     # mechanisms
     def matching(recs, mech):
@@ -1323,6 +1362,10 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif sens_gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the sensitivity gate was not evaluated")
+        if plan.min_valid_reads is not None and len(recs) < plan.min_valid_reads:
+            verdict = "INCONCLUSIVE"
+            reasons.append("below the read floor (%d valid reads, floor %d)"
+                           % (len(recs), plan.min_valid_reads))
         left_out = len(valid_not_blind_in(arm))
         out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d reads left out]"
                    % (label, verdict, mech.k, left_out))

@@ -557,5 +557,146 @@ class SensitivityGateCase(unittest.TestCase):
         self.assertEqual(s.run().exit_code, 0)
 
 
+FIVE_OF_SIX = "SUPPORTED if skills-top preferred in 5 of 6; otherwise INCONCLUSIVE"
+OMIT_1 = "omit PREFER | read 1"
+AA_NOISE = items("random seed 1 non-tie", arm="aa", strength="strongly")
+LIFT_5 = ("hypothesis h1 reason: lifted from INCONCLUSIVE: settled under every completion of "
+          "1 missing reads; read floor 5 met")
+COMPLETIONS_SUPPORTED = ("hypothesis h1 completions (missing reads: 1): settled: SUPPORTED; "
+                         "p from 0.0313 to 0.2188")
+
+
+class ReadFloorCase(unittest.TestCase):
+    def done(self, **overrides):
+        overrides.setdefault("hypotheses", [SIX])
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def sensitivity_done(self, **overrides):
+        s = Setup(self, **dict(SENSITIVITY, **overrides))
+        shutil.copyfile(os.path.join(ROOT, "tests", "fixtures", "ab", "base-weak.txt"),
+                        os.path.join(s.folder, "base-weak.txt"))
+        frozen = s.freeze()
+        self.assertEqual(frozen.exit_code, 0, frozen.error)
+        result = s.run()
+        return s, result, s.result_lines()
+
+    def assertRefused(self, s, line_text, message):
+        """Freeze exits 2, names the plan line number, and writes no freeze file."""
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 2, result.error)
+        self.assertFalse(result.ran)
+        number = s.line_of(line_text)
+        self.assertIn("plan line %d: %s" % (number, message), result.error.splitlines())
+        self.assertFalse(s.exists("plan.txt.freeze"))
+        self.assertFalse(s.exists(ab.READS_DIR))
+
+    def test_10_72_below_the_floor(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE, OMIT_1], min_valid_reads="6")
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 reason: below the read floor (5 valid reads, floor 6)",
+                      lines)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_72_at_the_floor_the_reason_is_the_rules_own(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE, OMIT_1], min_valid_reads="5")
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 reason:")])
+
+    def test_10_73_without_a_floor_nothing_is_lifted(self):
+        s, result, lines = self.done(hypotheses=[FIVE_OF_SIX],
+                                     fake_reader=[PREFER_GLANCE, OMIT_1])
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn(COMPLETIONS_SUPPORTED, lines)
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 reason:")])
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 flag:")])
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_73_a_floor_met_lifts_a_settled_completion(self):
+        s, result, lines = self.done(hypotheses=[FIVE_OF_SIX],
+                                     fake_reader=[PREFER_GLANCE, OMIT_1],
+                                     min_valid_reads="5")
+        verdict = "hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]"
+        self.assertIn(verdict, lines)
+        self.assertIn(LIFT_5, lines)
+        self.assertIn("hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 0.0625, "
+                      "at or above alpha 0.05", lines)
+        self.assertIn(COMPLETIONS_SUPPORTED, lines)
+        self.assertEqual(lines.index(verdict) + 1, lines.index(LIFT_5))
+        mine = [x for x in lines if x.startswith("hypothesis h1 ")]
+        self.assertEqual(mine[-1], COMPLETIONS_SUPPORTED)
+        self.assertEqual(result.exit_code, 1)
+
+    def test_10_74_nothing_is_lifted_under_the_aa_gate(self):
+        s, result, lines = self.done(hypotheses=[FIVE_OF_SIX],
+                                     fake_reader=[PREFER_GLANCE, OMIT_1] + AA_NOISE,
+                                     min_valid_reads="5")
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 reason: the A/A gate tripped", lines)
+        self.assertFalse([x for x in lines if "lifted from" in x])
+
+    def test_nothing_is_lifted_under_the_sensitivity_gate(self):
+        s, result, lines = self.sensitivity_done(
+            hypotheses=[FIVE_OF_SIX], fake_reader=[PREFER_GLANCE, OMIT_1, "s | tie"],
+            min_valid_reads="5")
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 reason: the sensitivity gate failed: the readers did "
+                      "not detect the planted difference", lines)
+        self.assertFalse([x for x in lines if "lifted from" in x])
+
+    def test_nothing_is_lifted_under_position(self):
+        s, result, lines = self.done(
+            hypotheses=["REFUTED if base preferred in 3 of 6; otherwise INCONCLUSIVE"],
+            fake_reader=["prefer slot A", "omit PREFER | read 2"], min_valid_reads="5")
+        self.assertIn("position c1: 5 of 5 non-TIE picks in slot A (100%): INCONCLUSIVE", lines)
+        self.assertTrue([x for x in lines if x.startswith(
+            "hypothesis h1 completions (missing reads: 1): settled: REFUTED;")])
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
+        self.assertFalse([x for x in lines if "lifted from" in x])
+
+    def test_a_settled_inconclusive_lifts_nothing(self):
+        s, result, lines = self.done(fake_reader=["tie", OMIT_1], min_valid_reads="5")
+        self.assertIn("hypothesis h1 completions (missing reads: 1): settled: INCONCLUSIVE; "
+                      "p from 1.0000 to 1.0000", lines)
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 reason:")])
+
+    def test_no_missing_read_means_no_lift(self):
+        s, result, lines = self.done(hypotheses=[FIVE_OF_SIX], fake_reader=["tie"],
+                                     min_valid_reads="5")
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 completions")])
+        self.assertFalse([x for x in lines if x.startswith("hypothesis h1 reason:")])
+
+    def test_the_floor_counts_ties(self):
+        s, result, lines = self.done(fake_reader=["tie"], min_valid_reads="6")
+        self.assertFalse([x for x in lines if "below the read floor" in x])
+
+    def test_a_mechanism_below_the_floor(self):
+        s, result, lines = self.done(
+            mechanisms=[TOO_LONG],
+            fake_reader=items(WRITE_TOO_LONG, reads=[1, 2, 3, 4]) + ["omit PREFER | read 6"],
+            min_valid_reads="6")
+        self.assertIn("mechanism too long in c1 count: 4 of 5 valid reads", lines)
+        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE "
+                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism too long in c1 reason: below the read floor "
+                      "(5 valid reads, floor 6)", lines)
+
+    def test_the_floor_counts_blind_reads_only(self):
+        s, result, lines = self.done(readers=NB, fake_reader=[PREFER_GLANCE],
+                                     min_valid_reads="4")
+        self.assertIn("hypothesis h1 reason: below the read floor (3 valid reads, floor 4)",
+                      lines)
+
+    def test_min_valid_reads_refusals(self):
+        for value in ("0", "x"):
+            with self.subTest(value=value):
+                s = Setup(self, hypotheses=[SIX], min_valid_reads=value)
+                self.assertRefused(s, "min-valid-reads",
+                                   "min-valid-reads must be a positive whole number")
+
+
 if __name__ == "__main__":
     unittest.main()
