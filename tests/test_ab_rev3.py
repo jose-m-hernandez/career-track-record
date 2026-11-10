@@ -310,18 +310,17 @@ class SensitivityArmCase(unittest.TestCase):
         self.assertEqual(s.plan.sensitivity, ("base", "base-weak"))
         self.assertEqual(s.plan.sensitivity_scope, ["^hours to"])
 
-    def test_10_70_a_hypothesis_may_not_name_either_version_of_the_pair(self):
-        message = "a hypothesis may not name a version of the sensitivity pair: "
-        cases = [
-            ("SUPPORTED if base-weak preferred in 2 or more; otherwise INCONCLUSIVE",
-             "base-weak preferred", "base-weak"),
-            ("REFUTED if base preferred in 2 or more; otherwise INCONCLUSIVE",
-             "base preferred", "base"),
-        ]
-        for rule, line_text, name in cases:
-            with self.subTest(name=name):
-                s = self.setup(hypotheses=[rule])
-                self.assertRefused(s, line_text, message + name)
+    def test_10_70_a_hypothesis_may_not_name_the_weakened_copy(self):
+        # The spec's owner ruled (2026-11-10) that only the weakened copy is barred; 10.70 names base-weak.
+        s = self.setup(hypotheses=["SUPPORTED if base-weak preferred in 2 or more; "
+                                   "otherwise INCONCLUSIVE"])
+        self.assertRefused(s, "base-weak preferred",
+                           "a hypothesis may not name the weakened copy of the sensitivity pair: "
+                           "base-weak")
+        s = self.setup(hypotheses=["REFUTED if base preferred in 2 or more; "
+                                   "otherwise INCONCLUSIVE"])
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
 
     def test_the_pair_is_two_versions_of_the_plan(self):
         cases = [
@@ -436,6 +435,12 @@ class SensitivityGateCase(unittest.TestCase):
         self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
         self.assertIn("sensitivity score gap r1: 0.00", lines)
         self.assertIn("sensitivity score gap r2: 0.00", lines)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_10_58_with_the_default_hypothesis_naming_x(self):
+        s, result, lines = self.done(hypotheses=[SIX], fake_reader=[PREFER_GLANCE, S_PREFER_P])
+        self.assertIn(PASSED_6, lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
         self.assertEqual(result.exit_code, 0)
 
     def test_10_59_a_failed_gate_voids_the_comparison_without_a_flag(self):
@@ -628,6 +633,25 @@ class ReadFloorCase(unittest.TestCase):
         mine = [x for x in lines if x.startswith("hypothesis h1 ")]
         self.assertEqual(mine[-1], COMPLETIONS_SUPPORTED)
         self.assertEqual(result.exit_code, 1)
+
+    def test_a_lifted_one_sided_flag_takes_the_first_clause_of_its_kind(self):
+        a = ("SUPPORTED if base preferred in 5 of 6; SUPPORTED if skills-top preferred in 5 of 6; "
+             "otherwise INCONCLUSIVE")
+        b = ("SUPPORTED if skills-top preferred in 5 of 6; SUPPORTED if base preferred in 5 of 6; "
+             "otherwise INCONCLUSIVE")
+        verdict = "hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]"
+        with self.subTest(order="a"):
+            s, result, lines = self.done(hypotheses=[a], fake_reader=[PREFER_GLANCE, OMIT_1],
+                                         min_valid_reads="5", sidedness="greater")
+            self.assertIn(verdict, lines)
+            self.assertIn(LIFT_5, lines)
+            self.assertIn("hypothesis h1 flag: one-sided test: this direction not tested", lines)
+        with self.subTest(order="b"):
+            s, result, lines = self.done(hypotheses=[b], fake_reader=[PREFER_GLANCE, OMIT_1],
+                                         min_valid_reads="5", sidedness="greater")
+            self.assertIn(verdict, lines)
+            self.assertIn(LIFT_5, lines)
+            self.assertFalse([x for x in lines if x.startswith("hypothesis h1 flag:")])
 
     def test_10_74_nothing_is_lifted_under_the_aa_gate(self):
         s, result, lines = self.done(hypotheses=[FIVE_OF_SIX],

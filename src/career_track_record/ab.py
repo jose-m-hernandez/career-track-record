@@ -539,7 +539,7 @@ def parse_text(text):
 
 def _hypothesis_clauses(state, number, rule, pair, sensitivity=None):
     """The ordered (verdict, Clause) list of a hypothesis rule, or None. A clause may not
-    name a version of the sensitivity pair."""
+    name the weakened copy of the sensitivity pair."""
     pieces = rule.split("; ")
     if pieces[-1] != "otherwise INCONCLUSIVE":
         state.bad(number, "a hypothesis rule ends with: otherwise INCONCLUSIVE")
@@ -554,9 +554,9 @@ def _hypothesis_clauses(state, number, rule, pair, sensitivity=None):
             ok = False
             continue
         verdict, version = match.group(1), match.group(2)
-        if sensitivity is not None and version in sensitivity:
-            state.bad(number, "a hypothesis may not name a version of the sensitivity pair: "
-                      "%s" % _short(version))
+        if sensitivity is not None and version == sensitivity[1]:
+            state.bad(number, "a hypothesis may not name the weakened copy of the sensitivity "
+                      "pair: %s" % _short(version))
             ok = False
             continue
         if version not in pair:
