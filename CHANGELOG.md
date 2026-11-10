@@ -9,6 +9,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `career_track_record/stats.py` gains the two-sided Fisher exact p-value, computed exactly, that a replicate run will print beside each count it compares with its first run.
+- `track-record ab` and `track-record panel` readers can name a reader group (`reader-group <name>`), for readers that are alike, such as one model behind two commands. The result counts each group's valid reads; a group changes no verdict.
 
 ### Changed
 

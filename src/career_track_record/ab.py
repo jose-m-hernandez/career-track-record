@@ -1255,6 +1255,15 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                    % (arm, same, len(recs)))
         if recs and ceiling == len(recs):
             out.append("scores %s: at the ceiling; preference is the only measure" % arm)
+    groups = []
+    for reader in plan.readers:
+        if reader.group is not None and reader.group not in groups:
+            groups.append(reader.group)
+    for group in groups:
+        names = set(r.name for r in plan.readers if r.group == group)
+        out.append("reader-group %s: %d valid reads"
+                   % (group, len([x for x in records
+                                  if x.status == "valid" and x.read.reader in names])))
     out.append(VALIDITY_LINE)
 
     return harness.finish_result(folder, out, records, log, stopped)

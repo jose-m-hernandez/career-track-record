@@ -74,11 +74,12 @@ class Result(object):
 class Reader(object):
     """A reader. ``command`` is the word ``fake`` or the text of a live command."""
 
-    def __init__(self, name, command=FAKE, not_blind=False, cost=1):
+    def __init__(self, name, command=FAKE, not_blind=False, cost=1, group=None):
         self.name = name
         self.command = command
         self.not_blind = not_blind
         self.cost = cost
+        self.group = group
 
     @property
     def kind(self):
@@ -202,7 +203,7 @@ def structure(state, text, list_keys, scalar_keys):
 
 def parse_readers(state, items):
     """The Readers of a plan's ``readers`` items: ``<name> | <command>``, then optionally
-    ``not-blind`` and ``cost <n>`` in either order. A live command must split into words
+    ``not-blind``, ``cost <n>`` and ``reader-group <name>``, once each, in any order. A live command must split into words
     and name an absolute path or a program looked up on PATH."""
     readers, names = [], set()
     for number, item in items:
@@ -221,6 +222,7 @@ def parse_readers(state, items):
             continue
         not_blind, cost, ok = False, 1, True
         seen_cost = False
+        group = None
         for extra in parts[2:]:
             if extra == "not-blind" and not not_blind:
                 not_blind = True
@@ -231,9 +233,17 @@ def parse_readers(state, items):
                     ok = False
                 else:
                     cost = got
+            elif extra.startswith("reader-group ") and group is None:
+                got = extra[13:].strip()
+                if NAME.match(got):
+                    group = got
+                else:
+                    state.bad(number, "a name holds letters, digits and - only: %s"
+                              % short(got))
+                    ok = False
             else:
-                state.bad(number, "a reader's extra field is not-blind or cost <n>, once "
-                          "each: %s" % short(extra))
+                state.bad(number, "a reader's extra field is not-blind, cost <n> or "
+                          "reader-group <name>, once each: %s" % short(extra))
                 ok = False
         if command != FAKE:
             try:
@@ -250,7 +260,8 @@ def parse_readers(state, items):
                     ok = False
         if ok:
             names.add(name)
-            readers.append(Reader(name, command, not_blind, cost if command != FAKE else 1))
+            readers.append(Reader(name, command, not_blind, cost if command != FAKE else 1,
+                                  group))
     return readers
 
 

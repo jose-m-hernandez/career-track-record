@@ -152,6 +152,94 @@ class BlindOnlyCase(unittest.TestCase):
     def test_the_prompt_is_unchanged_from_0_7_0(self):
         self.assertEqual(ab.prompt_sha256(), AB_PROMPT_SHA256_0_7_0)
 
+    def test_scores_count_blind_reads_only(self):
+        # 0.7.0: A/A score spread: 8 (highest 9, lowest 1); scores c1 version base: scores=6 total=26 mean=4.33
+        s, result, lines = self.done(
+            readers=NB,
+            fake_reader=items("score 9 1", reads=[4, 5, 6], arm="aa") + items("score 9 1", reads=[4, 5, 6]))
+        self.assertIn("A/A score spread: 0 (highest 5, lowest 5)", lines)
+        self.assertIn("scores c1 version base: scores=3 total=15 mean=5.00", lines)
+        self.assertIn("scores c1 separation: 3 of 3 valid reads give both slots the same score",
+                      lines)
+        self.assertFalse([x for x in lines if x.startswith("scores c1 reader r2 ")])
+
+
+class ReaderGroupCase(unittest.TestCase):
+    def done(self, **overrides):
+        overrides.setdefault("hypotheses", [SIX])
+        s = Setup(self, **overrides)
+        result = s.frozen_run()
+        return s, result, s.result_lines()
+
+    def assertRefused(self, s, line_text, message):
+        """Freeze exits 2, names the plan line number, and writes no freeze file."""
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 2, result.error)
+        self.assertFalse(result.ran)
+        number = s.line_of(line_text)
+        self.assertIn("plan line %d: %s" % (number, message), result.error.splitlines())
+        self.assertFalse(s.exists("plan.txt.freeze"))
+        self.assertFalse(s.exists(ab.READS_DIR))
+
+    def two_groups(self):
+        return self.done(readers=["r1 | fake | reader-group g2", "r2 | fake | reader-group g1"],
+                         fake_reader=[PREFER_GLANCE])
+
+    def test_10_76_one_group_counts_every_valid_read(self):
+        s, result, lines = self.done(
+            readers=["reader-1 | fake | reader-group f1", "reader-2 | fake | reader-group f1"],
+            fake_reader=[PREFER_GLANCE])
+        self.assertIn("reader-group f1: 12 valid reads", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        self.assertEqual(result.exit_code, 0)
+
+    def test_groups_are_listed_in_order_of_first_appearance(self):
+        s, result, lines = self.two_groups()
+        self.assertEqual([x for x in lines if x.startswith("reader-group ")],
+                         ["reader-group g2: 6 valid reads", "reader-group g1: 6 valid reads"])
+
+    def test_a_group_counts_not_blind_reads_and_skips_failed_ones(self):
+        s, result, lines = self.done(
+            readers=["r1 | fake | not-blind | reader-group g", "r2 | fake | reader-group g"],
+            fake_reader=[PREFER_GLANCE, "omit PREFER | read 1"])
+        self.assertIn("reader-group g: 11 valid reads", lines)
+
+    def test_no_group_line_without_a_group(self):
+        s, result, lines = self.done(fake_reader=[PREFER_GLANCE])
+        self.assertFalse([x for x in lines if x.startswith("reader-group ")])
+
+    def test_the_group_lines_come_just_before_the_validity_line(self):
+        s, result, lines = self.two_groups()
+        i = lines.index("reader-group g2: 6 valid reads")
+        self.assertEqual(lines[i + 1], "reader-group g1: 6 valid reads")
+        self.assertTrue(lines[i + 2].startswith("validity: "))
+
+    def test_reader_group_fields_freeze_and_parse(self):
+        s = Setup(self, hypotheses=[SIX],
+                  readers=["r1 | fake | reader-group a-1",
+                           "r2 | fake | cost 2 | not-blind | reader-group B2",
+                           "r3 | fake"])
+        result = s.freeze()
+        self.assertEqual(result.exit_code, 0, result.error)
+        readers = s.plan.readers
+        self.assertEqual([r.group for r in readers], ["a-1", "B2", None])
+        self.assertTrue(readers[1].not_blind)
+
+    def test_reader_group_refusals(self):
+        extra = ("a reader's extra field is not-blind, cost <n> or reader-group <name>, "
+                 "once each: ")
+        cases = [
+            ("r1 | fake | reader-group g | reader-group h", "reader-group h",
+             extra + "reader-group h"),
+            ("r1 | fake | reader-group a_b", "a_b",
+             "a name holds letters, digits and - only: a_b"),
+            ("r1 | fake | reader-group", "| reader-group", extra + "reader-group"),
+        ]
+        for reader, line_text, message in cases:
+            with self.subTest(reader=reader):
+                s = Setup(self, hypotheses=[SIX], readers=[reader, "r2 | fake"])
+                self.assertRefused(s, line_text, message)
+
 
 if __name__ == "__main__":
     unittest.main()
