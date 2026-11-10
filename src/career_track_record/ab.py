@@ -962,6 +962,11 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                               parse_reply)
     arms = _arms(plan)
     not_blind = set(r.name for r in plan.readers if r.not_blind)
+    # I-1 (C:152, § 6): every verdict, gate, count, position and score below uses blind
+    # readers' reads only, planned reads included. The per-read rows, the key and slot
+    # lines, the not-blind reads line, DEAD and the tail still cover every reader.
+    blind_records = [x for x in records if x.read.reader not in not_blind]
+    blind_reads = [r for r in reads if r.reader not in not_blind]
     out = []
 
     out.append("plan sha256: %s" % _show(recorded.get(os.path.basename(plan_path), "unknown")))
@@ -1007,9 +1012,14 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         else:
             out.append("%s not run" % head)
 
-    def valid_in(arm, only=None):
+    def valid_in(arm):
+        """The valid reads of a blind reader in this arm."""
+        return [x for x in blind_records if x.read.arm == arm and x.status == "valid"]
+
+    def valid_not_blind_in(arm):
+        """The valid reads of a reader marked not-blind in this arm."""
         return [x for x in records if x.read.arm == arm and x.status == "valid"
-                and (only is None or x.read.reader in only)]
+                and x.read.reader in not_blind]
 
     def picks_in(recs):
         picks = {}
@@ -1022,10 +1032,11 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                 picks[version] = picks.get(version, 0) + 1
         return picks, ties
 
-    # reads, all readers and not-blind readers
+    # reads, blind readers (all readers when none is marked not-blind) and not-blind readers
+    first_label = "blind readers" if not_blind else "all readers"
     for arm, first, second in arms:
-        for label, only in (("all readers", None), ("not-blind readers", not_blind)):
-            recs = valid_in(arm, only)
+        for label, recs in ((first_label, valid_in(arm)),
+                            ("not-blind readers", valid_not_blind_in(arm))):
             picks, ties = picks_in(recs)
             versions = [first] if first == second else [first, second]
             out.append("reads %s %s: valid=%d %s tie=%d" % (
@@ -1035,18 +1046,18 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     # missing reads, per arm, and a dead run
     missing = {}
     for arm, _first, _second in arms:
-        mine = [x for x in records if x.read.arm == arm]
+        mine = [x for x in blind_records if x.read.arm == arm]
         failed = len([x for x in mine if x.status == "failed"])
         not_run = len([x for x in mine if x.status not in ("valid", "failed")])
         missing[arm] = failed + not_run
         out.append("missing %s: %d of %d planned reads (failed %d, not run %d)"
-                   % (arm, failed + not_run, len([r for r in reads if r.arm == arm]),
+                   % (arm, failed + not_run, len([r for r in blind_reads if r.arm == arm]),
                       failed, not_run))
     if not any(x.status == "valid" for x in records):
         out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
 
     # A/A gate
-    aa_planned = len([r for r in reads if r.arm == AA])
+    aa_planned = len([r for r in blind_reads if r.arm == AA])
     aa_valid = valid_in(AA)
     if aa_planned == 0 or len(aa_valid) < aa_planned:
         gate = "not evaluated"
@@ -1131,9 +1142,9 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         out.append("hypothesis %s counts: valid=%d %s=%d %s=%d tie=%d" % (
             hyp.name, len(recs), first, picks.get(first, 0), second,
             picks.get(second, 0), ties))
-        blind_count = len([x for x in recs if x.read.reader in not_blind])
-        out.append("hypothesis %s verdict: %s [not blind: %d of %d valid reads]"
-                   % (hyp.name, verdict, blind_count, len(recs)))
+        left_out = len(valid_not_blind_in(arm))
+        out.append("hypothesis %s verdict: %s [not blind: %d reads left out]"
+                   % (hyp.name, verdict, left_out))
         for reason in reasons:
             out.append("hypothesis %s reason: %s" % (hyp.name, reason))
         n = sum(picks.values())
@@ -1199,9 +1210,9 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
-        blind_count = len([x for x in recs if x.read.reader in not_blind])
-        out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d of %d valid reads]"
-                   % (label, verdict, mech.k, blind_count, len(recs)))
+        left_out = len(valid_not_blind_in(arm))
+        out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d reads left out]"
+                   % (label, verdict, mech.k, left_out))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
 

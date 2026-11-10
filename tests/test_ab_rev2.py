@@ -87,7 +87,7 @@ class EvidenceCase(unittest.TestCase):
         self.assertIn("hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; "
                       "p = 0.0313 two-sided " + CORRELATED + "; 95% interval 0.609 to 1.000",
                       lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
         self.assertNoFlag(lines)
 
     def test_10_43_one_sided(self):
@@ -96,13 +96,13 @@ class EvidenceCase(unittest.TestCase):
                       "p = 0.0156 one-sided greater " + CORRELATED
                       + "; 95% interval 0.609 to 1.000", lines)
         self.assertNoFlag(lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
         s, result, lines = self.done(fake_reader=[PREFER_GLANCE], sidedness="less")
         self.assertIn("hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; "
                       "p = 1.0000 one-sided less " + CORRELATED
                       + "; 95% interval 0.609 to 1.000", lines)
         self.assertIn("hypothesis h1 flag: one-sided test: this direction not tested", lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
 
     def test_10_44_supported_at_a_large_p_is_flagged(self):
         s, result, lines = self.done(
@@ -114,14 +114,14 @@ class EvidenceCase(unittest.TestCase):
                       lines)
         self.assertIn("hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 0.6875, "
                       "at or above alpha 0.05", lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
 
     def test_10_45_inconclusive_at_a_small_p_is_flagged(self):
         s, result, lines = self.done(
             reads_per_reader="4",
             hypotheses=["SUPPORTED if skills-top preferred in 8 of 8; otherwise INCONCLUSIVE"],
             fake_reader=[PREFER_GLANCE, "omit PREFER | read 8"])
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 7 valid reads]",
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]",
                       lines)
         self.assertIn("hypothesis h1 evidence: skills-top 7 of 7 non-TIE picks, 0 TIE; "
                       "p = 0.0156 two-sided " + CORRELATED + "; 95% interval 0.645 to 1.000",
@@ -137,7 +137,7 @@ class EvidenceCase(unittest.TestCase):
                       lines)
         self.assertIn("hypothesis h1 flag: evidence disagrees: REFUTED at p = 0.0625, "
                       "at or above alpha 0.05", lines)
-        self.assertIn("hypothesis h1 verdict: REFUTED [not blind: 0 of 5 valid reads]", lines)
+        self.assertIn("hypothesis h1 verdict: REFUTED [not blind: 0 reads left out]", lines)
         self.assertEqual(result.exit_code, 1)
 
     def test_10_47_no_valid_read(self):
@@ -145,7 +145,7 @@ class EvidenceCase(unittest.TestCase):
         self.assertIn("A/A gate interval: not computed", lines)
         self.assertIn("hypothesis h1 evidence: no non-TIE pick, 0 TIE; "
                       "p and interval not computed", lines)
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 0 valid reads]",
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]",
                       lines)
         self.assertNoFlag(lines)
         self.assertEqual(result.exit_code, 1)
@@ -154,10 +154,10 @@ class EvidenceCase(unittest.TestCase):
         s, result, lines = self.done(
             readers=["r1 | fake", "r2 | fake | not-blind"], mechanisms=[TOO_LONG],
             fake_reader=items(WRITE_TOO_LONG, reads=[1, 2, 3, 4]))
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 3 of 6 valid reads]",
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 3 reads left out]",
                       lines)
         self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) "
-                      "[not blind: 3 of 6 valid reads]", lines)
+                      "[not blind: 3 reads left out]", lines)
 
     def test_10_51_exactly_one_validity_line(self):
         for name, reader in (("tie", ["tie"]), ("aa", [AA_STRONG]), ("none", NO_VALID)):
@@ -169,7 +169,7 @@ class EvidenceCase(unittest.TestCase):
         s, result, lines = self.done(alpha="0.01", fake_reader=[PREFER_GLANCE])
         self.assertIn("hypothesis h1 flag: evidence disagrees: SUPPORTED at p = 0.0313, "
                       "at or above alpha 0.01", lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 of 6 valid reads]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
 
     def test_10_54_aa_gate_interval(self):
         s, result, lines = self.done(fake_reader=[AA_STRONG])
@@ -185,7 +185,7 @@ class EvidenceCase(unittest.TestCase):
 
     def test_10_56_a_tripped_gate_gets_no_flag(self):
         s, result, lines = self.done(fake_reader=[AA_STRONG, PREFER_GLANCE])
-        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 6 valid reads]",
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]",
                       lines)
         self.assertIn("hypothesis h1 reason: the A/A gate tripped", lines)
         self.assertIn("hypothesis h1 evidence: skills-top 6 of 6 non-TIE picks, 0 TIE; "
