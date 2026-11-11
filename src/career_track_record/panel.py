@@ -202,7 +202,8 @@ class Plan(object):
     def __init__(self, posting, version, anchors, lenses, readers, strong_at_least,
                  weak_at_most, fake_rules=(), reads_per_reader=3,
                  anchor_reads_per_reader=1, rules=(), spend_ceiling=None, amends=None,
-                 read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two"):
+                 read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two", min_valid_reads=None,
+                 replicate_of=None):
         self.posting = posting
         self.version = version
         self.anchors = dict(anchors)
@@ -218,6 +219,8 @@ class Plan(object):
         self.amends = amends
         self.read_timeout = read_timeout
         self.sidedness = sidedness
+        self.min_valid_reads = min_valid_reads
+        self.replicate_of = replicate_of
 
     def document_path(self, document):
         if document == VERSION:
@@ -246,7 +249,7 @@ class Plan(object):
 _LIST_KEYS = ("anchors", "lenses", "readers", "rules", "fake-reader")
 _SCALAR_KEYS = ("posting", "version", "reads-per-reader", "anchor-reads-per-reader",
                 "anchor-strong-at-least", "anchor-weak-at-most", "spend-ceiling", "amends",
-                "read-timeout", "sidedness")
+                "replicate-of", "read-timeout", "sidedness", "min-valid-reads")
 _NAME = harness.NAME
 _CLAUSE = re.compile(r"(PASS|FAIL) if (?:score at (least|most) (-?[0-9]+)"
                      r"|([A-Z-]+) (flagged|not flagged)) in "
@@ -300,6 +303,13 @@ def parse_text(text):
         got = state.integer(number, "read-timeout", value)
         timeout = got if got is not None else DEFAULT_READ_TIMEOUT
     amends = scalars["amends"][1] if "amends" in scalars else None
+    replicate_of = None
+    if "replicate-of" in scalars:
+        number, replicate_of = scalars["replicate-of"]
+        if not replicate_of.endswith(harness.FREEZE_SUFFIX):
+            state.bad(number, "replicate-of must name a .freeze file")
+        if "amends" in scalars:
+            state.bad(number, "a plan may not carry both replicate-of and amends")
     sidedness = "two"
     if "sidedness" in scalars:
         number, value = scalars["sidedness"]
@@ -307,6 +317,11 @@ def parse_text(text):
             sidedness = value
         else:
             state.bad(number, "sidedness is two, greater or less")
+
+    min_valid_reads = None
+    if "min-valid-reads" in scalars:
+        number, value = scalars["min-valid-reads"]
+        min_valid_reads = state.integer(number, "min-valid-reads", value, minimum=1)
 
     # anchors
     anchors = {}
@@ -424,7 +439,8 @@ def parse_text(text):
     return Plan(posting, version, anchors, lenses, readers, strong_at_least, weak_at_most,
                 fake_rules=fake_rules, reads_per_reader=reads_per_reader,
                 anchor_reads_per_reader=anchor_reads, rules=rules, spend_ceiling=ceiling,
-                amends=amends, read_timeout=timeout, sidedness=sidedness)
+                amends=amends, read_timeout=timeout, sidedness=sidedness,
+                min_valid_reads=min_valid_reads, replicate_of=replicate_of)
 
 
 def _rule_clauses(state, number, rule):
@@ -531,6 +547,8 @@ def _inputs(plan, plan_path):
         items.append((lens.path, os.path.join(folder, lens.path)))
     if plan.amends is not None:
         items.append((plan.amends, os.path.join(folder, plan.amends)))
+    if plan.replicate_of is not None:
+        items.append((plan.replicate_of, os.path.join(folder, plan.replicate_of)))
     return harness.unique_inputs(items)
 
 
@@ -712,12 +730,29 @@ def run(plan_path, live=False):
         return Result(2, False, error=exc.line)
 
 
+def _first_folder(plan_path, plan):
+    """The folder of the first run, as the plan's replicate-of text names it, or None."""
+    if plan.replicate_of is None:
+        return None
+    return os.path.dirname(os.path.join(harness.folder_of(plan_path), plan.replicate_of))
+
+
+def _first_run_problems(plan_path, plan):
+    """A replicate waits for its first run: that folder must already hold a key."""
+    first = _first_folder(plan_path, plan)
+    if first is None or os.path.isfile(os.path.join(first, KEY_FILE)):
+        return []
+    return ["the first run has not been run yet: %s" % _show(os.path.dirname(plan.replicate_of))]
+
+
 def _run(plan_path, live):
     folder = harness.folder_of(plan_path)
     plan, problems, recorded, freeze_hash = _verify(plan_path, with_prompt=True)
     if plan is not None:
         problems += _document_problems(plan, plan_path)
     problems += harness.run_folder_problems(folder)
+    if plan is not None:
+        problems += _first_run_problems(plan_path, plan)
     if problems:
         return Result(2, False, error="\n".join(problems))
     planned = _planned_reads(plan)
@@ -752,9 +787,13 @@ def _run(plan_path, live):
 
 def score(plan_path):
     """Score the replies in the run folder again, against the frozen plan. Writes a new result."""
-    return harness.score(plan_path, parse, _inputs, prompt_sha256(), 3,
-                         lambda plan, recorded, freeze_hash: _score_and_write(
-                             plan_path, plan, recorded, freeze_hash))
+    def write(plan, recorded, freeze_hash):
+        problems = _first_run_problems(plan_path, plan)
+        if problems:
+            return Result(2, False, error="\n".join(problems))
+        return _score_and_write(plan_path, plan, recorded, freeze_hash)
+
+    return harness.score(plan_path, parse, _inputs, prompt_sha256(), 3, write)
 
 
 # ------------------------------------------------------------------ scoring
@@ -779,6 +818,48 @@ def _scores_line(label, pairs):
     return "%s: scores=%d total=%d mean=%s lowest=%d highest=%d" % (
         label, len(scores), sum(scores), _mean(sum(scores), len(scores)), min(scores),
         max(scores))
+
+
+def _gate_state(plan, strong_recs, weak_recs, planned):
+    """The anchor gate of one lens from its valid anchor reads and the number planned:
+    "not evaluated", "failed" or "passed"."""
+    if planned == 0 or len(strong_recs) + len(weak_recs) < planned:
+        return "not evaluated"
+    if (any(x.reply.score < plan.strong_at_least for x in strong_recs)
+            or any(x.reply.score > plan.weak_at_most for x in weak_recs)):
+        return "failed"
+    return "passed"
+
+
+def _first_counted_arms(plan, first_blind, first_reads, not_blind):
+    """The lenses the first run counted: those whose anchor gate passed over the first
+    run's own blind anchor reads."""
+    counted = []
+    for lens in plan.lenses:
+        def valid(document):
+            return [x for x in first_blind if x.read.arm == lens.arm
+                    and x.read.document == document and x.status == "valid"]
+
+        planned = len([r for r in first_reads if r.arm == lens.arm and r.document in ANCHORS
+                       and r.reader not in not_blind])
+        if _gate_state(plan, valid(STRONG), valid(WEAK), planned) == "passed":
+            counted.append(lens.arm)
+    return counted
+
+
+def _replicate_lines(label, clauses, recs, first_recs):
+    """The replicate lines of one rule: for each clause, its counted reads in the first
+    run and in this one, with a two-sided Fisher exact p."""
+    out = []
+    for clause in clauses:
+        k1 = len([x for x in first_recs if clause.holds_for(x.reply)])
+        k2 = len([x for x in recs if clause.holds_for(x.reply)])
+        n1, n2 = len(first_recs), len(recs)
+        out.append("%s replicate: %s: first run %d of %d, this run %d of %d; "
+                   "Fisher exact p = %s two-sided"
+                   % (label, clause.test(), k1, n1, k2, n2,
+                      stats.p_text(stats.fisher_p(k1, n1, k2, n2))))
+    return out
 
 
 SIDE_TEXT = {"two": "two-sided", "greater": "one-sided greater", "less": "one-sided less"}
@@ -854,7 +935,24 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     failures = harness.log_failures(log)
     records = harness.records(folder, reads, cut or stopped is not None, failures,
                               parse_reply)
+    # I-1 and D:130: from revision 3, reads from a not-blind reader are left out of every
+    # rule, anchor gate, score, flag count and missing-read count; valid_in and planned_in
+    # return blind readers' reads unless a caller names the readers it wants.
     not_blind = set(r.name for r in plan.readers if r.not_blind)
+    first_blind = None
+    first_counted = None
+    if plan.replicate_of is not None:
+        # The first run's folder is read, never written.
+        first_folder = _first_folder(plan_path, plan)
+        first_log = harness.load_log(first_folder)
+        first_cut = first_log.get("cut") == "yes"
+        first_stopped = first_log.get("stopped")
+        first_reads = [PlannedRead(*row) for row in harness.load_key(first_folder, 3)]
+        first_records = harness.records(first_folder, first_reads,
+                                        first_cut or first_stopped is not None,
+                                        harness.log_failures(first_log), parse_reply)
+        first_blind = [x for x in first_records if x.read.reader not in not_blind]
+        first_counted = _first_counted_arms(plan, first_blind, first_reads, not_blind)
     out = []
 
     out.append("plan sha256: %s" % _show(recorded.get(os.path.basename(plan_path), "unknown")))
@@ -862,6 +960,8 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     if plan.amends is not None:
         out.append("amended freeze sha256: %s" % _show(recorded.get(plan.amends, "unknown")))
     out.append("prompt sha256: %s" % _show(recorded.get(PROMPT_LABEL, "unknown")))
+    if plan.replicate_of is not None:
+        out.append("replicate of: %s" % _show(recorded.get(plan.replicate_of, "unknown")))
     out.append("version: %s" % _show(plan.version))
     for anchor in ANCHORS:
         out.append("anchor %s: %s" % (anchor, _show(plan.anchors[anchor])))
@@ -895,28 +995,37 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
 
     def valid_in(arm, document, only=None):
         return [x for x in records if x.read.arm == arm and x.read.document == document
-                and x.status == "valid" and (only is None or x.read.reader in only)]
+                and x.status == "valid"
+                and (x.read.reader not in not_blind if only is None else x.read.reader in only)]
 
     def planned_in(arm, document):
-        return [r for r in reads if r.arm == arm and r.document == document]
+        return [r for r in reads if r.arm == arm and r.document == document
+                and r.reader not in not_blind]
 
     # each lens: its reads, its anchor gate, whether it is counted, its scores and flags
     counted = []
     gate_reason = {}
     for lens in plan.lenses:
         arm = lens.arm
+        who = "blind readers" if not_blind else "all readers"
         for document in ANCHORS:
-            out.append("reads %s %s: valid=%d of %d planned"
-                       % (arm, document, len(valid_in(arm, document)),
-                          len(planned_in(arm, document))))
-        out.append("reads %s version all readers: valid=%d of %d planned"
-                   % (arm, len(valid_in(arm, VERSION)), len(planned_in(arm, VERSION))))
-        out.append("reads %s version not-blind readers: valid=%d"
+            if not_blind:
+                out.append("reads blind readers %s %s: valid=%d of %d planned"
+                           % (arm, document, len(valid_in(arm, document)),
+                              len(planned_in(arm, document))))
+            else:
+                out.append("reads %s %s: valid=%d of %d planned"
+                           % (arm, document, len(valid_in(arm, document)),
+                              len(planned_in(arm, document))))
+        out.append("reads %s %s version: valid=%d of %d planned"
+                   % (who, arm, len(valid_in(arm, VERSION)), len(planned_in(arm, VERSION))))
+        out.append("reads not-blind readers %s version: valid=%d"
                    % (arm, len(valid_in(arm, VERSION, not_blind))))
         strong_recs, weak_recs = valid_in(arm, STRONG), valid_in(arm, WEAK)
         anchor_planned = len(planned_in(arm, STRONG)) + len(planned_in(arm, WEAK))
         anchor_valid = len(strong_recs) + len(weak_recs)
-        if anchor_planned == 0 or anchor_valid < anchor_planned:
+        gate = _gate_state(plan, strong_recs, weak_recs, anchor_planned)
+        if gate == "not evaluated":
             out.append("anchor gate %s: not evaluated (%d valid anchor reads of %d planned)"
                        % (arm, anchor_valid, anchor_planned))
             gate_reason[arm] = "the anchor gate was not evaluated on %s" % arm
@@ -927,7 +1036,7 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             high = ["%s read %s scored %d, above %d" % (WEAK, _show(x.read.id),
                                                         x.reply.score, plan.weak_at_most)
                     for x in weak_recs if x.reply.score > plan.weak_at_most]
-            if low or high:
+            if gate == "failed":
                 out.append("anchor gate %s: failed (%s)" % (arm, "; ".join(low + high)))
                 gate_reason[arm] = "the anchor gate failed on %s" % arm
             else:
@@ -992,7 +1101,8 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     missing_in = {}
     for lens in plan.lenses:
         planned = planned_in(lens.arm, VERSION)
-        version = [x for x in records if x.read.arm == lens.arm and x.read.document == VERSION]
+        version = [x for x in records if x.read.arm == lens.arm and x.read.document == VERSION
+                   and x.read.reader not in not_blind]
         failed = len([x for x in version if x.status == "failed"])
         not_run = len([x for x in version if x.status not in ("valid", "failed")])
         missing_in[lens.arm] = failed + not_run
@@ -1028,23 +1138,52 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif rule.lens not in counted:
             verdict = "INCONCLUSIVE"
             reasons.append(gate_reason[rule.lens])
-        out.append("%s verdict: %s [not blind: %d of %d counted reads]"
-                   % (label, verdict, len([x for x in recs if x.read.reader in not_blind]),
-                      len(recs)))
+        floor = plan.min_valid_reads
+        below = floor is not None and len(recs) < floor
+        if below:
+            verdict = "INCONCLUSIVE"
+            reasons.append("below the read floor (%d counted reads, floor %d)"
+                           % (len(recs), floor))
+        arms = counted if rule.lens is None else ([rule.lens] if rule.lens in counted else [])
+        m = sum(missing_in[arm] for arm in arms)
+        possible = _possible_verdicts(rule, recs, m) if m >= 1 else None
+        # a lift: settled under every completion, and nothing but the clauses made it INCONCLUSIVE
+        if (floor is not None and not below and not reasons and verdict == "INCONCLUSIVE"
+                and possible is not None and len(possible) == 1
+                and possible[0] in ("PASS", "FAIL")):
+            verdict = possible[0]
+            reasons.append("lifted from INCONCLUSIVE: settled under every completion of %d "
+                           "missing reads; read floor %d met" % (m, floor))
+        covered = [x.arm for x in plan.lenses] if rule.lens is None else [rule.lens]
+        left_out = sum(len(valid_in(arm, VERSION, not_blind)) for arm in covered)
+        out.append("%s verdict: %s [not blind: %d reads left out]" % (label, verdict, left_out))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
         for kind, clause in rule.clauses:
             out.append(_evidence_line(label, clause, rule, recs, plan.sidedness))
-        arms = counted if rule.lens is None else ([rule.lens] if rule.lens in counted else [])
-        m = sum(missing_in[arm] for arm in arms)
-        if m >= 1:
-            possible = _possible_verdicts(rule, recs, m)
+        if possible is not None:
             if len(possible) == 1:
                 out.append("%s completions (missing reads: %d): settled: %s"
                            % (label, m, possible[0]))
             else:
                 out.append("%s completions (missing reads: %d): unsettled: %s possible"
                            % (label, m, ", ".join(possible)))
+        if plan.replicate_of is not None:
+            first_arms = first_counted if rule.lens is None else (
+                [rule.lens] if rule.lens in first_counted else [])
+            first_recs = [x for x in first_blind if x.read.arm in first_arms
+                          and x.read.document == VERSION and x.status == "valid"]
+            out.extend(_replicate_lines(label, [c for _k, c in rule.clauses], recs,
+                                        first_recs))
 
+    groups = []
+    for reader in plan.readers:
+        if reader.group is not None and reader.group not in groups:
+            groups.append(reader.group)
+    for group in groups:
+        names = set(r.name for r in plan.readers if r.group == group)
+        out.append("reader-group %s: %d valid reads"
+                   % (group, len([x for x in records
+                                  if x.status == "valid" and x.read.reader in names])))
     out.append(harness.VALIDITY_LINE)
     return harness.finish_result(folder, out, records, log, stopped)

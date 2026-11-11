@@ -91,7 +91,7 @@ class EvidenceCase(unittest.TestCase):
                       "95% interval 0.609 to 1.000", lines)
         self.assertIn("rule r1 (l1) evidence: score at most 4: 0 of 6 counted reads; "
                       "95% interval 0.000 to 0.391", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
         self.assertEqual([x for x in lines if "p = " in x], [])
 
     def test_10_30_p_against_a_declared_share(self):
@@ -112,7 +112,7 @@ class EvidenceCase(unittest.TestCase):
                 if second is not None:
                     self.assertIn("rule r1 (l1) evidence: score at most 4: 0 of 6 counted "
                                   "reads; " + second + tail % "0.000 to 0.391", lines)
-                self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]",
+                self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]",
                               lines)
 
     def test_10_35_not_blind_counts(self):
@@ -121,8 +121,8 @@ class EvidenceCase(unittest.TestCase):
             rules=["recruiter | " + SIX_PASS,
                    "overall | PASS if score at least 7 in 12 of 12; otherwise INCONCLUSIVE"])
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 3 of 6 counted reads]", lines)
-        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 6 of 12 counted reads]",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 3 reads left out]", lines)
+        self.assertIn("rule r2 (overall) verdict: INCONCLUSIVE [not blind: 6 reads left out]",
                       lines)
 
     def test_10_36_exactly_one_validity_line(self):
@@ -148,7 +148,7 @@ class EvidenceCase(unittest.TestCase):
             rules=["recruiter | " + SIX_PASS, "manager | " + SIX_PASS + " | null-share 1/2"])
         self.assertIn("rule r2 (l2) evidence: score at least 7: 0 of 0 counted reads; "
                       "interval not computed", lines)
-        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]",
+        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]",
                       lines)
         self.assertEqual([x for x in lines if x.startswith("rule r2") and "p = " in x], [])
 
@@ -180,7 +180,7 @@ class MissingReadsCase(unittest.TestCase):
         self.assertIn("missing l2 version: 0 of 6 planned reads (failed 0, not run 0)", lines)
         self.assertIn("rule r1 (l1) completions (missing reads: 1): unsettled: PASS, "
                       "INCONCLUSIVE possible", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 5 counted reads]",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]",
                       lines)
         self.assertEqual([x for x in lines if x.startswith("DEAD:")], [])
 
@@ -192,7 +192,7 @@ class MissingReadsCase(unittest.TestCase):
         for arm in ("l1", "l2"):
             self.assertIn("anchor gate %s: not evaluated (0 valid anchor reads of 4 planned)"
                           % arm, lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 of 0 counted reads]",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]",
                       lines)
         self.assertEqual([x for x in lines if " completions (" in x], [])
 

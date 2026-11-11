@@ -50,6 +50,7 @@ changed_lines = harness.changed_lines
 read_text = harness.read_text
 
 AA = "aa"
+SENS = "s"
 LABELS = ("READ", "PRIOR", "SCORE-A", "SCORE-B", "PREFER", "DROVE-IT", "DOUBTS",
           "UNDERSOLD", "OVEREXPLAINED", "OWNED", "FLAG-FIXES")
 FREE_TEXT_FIELDS = ("DROVE-IT", "DOUBTS", "UNDERSOLD", "OVEREXPLAINED", "OWNED",
@@ -100,8 +101,8 @@ add a comma and a short reason on the same line. For no preference write
 class FakeRule(object):
     """One rule of the fake reader. Build one with the class methods below.
 
-    ``arms`` names the arms it applies to ("aa", "c1", "c2", ...); by default every
-    comparison and not the A/A arm. ``on_reads`` is a set of read numbers counted across
+    ``arms`` names the arms it applies to ("aa", "s", "c1", "c2", ...); by default every
+    comparison and neither the A/A arm nor the sensitivity arm. ``on_reads`` is a set of read numbers counted across
     the arm; a preference rule gives TIE on every other read of the arm."""
 
     PREFERENCE_KINDS = ("containing", "not-containing", "tie", "slot", "random")
@@ -209,7 +210,9 @@ class Plan(object):
                  reads_per_reader=3, hypotheses=(), mechanisms=(), change_scope=(),
                  noise_threshold=Fraction(1, 2), spend_ceiling=None, aa_version=None,
                  amends=None, read_timeout=DEFAULT_READ_TIMEOUT, sidedness="two",
-                 alpha=Fraction(1, 20), alpha_text="0.05"):
+                 alpha=Fraction(1, 20), alpha_text="0.05", sensitivity=None,
+                 sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6), min_valid_reads=None,
+                 replicate_of=None):
         self.posting = posting
         self.versions = list(versions)
         self.comparisons = list(comparisons)
@@ -223,10 +226,15 @@ class Plan(object):
         self.spend_ceiling = spend_ceiling
         self.aa_version = aa_version
         self.amends = amends
+        self.replicate_of = replicate_of
         self.read_timeout = read_timeout
         self.sidedness = sidedness
         self.alpha = alpha
         self.alpha_text = alpha_text
+        self.sensitivity = sensitivity
+        self.sensitivity_scope = list(sensitivity_scope)
+        self.sensitivity_threshold = sensitivity_threshold
+        self.min_valid_reads = min_valid_reads
 
     def version_path(self, name):
         for version, path in self.versions:
@@ -250,9 +258,10 @@ class Plan(object):
 # ------------------------------------------------------------------ the plan file
 
 _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
-              "change-scope", "fake-reader")
+              "change-scope", "sensitivity-scope", "fake-reader")
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
-                "spend-ceiling", "amends", "read-timeout", "sidedness", "alpha")
+                "spend-ceiling", "amends", "replicate-of", "read-timeout", "sidedness", "alpha",
+                "sensitivity", "sensitivity-threshold", "min-valid-reads")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
 _FRACTION = re.compile(r"([0-9]+)/([0-9]+)\Z")
@@ -357,6 +366,32 @@ def parse_text(text):
             alpha_text = value
         else:
             state.bad(number, "alpha is written as 0. followed by digits, not all zero")
+    sensitivity = None
+    if "sensitivity" in scalars:
+        number, value = scalars["sensitivity"]
+        match = _COMPARISON.match(value)
+        if not match:
+            state.bad(number, "sensitivity is written: X vs W")
+        elif match.group(1) not in names or match.group(2) not in names:
+            state.bad(number, "the sensitivity pair names a version the plan does not have")
+        else:
+            sensitivity = (match.group(1), match.group(2))
+    sensitivity_threshold = Fraction(5, 6)
+    if "sensitivity-threshold" in scalars:
+        number, value = scalars["sensitivity-threshold"]
+        match = _FRACTION.match(value)
+        if not match or int(match.group(2)) == 0:
+            state.bad(number, "sensitivity-threshold is written as a fraction n/d")
+        else:
+            got = Fraction(int(match.group(1)), int(match.group(2)))
+            if got <= Fraction(1, 2) or got > 1:
+                state.bad(number, "sensitivity-threshold must be above 1/2 and at most 1")
+            else:
+                sensitivity_threshold = got
+    min_valid_reads = None
+    if "min-valid-reads" in scalars:
+        number, value = scalars["min-valid-reads"]
+        min_valid_reads = state.integer(number, "min-valid-reads", value, minimum=1)
     ceiling = None
     if "spend-ceiling" in scalars:
         number, value = scalars["spend-ceiling"]
@@ -367,6 +402,13 @@ def parse_text(text):
         got = state.integer(number, "read-timeout", value)
         timeout = got if got is not None else DEFAULT_READ_TIMEOUT
     amends = scalars["amends"][1] if "amends" in scalars else None
+    replicate_of = None
+    if "replicate-of" in scalars:
+        number, replicate_of = scalars["replicate-of"]
+        if not replicate_of.endswith(harness.FREEZE_SUFFIX):
+            state.bad(number, "replicate-of must name a .freeze file")
+        if "amends" in scalars:
+            state.bad(number, "a plan may not carry both replicate-of and amends")
 
     # readers
     readers = harness.parse_readers(state, lists.get("readers", []))
@@ -384,7 +426,8 @@ def parse_text(text):
         if len(rest) != 1:
             state.bad(number, "a hypothesis is written: [comparison |] rule")
             continue
-        clauses = _hypothesis_clauses(state, number, rest[0], comparisons[comparison - 1])
+        clauses = _hypothesis_clauses(state, number, rest[0], comparisons[comparison - 1],
+                                      sensitivity)
         if clauses is not None:
             hypotheses.append(Hypothesis("h%d" % (len(hypotheses) + 1), comparison, clauses))
 
@@ -437,12 +480,34 @@ def parse_text(text):
             else:
                 change_scope.append((comparison, parts[0]))
 
+    # sensitivity scope
+    sensitivity_scope = []
+    for number, item in lists.get("sensitivity-scope", []):
+        parts = state.fields(number, item)
+        if parts is None:
+            continue
+        if len(parts) != 1:
+            state.bad(number, "a sensitivity-scope item is a pattern")
+        elif state.pattern(number, parts[0]):
+            if re.fullmatch(parts[0], "") or re.search(parts[0], ""):
+                state.bad(number, "a sensitivity-scope pattern must not match empty text")
+            else:
+                sensitivity_scope.append(parts[0])
+    if "sensitivity" in scalars and not lists.get("sensitivity-scope"):
+        state.bad(scalars["sensitivity"][0], "a sensitivity pair needs a sensitivity-scope")
+    if "sensitivity-scope" in lists and "sensitivity" not in scalars:
+        for number, raw in enumerate(harness.LINE_BREAK.split(text), 1):
+            if raw[:1] not in " \t" and raw.partition(":")[0].strip() == "sensitivity-scope":
+                state.bad(number, "sensitivity-scope needs a sensitivity pair")
+                break
+
     # the fake reader
     has_fake = any(r.kind == "fake" for r in readers)
     reads = len(readers) * reads_per_reader
     rules, rule_lines = [], []
     for number, item in lists.get("fake-reader", []):
-        rule = _fake_rule(state, number, item, comparison_text, reads)
+        rule = _fake_rule(state, number, item, comparison_text, reads,
+                          "sensitivity" in scalars)
         if rule is not None:
             rules.append(rule)
             rule_lines.append(number)
@@ -466,11 +531,15 @@ def parse_text(text):
                 mechanisms=mechanisms, change_scope=change_scope, noise_threshold=noise,
                 spend_ceiling=ceiling, aa_version=aa_version, amends=amends,
                 read_timeout=timeout, sidedness=sidedness, alpha=alpha,
-                alpha_text=alpha_text)
+                alpha_text=alpha_text, sensitivity=sensitivity,
+                sensitivity_scope=sensitivity_scope,
+                sensitivity_threshold=sensitivity_threshold,
+                min_valid_reads=min_valid_reads, replicate_of=replicate_of)
 
 
-def _hypothesis_clauses(state, number, rule, pair):
-    """The ordered (verdict, Clause) list of a hypothesis rule, or None."""
+def _hypothesis_clauses(state, number, rule, pair, sensitivity=None):
+    """The ordered (verdict, Clause) list of a hypothesis rule, or None. A clause may not
+    name the weakened copy of the sensitivity pair."""
     pieces = rule.split("; ")
     if pieces[-1] != "otherwise INCONCLUSIVE":
         state.bad(number, "a hypothesis rule ends with: otherwise INCONCLUSIVE")
@@ -485,6 +554,11 @@ def _hypothesis_clauses(state, number, rule, pair):
             ok = False
             continue
         verdict, version = match.group(1), match.group(2)
+        if sensitivity is not None and version == sensitivity[1]:
+            state.bad(number, "a hypothesis may not name the weakened copy of the sensitivity "
+                      "pair: %s" % _short(version))
+            ok = False
+            continue
         if version not in pair:
             state.bad(number, "the hypothesis names %s, which is not in its comparison"
                       % _short(version))
@@ -505,15 +579,20 @@ def _hypothesis_clauses(state, number, rule, pair):
     return clauses if ok else None
 
 
-def _fake_rule(state, number, item, comparison_text, reads):
+def _fake_rule(state, number, item, comparison_text, reads, has_pair=False):
     """One FakeRule from a fake-reader item, or None with a problem recorded."""
     parts = state.fields(number, item)
     if parts is None:
         return None
     arms = None
-    if len(parts) > 1 and (parts[0] in ("all", AA) or parts[0] in comparison_text):
+    if len(parts) > 1 and (parts[0] in ("all", AA, SENS) or parts[0] in comparison_text):
+        if parts[0] == SENS and not has_pair:
+            state.bad(number, "an s rule needs a sensitivity pair")
+            return None
         if parts[0] == AA:
             arms = [AA]
+        elif parts[0] == SENS:
+            arms = [SENS]
         elif parts[0] != "all":
             arms = ["c%d" % (comparison_text.index(parts[0]) + 1)]
         parts = parts[1:]
@@ -598,6 +677,8 @@ def _inputs(plan, plan_path):
         items.append((path, os.path.join(folder, path)))
     if plan.amends is not None:
         items.append((plan.amends, os.path.join(folder, plan.amends)))
+    if plan.replicate_of is not None:
+        items.append((plan.replicate_of, os.path.join(folder, plan.replicate_of)))
     return harness.unique_inputs(items)
 
 
@@ -614,9 +695,12 @@ def _verify(plan_path, with_prompt):
 # ------------------------------------------------------------------ the isolation check
 
 def _arms(plan):
-    """(arm id, first version, second version): the A/A arm, then each comparison."""
+    """(arm id, first version, second version): the A/A arm, the sensitivity arm when the
+    plan has a pair, then each comparison."""
     aa = plan.effective_aa_version()
     arms = [(AA, aa, aa)]
+    if plan.sensitivity is not None:
+        arms.append((SENS, plan.sensitivity[0], plan.sensitivity[1]))
     for index, (first, second) in enumerate(plan.comparisons, 1):
         arms.append(("c%d" % index, first, second))
     return arms
@@ -641,7 +725,7 @@ def _isolation_problems(plan, plan_path):
                     texts[name] = None
         return texts[name]
 
-    for index, (arm, first, second) in enumerate(_arms(plan)):
+    for arm, first, second in _arms(plan):
         a, b = lines_of(first), lines_of(second)
         if a is None or b is None:
             continue
@@ -655,12 +739,17 @@ def _isolation_problems(plan, plan_path):
             problems.append("%s: no changed line; a file compared with itself is the "
                             "control, not a test" % label)
             continue
-        scope = [pattern for comparison, pattern in plan.change_scope
-                 if comparison in (None, index)]
+        if arm == SENS:
+            scope, what = plan.sensitivity_scope, "sensitivity"
+        else:
+            index = int(arm[1:])
+            scope = [pattern for comparison, pattern in plan.change_scope
+                     if comparison in (None, index)]
+            what = "change"
         for mark, line in changes:
             if not any(re.search(pattern, line) for pattern in scope):
-                problems.append("%s: changed line outside the change scope: %s %s"
-                                % (arm, mark, _show(line)))
+                problems.append("%s: changed line outside the %s scope: %s %s"
+                                % (arm, what, mark, _show(line)))
     return problems
 
 
@@ -759,7 +848,7 @@ def _planned_reads(plan):
 
 def _applies(rule, read):
     if rule.arms is None:
-        return read.arm != AA
+        return read.arm not in (AA, SENS)
     return read.arm in rule.arms
 
 
@@ -845,6 +934,21 @@ def run(plan_path, live=False):
         return Result(2, False, error=exc.line)
 
 
+def _first_folder(plan_path, plan):
+    """The folder of the first run, as the plan's replicate-of text names it, or None."""
+    if plan.replicate_of is None:
+        return None
+    return os.path.dirname(os.path.join(harness.folder_of(plan_path), plan.replicate_of))
+
+
+def _first_run_problems(plan_path, plan):
+    """A replicate waits for its first run: that folder must already hold a key."""
+    first = _first_folder(plan_path, plan)
+    if first is None or os.path.isfile(os.path.join(first, KEY_FILE)):
+        return []
+    return ["the first run has not been run yet: %s" % _show(os.path.dirname(plan.replicate_of))]
+
+
 def _run(plan_path, live):
     folder = harness.folder_of(plan_path)
     plan, problems, recorded, freeze_hash = _verify(plan_path, with_prompt=True)
@@ -857,6 +961,8 @@ def _run(plan_path, live):
             except Unreadable as exc:
                 problems.append("cannot read %s: %s" % (_show(plan.posting), exc))
     problems += harness.run_folder_problems(folder)
+    if plan is not None:
+        problems += _first_run_problems(plan_path, plan)
     if problems:
         return Result(2, False, error="\n".join(problems))
     planned = _planned_reads(plan)
@@ -885,9 +991,13 @@ def _run(plan_path, live):
 
 def score(plan_path):
     """Score the replies in the run folder again, against the frozen plan. Writes a new result."""
-    return harness.score(plan_path, parse, _inputs, prompt_sha256(), 4,
-                         lambda plan, recorded, freeze_hash: _score_and_write(
-                             plan_path, plan, recorded, freeze_hash))
+    def write(plan, recorded, freeze_hash):
+        problems = _first_run_problems(plan_path, plan)
+        if problems:
+            return Result(2, False, error="\n".join(problems))
+        return _score_and_write(plan_path, plan, recorded, freeze_hash)
+
+    return harness.score(plan_path, parse, _inputs, prompt_sha256(), 4, write)
 
 
 # ------------------------------------------------------------------ scoring
@@ -919,10 +1029,9 @@ def _clause_holds(clause, valid, picks):
     return valid == clause.n and picks.get(clause.version, 0) >= clause.k
 
 
-def _completions_line(plan, hyp, recs, picks, first, second, m):
-    """Say whether the rule's verdict would hold whatever the m missing reads said.
-
-    Reads the rule's clauses alone: no A/A gate, no position. Reported only."""
+def _completion_outcomes(plan, hyp, recs, picks, first, second, m):
+    """The verdicts the rule's clauses could give, and the exact p-values, over every way
+    the m missing reads could have gone. Reads the clauses alone: no gate, no position."""
     x0 = picks.get(first, 0)
     y0 = picks.get(second, 0)
     verdicts = set()
@@ -939,6 +1048,17 @@ def _completions_line(plan, hyp, recs, picks, first, second, m):
             verdicts.add(verdict)
             if x0 + x + y0 + y >= 1:
                 exact.append(stats.binomial_p(y0 + y, x0 + x + y0 + y, plan.sidedness))
+    return verdicts, exact
+
+
+def _completions_line(plan, hyp, recs, picks, first, second, m, outcomes=None):
+    """Say whether the rule's verdict would hold whatever the m missing reads said.
+
+    Reads the rule's clauses alone: no A/A gate, no position. Reported only. ``outcomes`` is
+    the result of ``_completion_outcomes`` when the caller already has it."""
+    if outcomes is None:
+        outcomes = _completion_outcomes(plan, hyp, recs, picks, first, second, m)
+    verdicts, exact = outcomes
     seen = [v for v in ("SUPPORTED", "REFUTED", "INCONCLUSIVE") if v in verdicts]
     if exact:
         spread = "p from %s to %s" % (stats.p_text(min(exact)), stats.p_text(max(exact)))
@@ -962,6 +1082,23 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                               parse_reply)
     arms = _arms(plan)
     not_blind = set(r.name for r in plan.readers if r.not_blind)
+    # I-1 (C:152, § 6): every verdict, gate, count, position and score below uses blind
+    # readers' reads only, planned reads included. The per-read rows, the key and slot
+    # lines, the not-blind reads line, DEAD and the tail still cover every reader.
+    blind_records = [x for x in records if x.read.reader not in not_blind]
+    blind_reads = [r for r in reads if r.reader not in not_blind]
+    first_blind = None
+    if plan.replicate_of is not None:
+        # The first run's folder is read, never written.
+        first_folder = _first_folder(plan_path, plan)
+        first_log = harness.load_log(first_folder)
+        first_cut = first_log.get("cut") == "yes"
+        first_stopped = first_log.get("stopped")
+        first_reads = [PlannedRead(*row) for row in harness.load_key(first_folder, 4)]
+        first_records = harness.records(first_folder, first_reads,
+                                        first_cut or first_stopped is not None,
+                                        harness.log_failures(first_log), parse_reply)
+        first_blind = [x for x in first_records if x.read.reader not in not_blind]
     out = []
 
     out.append("plan sha256: %s" % _show(recorded.get(os.path.basename(plan_path), "unknown")))
@@ -969,6 +1106,8 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     if plan.amends is not None:
         out.append("amended freeze sha256: %s" % _show(recorded.get(plan.amends, "unknown")))
     out.append("prompt sha256: %s" % _show(recorded.get(PROMPT_LABEL, "unknown")))
+    if plan.replicate_of is not None:
+        out.append("replicate of: %s" % _show(recorded.get(plan.replicate_of, "unknown")))
     aa_version = plan.effective_aa_version()
     out.append("A/A arm: added by the tool, using version %s" % aa_version)
     if plan.aa_version is None:
@@ -1007,9 +1146,14 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         else:
             out.append("%s not run" % head)
 
-    def valid_in(arm, only=None):
+    def valid_in(arm):
+        """The valid reads of a blind reader in this arm."""
+        return [x for x in blind_records if x.read.arm == arm and x.status == "valid"]
+
+    def valid_not_blind_in(arm):
+        """The valid reads of a reader marked not-blind in this arm."""
         return [x for x in records if x.read.arm == arm and x.status == "valid"
-                and (only is None or x.read.reader in only)]
+                and x.read.reader in not_blind]
 
     def picks_in(recs):
         picks = {}
@@ -1022,10 +1166,11 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                 picks[version] = picks.get(version, 0) + 1
         return picks, ties
 
-    # reads, all readers and not-blind readers
+    # reads, blind readers (all readers when none is marked not-blind) and not-blind readers
+    first_label = "blind readers" if not_blind else "all readers"
     for arm, first, second in arms:
-        for label, only in (("all readers", None), ("not-blind readers", not_blind)):
-            recs = valid_in(arm, only)
+        for label, recs in ((first_label, valid_in(arm)),
+                            ("not-blind readers", valid_not_blind_in(arm))):
             picks, ties = picks_in(recs)
             versions = [first] if first == second else [first, second]
             out.append("reads %s %s: valid=%d %s tie=%d" % (
@@ -1035,18 +1180,18 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
     # missing reads, per arm, and a dead run
     missing = {}
     for arm, _first, _second in arms:
-        mine = [x for x in records if x.read.arm == arm]
+        mine = [x for x in blind_records if x.read.arm == arm]
         failed = len([x for x in mine if x.status == "failed"])
         not_run = len([x for x in mine if x.status not in ("valid", "failed")])
         missing[arm] = failed + not_run
         out.append("missing %s: %d of %d planned reads (failed %d, not run %d)"
-                   % (arm, failed + not_run, len([r for r in reads if r.arm == arm]),
+                   % (arm, failed + not_run, len([r for r in blind_reads if r.arm == arm]),
                       failed, not_run))
     if not any(x.status == "valid" for x in records):
         out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
 
     # A/A gate
-    aa_planned = len([r for r in reads if r.arm == AA])
+    aa_planned = len([r for r in blind_reads if r.arm == AA])
     aa_valid = valid_in(AA)
     if aa_planned == 0 or len(aa_valid) < aa_planned:
         gate = "not evaluated"
@@ -1067,6 +1212,33 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             out.append("A/A gate: passed (%d of %d valid A/A reads clearly or strongly "
                        "non-TIE; threshold %s)" % (strong, len(aa_valid),
                                                  plan.noise_threshold))
+    # sensitivity gate: of the blind readers' valid reads of the pair, how many prefer X
+    sens_gate = "not tested"
+    if plan.sensitivity is not None:
+        sens_x = plan.sensitivity[0]
+        sens_planned = len([r for r in blind_reads if r.arm == SENS])
+        sens_valid = valid_in(SENS)
+        if sens_planned == 0 or len(sens_valid) < sens_planned:
+            sens_gate = "not evaluated"
+            out.append("sensitivity gate: not evaluated (%d valid reads of %d planned)"
+                       % (len(sens_valid), sens_planned))
+        else:
+            sens_k = len([x for x in sens_valid if _pick(x)[0] == sens_x])
+            sens_n = len(sens_valid)
+            if Fraction(sens_k, sens_n) < plan.sensitivity_threshold:
+                sens_gate = "failed"
+            else:
+                sens_gate = "passed"
+            out.append("sensitivity gate: %s (%d of %d valid sensitivity reads prefer %s; "
+                       "threshold %s)" % (sens_gate, sens_k, sens_n, sens_x,
+                                          plan.sensitivity_threshold))
+            low, high = stats.wilson(sens_k, sens_n)
+            out.append("sensitivity gate evidence: p = %s one-sided greater (reads may be "
+                       "correlated; may be too small); 95%% interval %s to %s"
+                       % (stats.p_text(stats.binomial_p(sens_k, sens_n, "greater")),
+                          low, high))
+    else:
+        out.append("sensitivity gate: not tested")
     if aa_valid:
         strong = len([x for x in aa_valid
                       if x.reply.choice != "TIE" and x.reply.strength in STRONG])
@@ -1124,16 +1296,46 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
+        if sens_gate == "failed":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate failed: the readers did not detect the "
+                           "planted difference")
+        elif sens_gate == "not evaluated":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate was not evaluated")
         if position[arm] == "INCONCLUSIVE":
             verdict = "INCONCLUSIVE"
             reasons.append("position is INCONCLUSIVE on %s" % arm)
+        floor = plan.min_valid_reads
+        below = floor is not None and len(recs) < floor
+        if below:
+            verdict = "INCONCLUSIVE"
+            reasons.append("below the read floor (%d valid reads, floor %d)"
+                           % (len(recs), floor))
+        outcomes = None
+        if missing[arm]:
+            outcomes = _completion_outcomes(plan, hyp, recs, picks, first, second,
+                                            missing[arm])
+        # a lift: settled under every completion, and nothing but the rule made it INCONCLUSIVE
+        lifted = False
+        if (floor is not None and not below and not reasons and verdict == "INCONCLUSIVE"
+                and outcomes is not None and len(outcomes[0]) == 1
+                and next(iter(outcomes[0])) in ("SUPPORTED", "REFUTED")):
+            verdict = next(iter(outcomes[0]))
+            lifted = True
+            reasons.append("lifted from INCONCLUSIVE: settled under every completion of %d "
+                           "missing reads; read floor %d met" % (missing[arm], floor))
+            for kind, clause in hyp.clauses:
+                if kind == verdict:
+                    decider = clause
+                    break
         out.append("hypothesis %s rule: %s" % (hyp.name, "; ".join(rule) or "none"))
         out.append("hypothesis %s counts: valid=%d %s=%d %s=%d tie=%d" % (
             hyp.name, len(recs), first, picks.get(first, 0), second,
             picks.get(second, 0), ties))
-        blind_count = len([x for x in recs if x.read.reader in not_blind])
-        out.append("hypothesis %s verdict: %s [not blind: %d of %d valid reads]"
-                   % (hyp.name, verdict, blind_count, len(recs)))
+        left_out = len(valid_not_blind_in(arm))
+        out.append("hypothesis %s verdict: %s [not blind: %d reads left out]"
+                   % (hyp.name, verdict, left_out))
         for reason in reasons:
             out.append("hypothesis %s reason: %s" % (hyp.name, reason))
         n = sum(picks.values())
@@ -1149,7 +1351,7 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                        "95%% interval %s to %s" % (
                            hyp.name, _show(second), k, n, ties, stats.p_text(p),
                            SIDE_TEXT[plan.sidedness], low, high))
-            if reasons:
+            if reasons and not lifted:
                 pass
             elif verdict in ("SUPPORTED", "REFUTED"):
                 tested = second if plan.sidedness == "greater" else first
@@ -1165,7 +1367,15 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                            "below alpha %s" % (hyp.name, stats.p_text(p), plan.alpha_text))
         if missing[arm]:
             out.append(_completions_line(plan, hyp, recs, picks, first, second,
-                                         missing[arm]))
+                                         missing[arm], outcomes))
+        if first_blind is not None:
+            first_picks, _first_ties = picks_in([x for x in first_blind
+                                                 if x.read.arm == arm and x.status == "valid"])
+            k1, n1 = first_picks.get(second, 0), sum(first_picks.values())
+            out.append("hypothesis %s replicate: first run %s %d of %d, this run %d of %d; "
+                       "Fisher exact p = %s two-sided"
+                       % (hyp.name, _show(second), k1, n1, picks.get(second, 0), n,
+                          stats.p_text(stats.fisher_p(k1, n1, picks.get(second, 0), n))))
 
     # mechanisms
     def matching(recs, mech):
@@ -1199,9 +1409,20 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         elif gate == "not evaluated":
             verdict = "INCONCLUSIVE"
             reasons.append("the A/A gate was not evaluated")
-        blind_count = len([x for x in recs if x.read.reader in not_blind])
-        out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d of %d valid reads]"
-                   % (label, verdict, mech.k, blind_count, len(recs)))
+        if sens_gate == "failed":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate failed: the readers did not detect the "
+                           "planted difference")
+        elif sens_gate == "not evaluated":
+            verdict = "INCONCLUSIVE"
+            reasons.append("the sensitivity gate was not evaluated")
+        if plan.min_valid_reads is not None and len(recs) < plan.min_valid_reads:
+            verdict = "INCONCLUSIVE"
+            reasons.append("below the read floor (%d valid reads, floor %d)"
+                           % (len(recs), plan.min_valid_reads))
+        left_out = len(valid_not_blind_in(arm))
+        out.append("%s verdict: %s (SUPPORTED at %d or more) [not blind: %d reads left out]"
+                   % (label, verdict, mech.k, left_out))
         for reason in reasons:
             out.append("%s reason: %s" % (label, reason))
 
@@ -1244,6 +1465,34 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
                    % (arm, same, len(recs)))
         if recs and ceiling == len(recs):
             out.append("scores %s: at the ceiling; preference is the only measure" % arm)
+    if plan.sensitivity is not None:
+        sens_x, sens_w = plan.sensitivity
+        for reader in plan.readers:
+            if reader.name in not_blind:
+                continue
+            mine = {sens_x: [], sens_w: []}
+            for x in valid_in(SENS):
+                if x.read.reader != reader.name:
+                    continue
+                for version, mark in ((x.read.slot_a, x.reply.score_a),
+                                      (x.read.slot_b, x.reply.score_b)):
+                    mine[version].append(mark)
+            if mine[sens_x]:
+                gap = (Fraction(sum(mine[sens_x]), len(mine[sens_x]))
+                       - Fraction(sum(mine[sens_w]), len(mine[sens_w])))
+                text = "%.2f" % float(gap)
+                if text == "-0.00":
+                    text = "0.00"
+                out.append("sensitivity score gap %s: %s" % (reader.name, text))
+    groups = []
+    for reader in plan.readers:
+        if reader.group is not None and reader.group not in groups:
+            groups.append(reader.group)
+    for group in groups:
+        names = set(r.name for r in plan.readers if r.group == group)
+        out.append("reader-group %s: %d valid reads"
+                   % (group, len([x for x in records
+                                  if x.status == "valid" and x.read.reader in names])))
     out.append(VALIDITY_LINE)
 
     return harness.finish_result(folder, out, records, log, stopped)

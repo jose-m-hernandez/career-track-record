@@ -74,11 +74,12 @@ class Result(object):
 class Reader(object):
     """A reader. ``command`` is the word ``fake`` or the text of a live command."""
 
-    def __init__(self, name, command=FAKE, not_blind=False, cost=1):
+    def __init__(self, name, command=FAKE, not_blind=False, cost=1, group=None):
         self.name = name
         self.command = command
         self.not_blind = not_blind
         self.cost = cost
+        self.group = group
 
     @property
     def kind(self):
@@ -202,7 +203,7 @@ def structure(state, text, list_keys, scalar_keys):
 
 def parse_readers(state, items):
     """The Readers of a plan's ``readers`` items: ``<name> | <command>``, then optionally
-    ``not-blind`` and ``cost <n>`` in either order. A live command must split into words
+    ``not-blind``, ``cost <n>`` and ``reader-group <name>``, once each, in any order. A live command must split into words
     and name an absolute path or a program looked up on PATH."""
     readers, names = [], set()
     for number, item in items:
@@ -221,6 +222,7 @@ def parse_readers(state, items):
             continue
         not_blind, cost, ok = False, 1, True
         seen_cost = False
+        group = None
         for extra in parts[2:]:
             if extra == "not-blind" and not not_blind:
                 not_blind = True
@@ -231,9 +233,17 @@ def parse_readers(state, items):
                     ok = False
                 else:
                     cost = got
+            elif extra.startswith("reader-group ") and group is None:
+                got = extra[13:].strip()
+                if NAME.match(got):
+                    group = got
+                else:
+                    state.bad(number, "a name holds letters, digits and - only: %s"
+                              % short(got))
+                    ok = False
             else:
-                state.bad(number, "a reader's extra field is not-blind or cost <n>, once "
-                          "each: %s" % short(extra))
+                state.bad(number, "a reader's extra fields may be not-blind, cost <n> and "
+                          "reader-group <name>, each at most once: %s" % short(extra))
                 ok = False
         if command != FAKE:
             try:
@@ -250,7 +260,8 @@ def parse_readers(state, items):
                     ok = False
         if ok:
             names.add(name)
-            readers.append(Reader(name, command, not_blind, cost if command != FAKE else 1))
+            readers.append(Reader(name, command, not_blind, cost if command != FAKE else 1,
+                                  group))
     return readers
 
 
@@ -408,6 +419,8 @@ def _freeze(plan_path, parse, inputs, prompt_digest):
             problems.append("missing input: %s" % show(label))
         hashes.append((label, digest))
     hashes.append((PROMPT_LABEL, prompt_digest))
+    if getattr(plan, "replicate_of", None) is not None:
+        problems += replicate_problems(plan_path, plan, inputs, parse)
     for name in freeze_files(folder):
         problems.append("a freeze file already exists: %s" % show(name))
     for name in reply_files(folder):
@@ -418,6 +431,73 @@ def _freeze(plan_path, parse, inputs, prompt_digest):
     write_new(folder, os.path.join(folder, name),
               "".join("%s  %s\n" % (digest, label) for label, digest in hashes))
     return Result(0, True, text="freeze written: %s\n" % show(name))
+
+
+def _without_replicate_line(data):
+    """The plan's bytes without its one replicate-of line and the line break that ends it,
+    found by the parser's rules."""
+    text = data.decode("utf-8")
+    start = 0
+    for match in list(LINE_BREAK.finditer(text)) + [None]:
+        end = len(text) if match is None else match.end()
+        line = text[start:len(text) if match is None else match.start()]
+        stripped = line.strip()
+        if (stripped and not stripped.startswith("#") and line[0] not in " \t"
+                and stripped.partition(":")[0].strip() == "replicate-of"):
+            return (text[:start] + text[end:]).encode("utf-8")
+        start = end
+    return data
+
+
+def replicate_problems(plan_path, plan, inputs, parse):
+    """The problems of a replicate plan against its first run's freeze file, in order. It
+    writes nothing. Names are shown as the plan writes them, relative to this folder."""
+    folder = folder_of(plan_path)
+    named = plan.replicate_of
+    freeze_path = os.path.join(folder, named)
+    if not os.path.isfile(freeze_path):
+        return []
+    if (os.path.realpath(os.path.dirname(freeze_path)) == os.path.realpath(folder)):
+        return []
+    try:
+        recorded = dict(read_freeze(freeze_path))
+    except (OSError, UnicodeDecodeError):
+        return ["cannot read the freeze file: %s" % show(named)]
+    problems = []
+    for index, (label, path) in enumerate(inputs(plan, plan_path)):
+        if index == 0 or label == named or not os.path.isfile(path):
+            continue
+        if recorded.get(label) != sha256_file(path):
+            problems.append("changed since the first freeze: %s" % show(label))
+    first_name = named[:-len(FREEZE_SUFFIX)]
+    first_path = os.path.join(folder, first_name)
+    if not os.path.isfile(first_path):
+        problems.append("the first plan is missing: %s" % show(first_name))
+        return problems
+    if recorded.get(os.path.basename(first_name)) != sha256_file(first_path):
+        problems.append("changed since the freeze: %s" % show(first_name))
+        return problems
+    try:
+        first_plan = parse(first_path)
+    except PlanError:
+        first_plan = None
+    if first_plan is not None:
+        if getattr(first_plan, "replicate_of", None) is not None:
+            problems.append("replicate-of must name a first run, not a replicate: %s" % show(first_name))
+        if getattr(first_plan, "amends", None) is not None:
+            problems.append("replicate-of must name a first run, not an amendment: %s" % show(first_name))
+    with open(first_path, "rb") as handle:
+        first_bytes = handle.read()
+    with open(plan_path, "rb") as handle:
+        mine = handle.read()
+    try:
+        left = _without_replicate_line(mine)
+    except UnicodeDecodeError:
+        left = mine
+    if left != first_bytes:
+        problems.append("the plan differs from the first plan in more than its replicate-of "
+                        "line: %s" % show(os.path.basename(plan_path)))
+    return problems
 
 
 def read_freeze(path):

@@ -3,7 +3,8 @@
 The behaviour is stated in docs/specs/reader-ab.md section 6.1 (and, for a chance other
 than one half, docs/specs/reader-panel.md section 6.1). This module also holds the two
 printed forms: the p-value rounded half up to 4 places, and the interval's ends rounded
-outward to 3.
+outward to 3. The module also gives the two-sided Fisher exact p-value that a replicate
+prints.
 
 The module starts no program and reads no file. Its arithmetic is exact, with
 fractions.Fraction, except the interval's square root, which uses decimal.Decimal at 60
@@ -39,6 +40,26 @@ def binomial_p(k, n, side="two", q=Fraction(1, 2)):
     if side == "less":
         return less
     return min(Fraction(1), 2 * min(greater, less))
+
+
+def fisher_p(k1, n1, k2, n2):
+    """Two-sided Fisher exact p-value for k1 of n1 against k2 of n2, as a Fraction."""
+    if n1 < 0 or n2 < 0:
+        raise ValueError("n1 and n2 must not be negative")
+    if k1 < 0 or k1 > n1:
+        raise ValueError("k1 must be between 0 and n1")
+    if k2 < 0 or k2 > n2:
+        raise ValueError("k2 must be between 0 and n2")
+    total_successes = k1 + k2
+    total = math.comb(n1 + n2, total_successes)
+    low = max(0, total_successes - n2)
+    high = min(total_successes, n1)
+    chance = {}
+    for a in range(low, high + 1):
+        chance[a] = Fraction(math.comb(n1, a) * math.comb(n2, total_successes - a), total)
+    seen = chance[k1]
+    p = sum((c for c in chance.values() if c <= seen), Fraction(0))
+    return min(Fraction(1), p)
 
 
 def p_text(p):

@@ -1,0 +1,103 @@
+plan sha256: 2453dccf93b4b423279a6afcd69bc9aae17584115f5a9c8adfbc3fffabea80a8
+freeze sha256: aa2186e738b7672a91514b1fa81470b4ccc63e6724b616634a0e315d0285ae75
+prompt sha256: 79657b05dbea178a019140c4f8bba1fddd1eba4c044d2b191f07dd849579ae1c
+version: version.txt
+anchor strong: anchor-strong.txt
+anchor weak: anchor-weak.txt
+anchor thresholds: strong at least 7; weak at most 4
+lens l1: recruiter (recruiter.lens.txt, sha256 ea2d5f2bacea4ef049624533f9c85a3c5add0c8b00e925da98113596ad3bc346)
+lens l2: manager (hiring-manager.lens.txt, sha256 7f3d5f8e1044228c34e74920ad914347b4e962ac7b631cc9254f205526a760c5)
+key l1/1: reader=r1 document=strong
+key l1/2: reader=r2 document=strong
+key l1/3: reader=r1 document=weak
+key l1/4: reader=r2 document=weak
+key l1/5: reader=r1 document=version
+key l1/6: reader=r1 document=version
+key l1/7: reader=r1 document=version
+key l1/8: reader=r2 document=version
+key l1/9: reader=r2 document=version
+key l1/10: reader=r2 document=version
+key l2/1: reader=r1 document=strong
+key l2/2: reader=r2 document=strong
+key l2/3: reader=r1 document=weak
+key l2/4: reader=r2 document=weak
+key l2/5: reader=r1 document=version
+key l2/6: reader=r1 document=version
+key l2/7: reader=r1 document=version
+key l2/8: reader=r2 document=version
+key l2/9: reader=r2 document=version
+key l2/10: reader=r2 document=version
+read l1/1: reader=r1 document=strong score=9 flagged=none flags=none
+read l1/2: reader=r2 document=strong score=9 flagged=none flags=none
+read l1/3: reader=r1 document=weak score=2 flagged=none flags=none
+read l1/4: reader=r2 document=weak score=2 flagged=none flags=none
+read l1/5: reader=r1 document=version score=7 flagged=none flags=none
+read l1/6: reader=r1 document=version score=7 flagged=none flags=none
+read l1/7: reader=r1 document=version score=7 flagged=none flags=none
+read l1/8: reader=r2 document=version score=7 flagged=none flags=none
+read l1/9: reader=r2 document=version score=7 flagged=none flags=none
+read l1/10: reader=r2 document=version score=7 flagged=none flags=none
+read l2/1: reader=r1 document=strong score=8 flagged=none flags=none
+read l2/2: reader=r2 document=strong score=8 flagged=none flags=none
+read l2/3: reader=r1 document=weak score=3 flagged=none flags=none
+read l2/4: reader=r2 document=weak score=3 flagged=none flags=none
+read l2/5: reader=r1 document=version score=7 flagged=none flags=none
+read l2/6: reader=r1 document=version score=7 flagged=none flags=none
+read l2/7: reader=r1 document=version score=7 flagged=none flags=none
+read l2/8: reader=r2 document=version score=7 flagged=none flags=none
+read l2/9: reader=r2 document=version score=7 flagged=none flags=none
+read l2/10: reader=r2 document=version score=7 flagged=none flags=none
+reads l1 strong: valid=2 of 2 planned
+reads l1 weak: valid=2 of 2 planned
+reads l1 version all readers: valid=6 of 6 planned
+reads l1 version not-blind readers: valid=0
+anchor gate l1: passed (strong scores 9, 9, all at least 7; weak scores 2, 2, all at most 4)
+lens l1: counted
+scores l1 strong: scores=2 total=18 mean=9.00 lowest=9 highest=9
+scores l1 weak: scores=2 total=4 mean=2.00 lowest=2 highest=2
+scores l1 version: scores=6 total=42 mean=7.00 lowest=7 highest=7
+scores l1 reader r1 version: scores=3 total=21 mean=7.00 lowest=7 highest=7
+scores l1 reader r2 version: scores=3 total=21 mean=7.00 lowest=7 highest=7
+flagged l1 version STRENGTHS: 0 of 6 valid reads
+flagged l1 version DOUBTS: 0 of 6 valid reads
+flagged l1 version UNDERSOLD: 0 of 6 valid reads
+flagged l1 version OVEREXPLAINED: 0 of 6 valid reads
+flagged l1 version OWNED: 0 of 6 valid reads
+flagged l1 version FLAG-FIXES: 0 of 6 valid reads
+scores l1 version against strong anchor: lowest version score 7, highest strong-anchor score 9
+scores l1 version spread: 0 (highest 7, lowest 7)
+scores l1: every read gives the version the same score
+reads l2 strong: valid=2 of 2 planned
+reads l2 weak: valid=2 of 2 planned
+reads l2 version all readers: valid=6 of 6 planned
+reads l2 version not-blind readers: valid=0
+anchor gate l2: passed (strong scores 8, 8, all at least 7; weak scores 3, 3, all at most 4)
+lens l2: counted
+scores l2 strong: scores=2 total=16 mean=8.00 lowest=8 highest=8
+scores l2 weak: scores=2 total=6 mean=3.00 lowest=3 highest=3
+scores l2 version: scores=6 total=42 mean=7.00 lowest=7 highest=7
+scores l2 reader r1 version: scores=3 total=21 mean=7.00 lowest=7 highest=7
+scores l2 reader r2 version: scores=3 total=21 mean=7.00 lowest=7 highest=7
+flagged l2 version STRENGTHS: 0 of 6 valid reads
+flagged l2 version DOUBTS: 0 of 6 valid reads
+flagged l2 version UNDERSOLD: 0 of 6 valid reads
+flagged l2 version OVEREXPLAINED: 0 of 6 valid reads
+flagged l2 version OWNED: 0 of 6 valid reads
+flagged l2 version FLAG-FIXES: 0 of 6 valid reads
+scores l2 version against strong anchor: lowest version score 7, highest strong-anchor score 8
+scores l2 version spread: 0 (highest 7, lowest 7)
+scores l2: every read gives the version the same score
+counted lenses: l1 l2
+missing l1 version: 0 of 6 planned reads (failed 0, not run 0)
+missing l2 version: 0 of 6 planned reads (failed 0, not run 0)
+rule r1 (l1): PASS if score at least 7 in 6 of 6; FAIL if score at most 4 in 2 or more
+rule r1 (l1) count: score at least 7: 6 of 6 valid reads
+rule r1 (l1) count: score at most 4: 0 of 6 valid reads
+rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]
+rule r1 (l1) evidence: score at least 7: 6 of 6 counted reads; 95% interval 0.609 to 1.000
+rule r1 (l1) evidence: score at most 4: 0 of 6 counted reads; 95% interval 0.000 to 0.391
+validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.
+spend tally: 20 (a tally of declared costs, not measured spend); ceiling: none
+failed reads: 0
+cut: no
+exit status: 0

@@ -6,6 +6,30 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-10
+
+### Added
+
+- `career_track_record/stats.py` gains the two-sided Fisher exact p-value, computed exactly, that a replicate run prints beside each count it compares with its first run.
+- `track-record ab` and `track-record panel` readers can name a reader group (`reader-group <name>`), for readers that are alike, such as one model behind two commands. The result counts each group's valid reads; a group changes no verdict.
+- `track-record ab` plans can name a sensitivity pair (`sensitivity: X vs W`, with `sensitivity-scope` and an optional `sensitivity-threshold`, default 5/6): a version against a copy of it weakened on purpose. It runs as its own arm, `s`, after the A/A arm and before the comparisons, and gets the isolation check against `sensitivity-scope`. Fake-reader rules reach it only when they name `s`.
+- `track-record ab` results judge a sensitivity pair: when fewer than `sensitivity-threshold` of the valid sensitivity reads prefer the version over its weakened copy, or the arm has fewer valid reads than planned, every comparison and mechanism is INCONCLUSIVE, with the reason. The gate's line gives its count, a one-sided p-value and an interval, and each reader's score gap between the two. Without a pair, every result says `sensitivity gate: not tested`.
+- `track-record ab` plans can set a read floor (`min-valid-reads`). A comparison with fewer valid reads from blind readers is INCONCLUSIVE "below the read floor". With a floor set and met, a verdict that is INCONCLUSIVE only because reads are missing, and that every completion of those reads settles the same way, takes the settled verdict, and the result says it was lifted.
+- `track-record ab` plans can name a first run's freeze file (`replicate-of`), to run the same frozen plan again in a new folder. `freeze` refuses a replicate whose plan differs from the first in any other line, or whose inputs have changed since the first freeze. `run` and `score` refuse a replicate until the first run has been run, and never write to its folder. Each hypothesis's result compares the two runs' counts with a two-sided Fisher exact p-value.
+- `track-record panel` plans can set a read floor (`min-valid-reads`). A rule that counts fewer valid reads from blind readers is INCONCLUSIVE "below the read floor". With a floor set and met, a rule that is INCONCLUSIVE only because reads are missing, and that every completion of those reads settles the same way, takes the settled verdict, and the result says it was lifted.
+- `track-record panel` plans can name a first run's freeze file (`replicate-of`), under the same freeze rules as `track-record ab`, with the lens files among the inputs that must be unchanged. Each rule's result compares each clause's counted reads in the two runs with a two-sided Fisher exact p-value.
+
+### Changed
+
+- The Reader A/B spec, docs/specs/reader-ab.md, is revision 3, signed by its owner. It adds an optional sensitivity arm (a version against a copy weakened on purpose), replicate runs and an optional read floor, and lets a settled completion lift an INCONCLUSIVE when the plan sets a floor. **It changes verdicts:** reads from a reader marked `not-blind` are no longer counted in any verdict.
+- The reader panel spec, docs/specs/reader-panel.md, is revision 3, signed by its owner. It adds replicate runs and an optional read floor, and the same lift. **It changes verdicts:** reads from a reader marked `not-blind` are no longer counted in any rule or gate.
+- 0.8.0 changes verdicts: reads that weren't blind no longer count toward a verdict, and each verdict line shows how many were left out. Plans frozen under 0.7.0 still run, and a verdict that used not-blind reads can come out differently.
+- `track-record ab` counts only blind readers' reads: reads from a reader marked `not-blind` are left out of every verdict, gate, mechanism count, score and missing-read line, and each verdict line ends with how many it left out (`[not blind: <b> reads left out]`). In a plan with a not-blind reader, the per-arm count line reads `reads blind readers`.
+- `track-record panel` counts only blind readers' reads: reads from a reader marked `not-blind` are left out of every rule, anchor gate, score, flag count and missing-read line, and each rule's verdict line ends with how many it left out (`[not blind: <b> reads left out]`). In a plan with a not-blind reader, the per-lens count lines begin `reads blind readers`.
+- The Reader A/B and reader panel specs are revision 3.1: each adds the maintainer's build interpretations of revision 3 after its signed text and carries forward revision 2.1's, amended where revision 3 changes them (what counts as blind, where the lines go, the sensitivity pair, the read floor and the lift, replicates, reader groups). The signed text is unchanged. A hypothesis may name the original version of a sensitivity pair; only its weakened copy is refused.
+- The README's example plans no longer mark a reader `not-blind`, so every rule they show can be met under 0.8.0. The README says a not-blind reader's reads are never counted toward a verdict, its panel section names revision 3, and it lists the plan keys added in 0.8.0.
+- The `track-record panel` version count line now names the readers first, as `track-record ab` does: `reads all readers <lens> version: …`.
+
 ## [0.7.0] - 2026-11-06
 
 ### Added

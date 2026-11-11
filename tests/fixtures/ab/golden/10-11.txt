@@ -1,0 +1,69 @@
+plan sha256: 582f7bbfe071da3f706f8f022d65c970647d26626391a0089a9f7a8f3b205da0
+freeze sha256: 89c2393ee8e54e09bc0ae5af98b003de168414790036109ca1ebea3d558aa4d1
+prompt sha256: 567b9bc16d86abfe4af935a844e28a1b6d2d257aa4f93b6ab3de8e97ce1fdd14
+A/A arm: added by the tool, using version skills-top
+A/A version: named by aa-version in the plan
+key aa/1: reader=r1 A=skills-top B=skills-top
+key aa/2: reader=r1 A=skills-top B=skills-top
+key aa/3: reader=r1 A=skills-top B=skills-top
+key aa/4: reader=r2 A=skills-top B=skills-top
+key aa/5: reader=r2 A=skills-top B=skills-top
+key aa/6: reader=r2 A=skills-top B=skills-top
+key c1/1: reader=r1 A=base B=skills-top
+key c1/2: reader=r1 A=skills-top B=base
+key c1/3: reader=r1 A=base B=skills-top
+key c1/4: reader=r2 A=skills-top B=base
+key c1/5: reader=r2 A=base B=skills-top
+key c1/6: reader=r2 A=skills-top B=base
+slot split c1 r1: base in slot A 2, skills-top in slot A 1
+slot split c1 r2: base in slot A 1, skills-top in slot A 2
+read aa/1: reader=r1 A=skills-top B=skills-top scores=5/5 prefer=TIE flags=none
+read aa/2: reader=r1 A=skills-top B=skills-top scores=5/5 prefer=TIE flags=none
+read aa/3: reader=r1 A=skills-top B=skills-top scores=5/5 prefer=TIE flags=none
+read aa/4: reader=r2 A=skills-top B=skills-top scores=5/5 prefer=TIE flags=none
+read aa/5: reader=r2 A=skills-top B=skills-top scores=5/5 prefer=TIE flags=none
+read aa/6: reader=r2 A=skills-top B=skills-top scores=5/5 prefer=TIE flags=none
+read c1/1: reader=r1 A=base B=skills-top scores=5/5 prefer=TIE flags=none
+read c1/2: reader=r1 A=skills-top B=base scores=5/5 prefer=TIE flags=none
+read c1/3: reader=r1 A=base B=skills-top scores=5/5 prefer=TIE flags=none
+read c1/4: reader=r2 A=skills-top B=base scores=5/5 prefer=TIE flags=none
+read c1/5: reader=r2 A=base B=skills-top scores=5/5 prefer=TIE flags=none
+read c1/6: reader=r2 A=skills-top B=base scores=5/5 prefer=TIE flags=none
+reads all readers aa: valid=6 skills-top=0 tie=6
+reads not-blind readers aa: valid=0 skills-top=0 tie=0
+reads all readers c1: valid=6 base=0 skills-top=0 tie=6
+reads not-blind readers c1: valid=0 base=0 skills-top=0 tie=0
+missing aa: 0 of 6 planned reads (failed 0, not run 0)
+missing c1: 0 of 6 planned reads (failed 0, not run 0)
+A/A gate: passed (0 of 6 valid A/A reads clearly or strongly non-TIE; threshold 1/2)
+A/A gate interval: 0.000 to 0.391 (95%, Wilson)
+position aa: 0 of 0 non-TIE picks in slot A: not assessable
+position c1: 0 of 0 non-TIE picks in slot A: not assessable
+position overall: 0 of 0 non-TIE picks in slot A: not assessable
+hypothesis h1 rule: SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more
+hypothesis h1 counts: valid=6 base=0 skills-top=0 tie=6
+hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 of 6 valid reads]
+hypothesis h1 evidence: no non-TIE pick, 6 TIE; p and interval not computed
+mechanism too long in c1 count: 4 of 6 valid reads
+mechanism too long in c1 A/A floor: 0 of 6 valid reads
+mechanism too long in c1 separation: separates the versions from the A/A floor
+mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 of 6 valid reads]
+scores aa version skills-top: scores=12 total=60 mean=5.00
+scores aa reader r1 version skills-top: scores=6 total=30 mean=5.00
+scores aa reader r2 version skills-top: scores=6 total=30 mean=5.00
+scores c1 version base: scores=6 total=30 mean=5.00
+scores c1 reader r1 version base: scores=3 total=15 mean=5.00
+scores c1 reader r2 version base: scores=3 total=15 mean=5.00
+scores c1 version skills-top: scores=6 total=30 mean=5.00
+scores c1 reader r1 version skills-top: scores=3 total=15 mean=5.00
+scores c1 reader r2 version skills-top: scores=3 total=15 mean=5.00
+A/A score spread: 0 (highest 5, lowest 5)
+scores aa ceiling: 0 of 6 valid reads score both slots at 10 or more
+scores aa separation: 6 of 6 valid reads give both slots the same score
+scores c1 ceiling: 0 of 6 valid reads score both slots at 10 or more
+scores c1 separation: 6 of 6 valid reads give both slots the same score
+validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.
+spend tally: 12 (a tally of declared costs, not measured spend); ceiling: none
+failed reads: 0
+cut: no
+exit status: 0
