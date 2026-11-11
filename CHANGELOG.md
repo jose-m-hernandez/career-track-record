@@ -28,7 +28,7 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `track-record panel` counts only blind readers' reads: reads from a reader marked `not-blind` are left out of every rule, anchor gate, score, flag count and missing-read line, and each rule's verdict line ends with how many it left out (`[not blind: <b> reads left out]`). In a plan with a not-blind reader, the per-lens count lines begin `reads blind readers`.
 - The Reader A/B and reader panel specs are revision 3.1: each adds the maintainer's build interpretations of revision 3 after its signed text and carries forward revision 2.1's, amended where revision 3 changes them (what counts as blind, where the lines go, the sensitivity pair, the read floor and the lift, replicates, reader groups). The signed text is unchanged. A hypothesis may name the original version of a sensitivity pair; only its weakened copy is refused.
 - The README's example plans no longer mark a reader `not-blind`, so every rule they show can be met under 0.8.0. The README says a not-blind reader's reads are never counted toward a verdict, its panel section names revision 3, and it lists the plan keys added in 0.8.0.
-- `track-record panel` count lines now name the readers first, as `track-record ab` does: `reads all readers <lens> version: …`.
+- The `track-record panel` version count line now names the readers first, as `track-record ab` does: `reads all readers <lens> version: …`.
 
 ## [0.7.0] - 2026-11-06
 
