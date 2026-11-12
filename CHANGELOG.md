@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- `docs/specs/barred.md` revision 8, drafted for its owner's signature: `--planted-control` proves each file's read with a list entry planted in memory instead of a control phrase, so a short text that names nothing can be checked. Spec only; no code changes until it is signed.
+
 ## [0.8.0] - 2026-11-10
 
 ### Added

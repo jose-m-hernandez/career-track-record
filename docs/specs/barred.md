@@ -1,17 +1,17 @@
 # Barred-wording check: behaviour spec
 
-Status: accepted.
-Date: 2026-11-05.
-Revision: 7. The signed spec (sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3) is reproduced below verbatim. Its owner signed it on 2026-11-05. It revises revision 6.3's text (sha256 3d1c088238215d69e7610986cd65aeecce451141587ad8abdb27310e0634551c, the whole of this file before revision 7) and reads each PDF in layout mode too.
+Status: draft. Revision 8 below is not signed; its owner signs the text between the draft markers as it stands.
+Date: 2026-11-12.
+Revision: 8. A draft: the text between the markers below (sha256 e646602522e309c4b742f9859a8c6a2450899588dca53577cf949f2de4c3b63d) is revision 8 in full. It is revision 7's signed text (sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3; the whole of this file before this draft, sha256 15a15d716fb4521883d28c3916460179823d32244d4a257ae2173bc3de877774) with `--planted-control` added.
 
-## Signed spec
+## Draft spec (revision 8, not signed)
 
-<!-- signed spec begins: sha256 0adef089e46e1a4beb3a0cf108ce7e044cb7ab98d8ea74d5fb23956914b629a3 -->
+<!-- draft spec begins: sha256 e646602522e309c4b742f9859a8c6a2450899588dca53577cf949f2de4c3b63d -->
 # Barred-wording check: behaviour spec
 
-Status: revision 7, drafted on 2026-11-05 for the owner's signature. Revision 7 reads each PDF in layout mode too, a port of a wrapped-compound check method that reads `pdftotext -layout` output; nothing in it comes from any private tool or record.
-Date: 2026-11-05.
-Revision: 7. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0). Revision 7 reads each PDF in layout mode too, so a hyphenated entry wrapped at its hyphen inside a page is matched (sections 3.2, 4, 5, 6, 7, 9.3 and 10).
+Status: revision 8, drafted on 2026-11-12 for the owner's signature. Revision 8 adds `--planted-control`, a port of a planted-match method for text that cannot hold a control phrase; nothing in it comes from any private tool, list or record.
+Date: 2026-11-12.
+Revision: 7. Answers to the build questions are folded in (sections 3 to 7, 9 and 10). Revision 3 collapses whitespace inside entries, controls and file names (section 4). Revision 4 checks file names in both forms and escapes control characters in printed paths (section 6), and caps `--min-chars` at 18 significant digits (section 7, case 7). Revision 5 adds output that cannot be written and a closed standard error (section 7, case 8), with their known answers in 10.5. Revision 6 names the exact set of whitespace characters (section 4), and adds a third text form that keeps a line-end hyphen, so a hyphenated entry wrapped at its hyphen is caught (sections 4, 6 and 9.3), with known answers in 10.9. Revision 6.1 states the PDF limit inside a page (section 3.2), qualifies the hyphen-kept promise for PDFs to page breaks (sections 4 and 9.3), and pins the limit with a known answer in 10.9. Revision 6.2 adds `-h` and `--help`, with a fixed summary (sections 3.0, 3.4 and 7) and known answers in section 10. Revision 6.3 makes every argument after `--` a file name, so `-- --help` checks a file named `--help` (section 3.0). Revision 7 reads each PDF in layout mode too, so a hyphenated entry wrapped at its hyphen inside a page is matched (sections 3.2, 4, 5, 6, 7, 9.3 and 10). Revision 8 adds `--planted-control`: instead of a control phrase, each file proves its read by matching a list entry planted in memory, so a short text that names nothing can be checked (sections 2, 3.0, 3.3, 3.4, 5, 6, 7, 8, 9.4 and 10.12).
 
 The command is `<cli> barred`.
 
@@ -26,7 +26,7 @@ In:
 - one or more named input files: plain text, Markdown, source files (with comments and note values stripped on request) and PDFs;
 - each input file's name, which is checked as well as its text;
 - text folding, so that a wrap, a ligature, a case difference or an invisible character cannot hide a match;
-- a positive control on every file.
+- a positive control on every file: a control phrase, or a planted entry (section 3.3).
 
 Out:
 - rewriting, suggesting or ranking wording;
@@ -42,8 +42,9 @@ Out:
 |---|---|
 | `--list FILE` | The list file. Given at most once. |
 | `--control TEXT` | A control string. May be given more than once (section 3.3). |
+| `--planted-control` | Prove each file's read with a planted entry instead of a control string (section 3.3). Given at most once, and never with `--control`. |
 | `--strip-comments` | Strip comments and note values before matching (section 3.2). |
-| `--min-chars N` | The minimum length (section 5). `N` is a whole number, 0 or more, with at most 18 significant digits (leading zeros don't count). Default 500. |
+| `--min-chars N` | The minimum length (section 5). `N` is a whole number, 0 or more, with at most 18 significant digits (leading zeros don't count). Default 500, or 1 with `--planted-control`. |
 | `-h`, `--help` | Write the fixed summary of section 3.4 to standard output and exit `0`. It reads no list (neither `--list` nor `BARRED_STRINGS_PATH`), no control and no input file, and it wins over every other argument. An argument that is exactly `-h` or `--help` counts wherever it stands, even in the place of another option's value. After `--`, every argument is a file name, so `-- --help` checks a file named `--help`. The summary is fixed text, never built from the list. |
 
 Every other argument is an input file. When `--list` is absent, the list is the file named by the environment variable `BARRED_STRINGS_PATH`. An unset or empty variable counts as absent. With neither, the run cannot go ahead (section 7, case 3).
@@ -82,23 +83,32 @@ Every other argument is an input file. When `--list` is absent, the list is the 
 
 - `--control TEXT` names a control string. It may be given more than once. A file passes its control when it contains any one of them.
 - A control is prepared as section 4 says (folded, whitespace runs collapsed, trimmed) and matched as a substring of the file's joined form, never with the `word` rule. A control that is empty after that is not a control: if no usable control remains, the run cannot go ahead (section 7, case 2).
-- With no `--control`, the run cannot go ahead (section 7, case 2). Control strings the user always wants can live in a config that the user's own wrapper passes in.
+- With no `--control` and no `--planted-control`, the run cannot go ahead (section 7, case 2). Control strings the user always wants can live in a config that the user's own wrapper passes in.
+- **The planted control.** With `--planted-control`, no control string is used. Instead, for each file whose read succeeds and whose length meets the minimum (section 5), the check proves its matcher was alive on that file's own text:
+  1. It counts every entry in the file's text as section 4 says. These are the file's **plain counts**, and the file is judged on them alone.
+  2. It takes the entries in list order. For entry `k`, it makes the **planted text**: the file's text after any stripping, then a line feed, U+FFFD, a line feed, entry `k` as prepared (section 3.1), and a line feed. A PDF gets the same suffix on both its default text and its layout text. It counts every entry in the planted text in the same forms.
+  3. The planted control **fires** on entry `k` when entry `k`'s count in the planted text is exactly one more than its plain count and every other entry's count is unchanged. The first entry on which it fires ends the search.
+  4. When it fires on no entry, the file is DEAD (section 7, case 5), never OK or FAIL.
+
+  U+FFFD is a replacement character, an ordinary character that is not a word character (sections 3.2 and 4). So no match, rejoin or hyphen-kept join runs from the file's own text into the planted entry. Nothing is written to disk, and the planted text is never printed. The file name is checked as usual and never planted. A list whose every entry, planted, raises another entry's count as well (two identical entries, for example) makes every file DEAD under `--planted-control`: the check cannot then tell its own plant from a real match.
 
 ### 3.4 The help summary
 
 The summary is the text below, byte for byte, ending in one line feed. `track-record` is the release's command name: if the name changes, the summary changes with it.
 
 ```text
-usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
-    [--min-chars N] FILE...
+usage: track-record barred [--list FILE] [--control TEXT]... [--planted-control]
+    [--strip-comments] [--min-chars N] FILE...
 
 Report wording from your own barred list, by entry number only.
 
-  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
-  --control TEXT    a string each file must hold (repeatable, any one counts)
-  --strip-comments  strip comments and note values before matching
-  --min-chars N     the minimum length of each file (default 500)
-  -h, --help        show this summary and exit
+  --list FILE        the list file (default: $BARRED_STRINGS_PATH)
+  --control TEXT     a string each file must hold (repeatable, any one counts)
+  --planted-control  prove each read with a planted entry instead of a control
+  --strip-comments   strip comments and note values before matching
+  --min-chars N      the minimum length of each file (default 500, or 1 with
+                     --planted-control)
+  -h, --help         show this summary and exit
 
 exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
 ```
@@ -124,7 +134,7 @@ Matching rules:
 
 ## 5. The minimum length
 
-`<c>`, a file's length, is the number of Unicode code points in its joined form (section 4, form 1), after any stripping. A PDF's length is that of its default text (section 3.2). Nothing is trimmed, so a final line feed counts as one space. A file whose length is less than the minimum fails its read (section 7, case 4). A short text proves nothing: a zero from it looks the same as a real zero. The minimum is 500 unless `--min-chars N` sets it. `--min-chars 0` is allowed; the control check still applies.
+`<c>`, a file's length, is the number of Unicode code points in its joined form (section 4, form 1), after any stripping. A PDF's length is that of its default text (section 3.2). Nothing is trimmed, so a final line feed counts as one space. A file whose length is less than the minimum fails its read (section 7, case 4). A short text proves nothing: a zero from it looks the same as a real zero. The minimum is 500 unless `--min-chars N` sets it, or 1 with `--planted-control` and no `--min-chars`: the planted control does the proving that length stands in for, so only an empty text is too short. `--min-chars 0` is allowed; the control check, or the planted control, still applies.
 
 ## 6. Output and exit status
 
@@ -139,7 +149,7 @@ Matching rules:
 A path with none of these characters is printed exactly as given. Escaping exists so that no file name can forge or reorder an output line. It changes only what is printed: matching (section 4) always uses the path as given.
 
 One status line per input file, in argument order:
-- `OK    <label>: 0 of <n> entries (control found; <c> chars)`, where `<n>` is the number of entries and `<c>` the length (section 5);
+- `OK    <label>: 0 of <n> entries (control found; <c> chars)`, where `<n>` is the number of entries and `<c>` the length (section 5). Under `--planted-control` the words `control found` read `planted control fired`. The line never says which entry was planted;
 - `FAIL  <label>: <k> entries`, where `<k>` is the number of distinct entries matched in the file's name or text. Next come the finding lines. First, one line per entry matched in the name, in entry order: `<label>:0: entry #<N> (file name)`. Then one line per entry matched in the text, in entry order: `<label>:<line>: entry #<N> (<count> x)`. An entry matched in both appears once in each group;
 - `DEAD  <label>: <reason>`, where the reason names the case from section 7, never an entry. A DEAD file gets no finding lines, even when its name matches.
 
@@ -153,18 +163,18 @@ Exit status: `0` when every file is OK; `1` when at least one file FAILs and non
 
 The run exits `2` and says why, on one line, without printing any entry or the list's path, when:
 1. No input file is named.
-2. No usable control is given (none, or each one empty after preparing).
+2. No usable control is given (none, or each one empty after preparing), and `--planted-control` is not given.
 3. The list cannot be used: no list is named (no `--list` and no `BARRED_STRINGS_PATH`); the file is missing or unreadable; it is not valid UTF-8; it holds no entries once comments and blank lines are removed; an entry is empty after trimming and folding (the message gives its number); or entry 1 is a canary carrying the `word` flag. An empty list cannot prove anything clean.
 
 A single file is DEAD, while the other files are still checked, when:
 
 4. its length is less than the minimum (section 5);
-5. none of its control strings is found;
+5. none of its control strings is found, or, under `--planted-control`, the planted control fires on no entry (reason `planted control did not fire`);
 6. it cannot be read, or it is a PDF and `pdftotext` is missing or fails on either of its two reads (section 3.2).
 
 The run also exits `2`, before any file is read, when:
 
-7. an option is unknown (`-h` and `--help` are known options, section 3.0), lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`), or has a value out of range (`--min-chars` that is not a whole number of 0 or more, or that has more than 18 significant digits; leading zeros don't count). The digit cap keeps the parse inside what every supported Python converts without error.
+7. an option is unknown (`-h` and `--help` are known options, section 3.0), lacks its value, is given twice where only once is allowed (`--list`, `--min-chars`, `--planted-control`), is `--planted-control` given together with `--control`, or has a value out of range (`--min-chars` that is not a whole number of 0 or more, or that has more than 18 significant digits; leading zeros don't count). The digit cap keeps the parse inside what every supported Python converts without error.
 
 At any point in the run:
 
@@ -177,6 +187,7 @@ A closed or failing standard error never changes the exit status. When a message
 - It never edits an input or the list.
 - It never prints an entry, a note, matched text, a matching path or the list's path.
 - It never reports a file clean that it did not read in full.
+- It never reports a file OK or FAIL whose control did not hold: a control string found, or a planted control that fired.
 - A closed or failing standard error never changes the exit status (section 7).
 
 ## 9. Decisions
@@ -195,6 +206,7 @@ A closed or failing standard error never changes the exit status. When a message
    - A printed path has its backslashes, control characters, line and paragraph separators and format characters escaped (section 6). Before, every path was printed raw, so a line break in a file name could forge an output line.
    - The prior tool's line-break handling, rejoin rule and comment stripping are kept as they were, including the text-rule limit in section 3.2, with one deliberate exception: the hyphen-kept form (section 4, form 3) is new. The prior tool turned `zebra-`, a line break, then `word` into `zebraword` and `zebra- word`, so it missed an entry `zebra-word` wrapped at its hyphen. This tool catches it (10.9). In a PDF this holds inside a page too, through the layout text (section 3.2), except where the known limit for columns applies.
    - A PDF is also read in layout mode (section 3.2), so a hyphenated entry wrapped at its hyphen inside a page is matched, and so is a `word`-flagged half of it. The prior tool read PDFs in default mode only and missed both.
+4. **The planted control, and how it differs from the method it ports.** Short text that names nothing, such as a note or a summary, can't hold a control phrase, so before revision 8 it was always DEAD. The ported method appended one list entry to the text and accepted the read when the total count over all entries rose by exactly one. This revision is stricter, by the owner's ruling: the planted entry must rise by exactly one and every other entry must stay unchanged, so a plant that also matches another entry is not taken as proof. It tries entries in list order rather than only one, so a list in which one entry contains another can still be used. It separates the plant from the text with U+FFFD, so the end of the text cannot join the plant into a match. Its default minimum length is 1, by the owner's ruling, because the plant, not the length, is the proof that the text was read. `--control` and `--planted-control` together are refused rather than one silently winning.
 
 ## 10. Acceptance tests (known answers)
 
@@ -461,4 +473,21 @@ A stand-in `pdftotext` answers the default read and the layout read with differe
 | [`nothing listed`] | [`a turnkey syn-`, `ergy plan`] | not against L1 but against a list whose only entry is `syn- ergy`: `FAIL  x.pdf: 1 entries`, then `x.pdf:13: entry #1 (1 x)`. Exit 1: only the layout text's joined form holds `syn- ergy` |
 
 One run against that stand-in, logging its arguments, shows exactly two calls, in this order: `x.pdf -`, then `x.pdf - -layout`.
-<!-- signed spec ends -->
+
+### 10.12 The planted control (runs use `--planted-control`, `--list` naming L1 and no `--control`, unless stated)
+
+Three more invented fixtures: `note.txt` is the single line `A short note with nothing barred.` followed by a line feed (34 characters in the joined form); `empty.txt` is empty; `tail.txt` is the padding of section 10 (twelve lines) followed by `we sell turnkey`, with no final line feed. Two more lists: L5 is `turnkey synergy` then `synergy` (two entries, no notes); L6 is `moonshot` twice (two entries, identical).
+
+- `note.txt`: `OK    note.txt: 0 of 5 entries (planted control fired; 34 chars)`. Exit 0. Without `--planted-control` and with `--control "Example Corp"` it is DEAD, too short. Exit 2.
+- `short.txt`: `FAIL  short.txt: 1 entries`, then `short.txt:1: entry #1 (1 x)`. Exit 1. A text too short for a control phrase is now checked.
+- `clean.txt`: `OK    clean.txt: 0 of 5 entries (planted control fired; <c> chars)`, with `<c>` as in its OK line under `--control`. Exit 0.
+- `nocontrol.txt`: FAIL with one finding line, for entry #1, never DEAD. Exit 1.
+- `empty.txt`: DEAD, too short. Exit 2.
+- `note.txt` with `--min-chars 500`: DEAD, too short. Exit 2.
+- `clean.txt` with `--list` naming L5: `OK    clean.txt: 0 of 2 entries (planted control fired; <c> chars)`. Exit 0. Planting entry 1 also raises entry 2, so the plant moves on to entry 2, which fires. An implementation that plants only one entry gives DEAD here.
+- `tail.txt` with `--list` naming L5: `OK    tail.txt: 0 of 2 entries (planted control fired; <c> chars)`. Exit 0. Without the U+FFFD line, the plant of entry 2 would join the file's closing `turnkey` into `turnkey synergy` and raise entry 1 as well, so every plant would fail and the file would be DEAD. This case pins the separator.
+- `clean.txt` with `--list` naming L6: `DEAD  clean.txt: planted control did not fire`. Exit 2. Each plant raises both identical entries.
+- `--planted-control --control "Example Corp" clean.txt`: exit 2 before any file is read. `--planted-control` given twice: exit 2 before any file is read.
+- `--help` prints the summary of section 3.4, which names `--planted-control`. Exit 0.
+- Nothing barred is printed (10.8 holds): in every run above, the output contains no entry, and no OK line names the planted entry.
+<!-- draft spec ends -->

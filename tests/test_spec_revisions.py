@@ -12,7 +12,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 EXEMPT = "EXEMPT"
 SPEC_REVISIONS = {
-    "barred.md": "7",
+    "barred.md": "8",
     "claims.md": "2",
     "cli.md": "5",
     "keyword-scan.md": EXEMPT,
