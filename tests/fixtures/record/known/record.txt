@@ -1,0 +1,16 @@
+# invented example
+tables:
+  entries | entry-table.tsv | tsv | entry
+  origins | origin-table.csv | csv | origin
+references:
+  entries | cites | origins | origin | list ,
+required:
+  entries | grade
+values:
+  entries | grade | A | B | C | D
+dates:
+  entries | recorded
+corrections:
+  entries | corrects | recorded
+earlier:
+  entries | entry-table-before.tsv

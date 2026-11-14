@@ -22,6 +22,7 @@ open an issue to report a bug or suggest a change, except for a security problem
 - A reader command is the one outside program a user names: `ab_reader_command.py` is the only module that starts it, in one `subprocess.run` call with an argument list and never a shell, with `cwd` as the one keyword added to `pdf_text.py`'s call shape.
 - Every committed file is valid UTF-8. A test that needs invalid bytes writes them at run time.
 - Every committed file has exactly one row in `docs/provenance.md`, whose only columns are `path`, `harness`, `model` and `date`. A change that adds a file adds its row; a change that edits a file adds its harness and model to that row if they are missing and sets the date to the day of the change. `tests/test_provenance.py` checks that every file has a row and every row a file.
+- Every date a change writes is the UTC day it is written (`date -u +%F`): a provenance row, a CHANGELOG release heading, a decision record's `Date:` or `Updated` line, and a spec's `Date:` line.
 - A test module's `if __name__ == "__main__":` guard is its last statement.
 
 ## For the maintainer

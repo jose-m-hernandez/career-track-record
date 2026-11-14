@@ -2,11 +2,13 @@
 
 A career record is assembled from sources that disagree: two résumés with different start dates, a title that changed mid-year, a number remembered one way and printed another. The method is how the record stays useful when that happens. It's six rules.
 
-Status: the barred-wording check, the keyword scan, the voice and tone check, the claim gate and the reader panel run rule 6. Reader A/B runs rule 6's fixed cases, and its isolation check runs on every plan. Its reads have no control that must be found: its self-read control measures how often readers pick a side on identical drafts. Each result reports that rate, and the evidence beside each verdict. On request (`--check-sources`), the claim gate checks that each quote on an entry appears word for word in the local file the entry cites; it does not yet flag a claim with no source. Rules 1 to 4 are not built into a tool yet.
+Status: the barred-wording check, the keyword scan, the voice and tone check, the claim gate and the reader panel run rule 6. Reader A/B runs rule 6's fixed cases, and its isolation check runs on every plan. Its reads have no control that must be found: its self-read control measures how often readers pick a side on identical drafts. Each result reports that rate, and the evidence beside each verdict. On request (`--check-sources`), the claim gate checks that each quote on an entry appears word for word in the local file the entry cites; it does not yet flag a claim with no source. The record check (`track-record record`) checks rules 1 to 4 as far as a table can show them; [docs/record-model.md](docs/record-model.md) says what it checks and what it can't.
 
 ## 1. Never overwrite
 
 Every fact (an entry in the record) is appended with its source and the date it was recorded. A correction is a new entry that points at the entry it corrects and says why. Nothing is edited in place, so the history of a fact is always there to read: what was believed, what replaced it, and on what evidence.
+
+How a correction is stored and checked: [docs/record-model.md](docs/record-model.md).
 
 Example (invented): a fact says a role started in March 2019. A later entry corrects it to April 2019, citing the offer letter, and the March entry stays where it was.
 

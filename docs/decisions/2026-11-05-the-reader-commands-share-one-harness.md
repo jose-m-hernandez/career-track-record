@@ -4,6 +4,8 @@ Date: 2026-11-05
 
 Status: accepted with the reader panel spec, revision 1 (docs/specs/reader-panel.md).
 
+> **Updated 2026-11-14:** `track-record record` also reads its declaration with this module's plan-file syntax (`structure`, `ParseState`, `NAME`, `LINE_BREAK`, `show`, `short`); it uses nothing else here, and the harness still starts no program. The rule is unchanged.
+
 ## The rule
 
 > **What `track-record ab` and `track-record panel` share lives in one module,
