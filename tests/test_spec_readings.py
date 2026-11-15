@@ -1,4 +1,4 @@
-"""Pin test: the revision 3.1 readings in docs/specs/reader-ab.md and docs/specs/reader-panel.md, outside their signed text."""
+"""Pin test: the build interpretations after the signed text of docs/specs/reader-ab.md (revision 4) and docs/specs/reader-panel.md (revision 3.1)."""
 
 import hashlib
 import os
@@ -9,42 +9,64 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 BEGIN = "<!-- signed spec begins"
 END = "<!-- signed spec ends -->"
-HEADING = "## Build interpretations of revision 3 (maintainer, 2026-11-10)"
+HEADINGS = {
+    "reader-ab.md": "## Build interpretations of revision 4 (maintainer, 2026-11-15)",
+    "reader-panel.md": "## Build interpretations of revision 3 (maintainer, 2026-11-10)",
+}
 
 BLOCK_SHA = {
-    "reader-ab.md": "3b581c40da031b943ae5280a6881235c5b5b6c27d8568db1d3d3e85851ee1f6f",
+    "reader-ab.md": "ef5492839202bdaf53a9dbd523c4f9c080f5da9088cc50334b4025b14a306589",
     "reader-panel.md": "81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf",
 }
 
-# Signed blocks pinned without a revision 3.1 section after them, so the section tests skip them.
+# Signed blocks pinned without a build-interpretations section after them, so the section tests skip them.
 BLOCK_ONLY_SHA = {
     "record-check.md": "faba1585b0407cf770b282276101c5f381bea78a419bb5c8ddd1706e95174a0a",
+    "barred.md": "fa6f8d817514531bedb877e3d9913a31ef43e540120be7eecd4d850b0cc2a685",
+    "claims.md": "ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41",
+    "drafts.md": "e75158e6844427dfc19ffcbb5f6616fafb4b79454f186ef3592c13f01c374426",
 }
 
-# The key phrases that the ten restored 2.1 methods pin, and those pinned by the revision 3 methods.
+# The key phrases that the restored 2.1 methods pin, and those pinned by the revision 4 section's points.
 AB_RESTORED = {
     "point_1": ["gets no flag line"],
     "point_2": ['including when the gate is "not evaluated"'],
-    "point_3": ["Every split of an arm's missing reads"],
+    "point_3": ["Every split of an arm's missing pairs"],
     "point_4": ["The validity line is the last line before the result's tail"],
 }
-AB_REVISION_3 = [
-    "blind readers' missing reads",
-    "counts blind readers only",
-    "counts every reader's reads",
-    "reads blind readers",
+AB_REVISION_4 = [
+    "the A/A slightly rate counts this run's valid blind A/A reads",
+    "the order consistency lines are printed for blind readers only",
     "the readers did not detect the planted difference",
     "prints reduced",
-    "only the weakened copy",
-    "valid blind sensitivity reads",
+    "the weakened copy, and no more",
     "never -0.00",
     "A settled INCONCLUSIVE lifts nothing",
     "the first clause of the lifted kind",
     "equal to the floor is not below it",
     "byte-identical to the first plan",
-    "the first run has not been run yet",
+    "Known limits, not built",
     "capped at 1",
     "once per reader",
+    "a family named twice in one list counts once",
+    "has no family on a reader or no drafted-by on a version",
+    "reads-per-reader must be an even number, read in pairs (revision 4)",
+    "pair as first and second, third and fourth",
+    "The printed verdict, after position",
+    "taken up to the next whole number",
+    "A lifted verdict meets the family rule",
+    "the floor never uses reads pooled with `aa-pool`",
+    "a pair with both reads missing counts once",
+    "compared as exact fractions",
+    "from the plan it amends",
+    "a reader name both plans use must name the same model",
+    "pooled planned pairs over the first plan's planned pairs",
+    "the first run already has an extension",
+    "pairs are formed within each run, never across them",
+    "never reads it pooled itself",
+    "fewer valid blind reads than its planned blind reads",
+    "those problems are all that is printed",
+    "revision 4 results of the same four tests",
 ]
 PANEL_RESTORED = {
     "point_1": ["keeps the label the tool printed before revision 2"],
@@ -75,10 +97,11 @@ def read_spec(name):
 
 
 def section_of(name):
-    """The 3.1 section: from its heading to the end of the file, taken after the signed text."""
+    """The build interpretations: from the heading to the end of the file, taken after the
+    signed text."""
     text = read_spec(name)
     after = text[text.index(END):]
-    return after[after.index(HEADING):]
+    return after[after.index(HEADINGS[name]):]
 
 
 class SpecReadingsCase(unittest.TestCase):
@@ -97,8 +120,8 @@ class SpecReadingsCase(unittest.TestCase):
         for name in BLOCK_SHA:
             with self.subTest(name=name):
                 text = read_spec(name)
-                self.assertEqual(text.count(HEADING), 1)
-                self.assertGreater(text.index(HEADING), text.index(END))
+                self.assertEqual(text.count(HEADINGS[name]), 1)
+                self.assertGreater(text.index(HEADINGS[name]), text.index(END))
 
     def test_ab_2_1_point_1_no_flag_beside_a_reason(self):
         self.assertOnce("reader-ab.md", AB_RESTORED["point_1"][0])
@@ -130,8 +153,8 @@ class SpecReadingsCase(unittest.TestCase):
     def test_panel_2_1_point_6_where_the_lines_go(self):
         self.assertOnce("reader-panel.md", PANEL_RESTORED["point_6"][0])
 
-    def test_ab_revision_3_readings(self):
-        for phrase in AB_REVISION_3:
+    def test_ab_revision_4_readings(self):
+        for phrase in AB_REVISION_4:
             with self.subTest(phrase=phrase):
                 self.assertOnce("reader-ab.md", phrase)
 

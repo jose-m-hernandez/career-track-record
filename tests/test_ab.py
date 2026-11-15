@@ -29,8 +29,8 @@ FIXTURES = ("base.txt", "skills-top.txt", "skills-top-short.txt", "posting.txt")
 GLANCE = "At a glance"
 SYSTEM_PATH = "/usr/bin:/bin"
 
-VERSIONS = ["base | base.txt", "skills-top | skills-top.txt",
-            "skills-top-short | skills-top-short.txt"]
+VERSIONS = ["base | base.txt | drafted-by user", "skills-top | skills-top.txt | drafted-by user",
+            "skills-top-short | skills-top-short.txt | drafted-by user"]
 SCOPE = ["^Skills$", "^At a glance$", "^Languages:", "^Tools:", "^Practices:"]
 SIX = ("SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; "
        "otherwise INCONCLUSIVE")
@@ -41,18 +41,21 @@ PREFER_GLANCE = 'prefer containing "At a glance"'
 WITHOUT_GLANCE = 'prefer without "At a glance"'
 TOO_LONG = "too long | default | supported at 3 or more"
 WRITE_TOO_LONG = 'write "too long" in DOUBTS'
+# 10.11: "too long" is written in 8 of the 12 comparison reads (revision 3's 4 of 6).
+EIGHT = [1, 2, 3, 4, 5, 6, 7, 8]
 
 
 def default_values():
-    """The default plan of the spec (section 10): one comparison, two readers with 3 reads
-    each, the default noise threshold, and the fake reader's default TIE."""
+    """The default plan of the spec (section 10): one comparison, every version drafted by
+    the user, two readers with 6 reads each (3 pairs), of families m1 and m2, the default
+    noise threshold, and the fake reader's default TIE."""
     return dict(
         posting="posting.txt",
         versions=list(VERSIONS),
         comparisons=["base vs skills-top"],
         aa_version="skills-top",
-        readers=["r1 | fake", "r2 | fake"],
-        reads_per_reader="3",
+        readers=["r1 | fake | family m1", "r2 | fake | family m2"],
+        reads_per_reader="6",
         noise_threshold="1/2",
         change_scope=list(SCOPE),
     )
@@ -268,7 +271,7 @@ class FreezeCase(unittest.TestCase):
                    % (arm, number, ab.READ_REPLY)
                    for arm in sorted(os.listdir(first.path(ab.READS_DIR)))
                    for number in sorted(os.listdir(first.path(ab.READS_DIR, arm)))]
-        self.assertEqual(len(replies), 12)
+        self.assertEqual(len(replies), 24)
         self.assertEqual(refused.error.splitlines(),
                          ["a freeze file already exists: plan.txt.freeze"] + replies)
         self.assertEqual(first.tree_hashes(), first_hashes)
@@ -280,7 +283,7 @@ class FreezeCase(unittest.TestCase):
                       s.result_lines())
         self.assertIn("A/A version: the default, the second version of the first comparison",
                       s.result_lines())
-        self.assertEqual(s.reply_count("aa"), 6)
+        self.assertEqual(s.reply_count("aa"), 12)
         named = Setup(self)
         self.assertEqual(named.frozen_run().exit_code, 0)
         self.assertIn("A/A arm: added by the tool, using version skills-top",
@@ -377,7 +380,7 @@ class FreezeCase(unittest.TestCase):
                       s.read("plan.txt.freeze").splitlines())
 
     def test_a_live_reader_is_not_a_plan_error(self):
-        s = Setup(self, readers=["r1 | fake", "r2 | python3 stub.py | cost 3"])
+        s = Setup(self, readers=["r1 | fake | family m1", "r2 | python3 stub.py | cost 3 | family m2"])
         result = s.freeze()
         self.assertEqual((result.exit_code, result.error), (0, ""))
 
@@ -386,13 +389,13 @@ class FreezeCase(unittest.TestCase):
 
 EXAMPLE_PLAN = """\
 versions:
-  base | base.txt
-  skills-top | skills-top.txt
+  base | base.txt | drafted-by user
+  skills-top | skills-top.txt | drafted-by model m1
 comparisons:
   base vs skills-top
 readers:
-  reader-1 | fake
-  reader-2 | /path/to/my-reader.sh --model small | not-blind | cost 3
+  reader-1 | fake | family m1
+  reader-2 | /path/to/my-reader.sh --model small | not-blind | cost 3 | family M2
 hypotheses:
   base vs skills-top | SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE
 mechanisms:
@@ -423,6 +426,8 @@ class PlanFileCase(unittest.TestCase):
                           for r in plan.readers],
                          [("reader-1", "fake", False, 1, "fake"),
                           ("reader-2", "/path/to/my-reader.sh --model small", True, 3, "live")])
+        self.assertEqual([r.family for r in plan.readers], ["m1", "m2"])
+        self.assertEqual(plan.drafted_by, {"base": "user", "skills-top": ("m1",)})
         hyp = plan.hypotheses[0]
         self.assertEqual((hyp.name, hyp.comparison), ("h1", 1))
         self.assertEqual([(kind, c.version, c.k, c.n) for kind, c in hyp.clauses],
@@ -436,11 +441,12 @@ class PlanFileCase(unittest.TestCase):
                          ("slot", "A", "slightly", frozenset(["aa"])))
 
     def test_defaults(self):
-        plan = ab.parse_text("posting: p.txt\nversions:\n  a | a.txt\n  b | b.txt\n"
-                             "comparisons:\n  a vs b\nreaders:\n  r | fake\n")
+        plan = ab.parse_text("posting: p.txt\nversions:\n  a | a.txt | drafted-by user\n"
+                             "  b | b.txt | drafted-by user\n"
+                             "comparisons:\n  a vs b\nreaders:\n  r | fake | family m1\n")
         self.assertEqual((plan.reads_per_reader, plan.noise_threshold, plan.spend_ceiling,
                           plan.read_timeout, plan.aa_version, plan.amends),
-                         (3, Fraction(1, 2), None, 600, None, None))
+                         (6, Fraction(1, 2), None, 600, None, None))
         self.assertEqual(plan.effective_aa_version(), "b")
         self.assertEqual(plan.change_scope, [])
 
@@ -461,7 +467,9 @@ class PlanFileCase(unittest.TestCase):
         self.assertRefused(s, "At a glance)", "a change-scope item is written: "
                            "[comparison |] pattern")
         t = Setup(self, versions=VERSIONS + ["odd | my | file.txt"])
-        self.assertRefused(t, "my | file.txt", "a version is written: name | file")
+        self.assertRefused(t, "my | file.txt", "drafted-by is user, third-party, unknown or "
+                           "model <family>, with more models as a comma list: file.txt "
+                           "(a bar inside a field starts a new field)")
         u = Setup(self, mechanisms=["a | b | default | supported at 3 or more"])
         self.assertRefused(u, "a | b |", "a mechanism is written: [comparison |] pattern | "
                            "fields | supported at <n> or more")
@@ -494,8 +502,8 @@ class PlanFileCase(unittest.TestCase):
 
     def test_every_plan_error_is_found_by_freeze_with_its_line(self):
         cases = [
-            (dict(readers=["r1 | fake"], fake_reader=["prefer slot A | read 7"]),
-             "read 7", "read 7 is outside the arm's reads (1 to 3)"),
+            (dict(readers=["r1 | fake | family m1"], fake_reader=["prefer slot A | read 7"]),
+             "read 7", "read 7 is outside the arm's reads (1 to 6)"),
             (dict(hypotheses=["SUPPORTED if skills-top-short preferred in 6 of 6; "
                               "otherwise INCONCLUSIVE"]),
              "skills-top-short preferred",
@@ -507,10 +515,10 @@ class PlanFileCase(unittest.TestCase):
              "6 of 6", "a hypothesis rule ends with: otherwise INCONCLUSIVE"),
             (dict(hypotheses=["otherwise INCONCLUSIVE"]),
              "otherwise", "a hypothesis rule needs at least one SUPPORTED or REFUTED clause"),
-            (dict(readers=["r_1 | fake"]), "r_1", "a name holds letters, digits and - only: r_1"),
-            (dict(versions=VERSIONS + ["base | other.txt"]), "base | other.txt",
+            (dict(readers=["r_1 | fake | family m1"]), "r_1", "a name holds letters, digits and - only: r_1"),
+            (dict(versions=VERSIONS + ["base | other.txt | drafted-by user"]), "base | other.txt",
              "the version base is named twice"),
-            (dict(versions=VERSIONS + ["bad name | x.txt"]), "bad name",
+            (dict(versions=VERSIONS + ["bad name | x.txt | drafted-by user"]), "bad name",
              "a name holds letters, digits and - only: bad name"),
             (dict(comparisons=["base vs nobody"]), "nobody",
              "a comparison names a version the plan does not have"),
@@ -526,11 +534,12 @@ class PlanFileCase(unittest.TestCase):
              "spend-ceiling must be a whole number, 0 or more"),
             (dict(read_timeout="soon"), "read-timeout",
              "read-timeout must be a whole number, 0 or more"),
-            (dict(readers=["r1 | fake | cost lots"]), "cost lots",
+            (dict(readers=["r1 | fake | cost lots | family m1"]), "cost lots",
              "cost must be a whole number, 0 or more"),
-            (dict(readers=["r1 | fake | cheap"]), "cheap",
-             "a reader's extra fields may be not-blind, cost <n> and reader-group <name>, each at most once: cheap"),
-            (dict(readers=["r1 | 'unbalanced"]), "unbalanced",
+            (dict(readers=["r1 | fake | cheap | family m1"]), "cheap",
+             "a reader's extra fields may be not-blind, cost <n>, reader-group <name> and "
+             "family <name>, each at most once: cheap"),
+            (dict(readers=["r1 | 'unbalanced | family m1"]), "unbalanced",
              "the reader command cannot be split into words"),
             (dict(change_scope=["("]), "(", "not a valid pattern: ("),
             (dict(mechanisms=["( | default | supported at 3 or more"]), "( | default",
@@ -547,7 +556,7 @@ class PlanFileCase(unittest.TestCase):
             (dict(fake_reader=["prefer slot A | loudly"]), "loudly",
              "after the rule come [| strength] [| read <k>]: loudly"),
             (dict(fake_reader=["prefer slot A | read 0"]), "read 0",
-             "read 0 is outside the arm's reads (1 to 6)"),
+             "read 0 is outside the arm's reads (1 to 12)"),
         ]
         for overrides, text, message in cases:
             with self.subTest(message):
@@ -555,17 +564,17 @@ class PlanFileCase(unittest.TestCase):
                 self.assertRefused(s, text, message)
 
     def test_duplicates_and_empty_fields(self):
-        s = Setup(self, readers=["r1 | fake", "r1 | fake"])
+        s = Setup(self, readers=["r1 | fake | family m1", "r1 | fake | family m1"])
         result = s.freeze()
         self.assertIn("plan line %d: the reader r1 is named twice" % (s.line_of("r1") + 1),
                       result.error.splitlines())
         t = Setup(self, comparisons=["base vs skills-top", "base vs skills-top"])
         self.assertIn("is named twice", t.freeze().error)
-        u = Setup(self, versions=VERSIONS + ["x |  | y"])
+        u = Setup(self, versions=VERSIONS + ["x |  | y | drafted-by user"])
         self.assertIn("an empty field", u.freeze().error)
 
     def test_fake_reader_items_with_no_fake_reader_are_refused(self):
-        s = Setup(self, readers=["r1 | python3 stub.py"], fake_reader=["prefer slot A"])
+        s = Setup(self, readers=["r1 | python3 stub.py | family m1"], fake_reader=["prefer slot A"])
         self.assertRefused(s, "prefer slot A", "fake-reader rules, but the plan has no fake "
                            "reader")
 
@@ -625,8 +634,10 @@ class PlanFileCase(unittest.TestCase):
         self.assertEqual(result.error.splitlines(), ["changed since the freeze: plan.txt"])
 
     def test_reader_names_cost_and_flags_in_either_order(self):
-        s = Setup(self, readers=["a | fake | not-blind", "b | python3 x.py | cost 3 | not-blind",
-                                 "c | python3 x.py | not-blind | cost 0", "d | fake | cost 7"])
+        s = Setup(self, readers=["a | fake | not-blind | family m1",
+                                 "b | python3 x.py | cost 3 | not-blind | family m1",
+                                 "c | python3 x.py | family m2 | not-blind | cost 0",
+                                 "d | fake | family m2 | cost 7"])
         got = [(r.name, r.not_blind, r.cost, r.kind) for r in s.plan.readers]
         self.assertEqual(got, [("a", True, 1, "fake"), ("b", True, 3, "live"),
                                ("c", True, 0, "live"), ("d", False, 1, "fake")])
@@ -748,7 +759,7 @@ class IsolationCase(unittest.TestCase):
         self.assertFalse(s.exists(ab.READS_DIR))
 
     def test_10_20_whitespace_only_difference_is_identical(self):
-        s = Setup(self, versions=VERSIONS + ["padded | padded.txt"],
+        s = Setup(self, versions=VERSIONS + ["padded | padded.txt | drafted-by user"],
                   comparisons=["skills-top vs padded"])
         text = s.read("skills-top.txt")
         padded = "\n\n".join(text.split("\n"))
@@ -872,8 +883,8 @@ def pdftotext_gate(found, environ):
     return "skip"
 
 
-PDF_VERSIONS = ["base | base.txt", "skills-top | skills-top.pdf",
-                "skills-top-short | skills-top-short.txt"]
+PDF_VERSIONS = ["base | base.txt | drafted-by user", "skills-top | skills-top.pdf | drafted-by user",
+                "skills-top-short | skills-top-short.txt | drafted-by user"]
 
 
 class PdfVersionCase(unittest.TestCase):
@@ -902,7 +913,7 @@ class PdfVersionCase(unittest.TestCase):
                     if line.split(" ", 1)[0] in ("scores", "hypothesis", "reads", "position")
                     or line.startswith("A/A")]
         self.assertEqual(scored(pdf), scored(plain))
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", scored(pdf))
+        self.assertIn("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", scored(pdf))
 
     def test_10_29_pdf_version_matches_its_text(self):
         # Leg (i): a stand-in pdftotext prints the text file, so the equality is exact.
@@ -1197,30 +1208,46 @@ class RunOrderCase(unittest.TestCase):
     def key_rows(self, s):
         return [line.split("\t") for line in s.read(ab.KEY_FILE).splitlines()]
 
-    def test_10_31_odd_reads_give_first_version_the_extra_slot(self):
-        s = Setup(self, readers=["r1 | fake"], reads_per_reader="5")
+    def test_10_31_slots_alternate_within_each_readers_pairs(self):
+        s = Setup(self, readers=["r1 | fake | family m1"], reads_per_reader="6")
         self.assertEqual(s.frozen_run().exit_code, 0)
         rows = [row for row in self.key_rows(s) if row[0].startswith("c1/")]
-        self.assertEqual([row[0] for row in rows], ["c1/%d" % n for n in range(1, 6)])
+        self.assertEqual([row[0] for row in rows], ["c1/%d" % n for n in range(1, 7)])
         self.assertEqual([row[2] for row in rows],
-                         ["base", "skills-top", "base", "skills-top", "base"])
+                         ["base", "skills-top", "base", "skills-top", "base", "skills-top"])
         self.assertEqual([row[3] for row in rows],
-                         ["skills-top", "base", "skills-top", "base", "skills-top"])
-        self.assertIn("slot split c1 r1: base in slot A 3, skills-top in slot A 2",
+                         ["skills-top", "base", "skills-top", "base", "skills-top", "base"])
+        self.assertIn("slot split c1 r1: base in slot A 3, skills-top in slot A 3",
                       s.result_lines())
+        # With the default two readers, base is in slot A on reads 1, 3, 5, 7, 9 and 11.
+        two = Setup(self)
+        self.assertEqual(two.frozen_run().exit_code, 0)
+        rows = [row for row in self.key_rows(two) if row[0].startswith("c1/")]
+        self.assertEqual([row[0] for row in rows if row[2] == "base"],
+                         ["c1/%d" % n for n in (1, 3, 5, 7, 9, 11)])
+        for reader in ("r1", "r2"):
+            self.assertIn("slot split c1 %s: base in slot A 3, skills-top in slot A 3"
+                          % reader, two.result_lines())
+        # An odd count is refused (10.77).
+        odd = Setup(self, readers=["r1 | fake | family m1"], reads_per_reader="5")
+        result = odd.freeze()
+        self.assertEqual(result.exit_code, 2)
+        self.assertEqual(result.error, "plan line %d: reads-per-reader must be an even "
+                         "number, read in pairs (revision 4)" % odd.line_of("reads-per-reader"))
 
     def test_arms_run_in_order_and_readers_in_turn(self):
         s = Setup(self, comparisons=TWO)
         self.assertEqual(s.frozen_run().exit_code, 0)
         rows = self.key_rows(s)
         self.assertEqual([r[0] for r in rows],
-                         ["aa/%d" % n for n in range(1, 7)] + ["c1/%d" % n for n in range(1, 7)]
-                         + ["c2/%d" % n for n in range(1, 7)])
-        self.assertEqual([r[1] for r in rows[:6]], ["r1", "r1", "r1", "r2", "r2", "r2"])
-        for row in rows[:6]:
+                         ["aa/%d" % n for n in range(1, 13)]
+                         + ["c1/%d" % n for n in range(1, 13)]
+                         + ["c2/%d" % n for n in range(1, 13)])
+        self.assertEqual([r[1] for r in rows[:12]], ["r1"] * 6 + ["r2"] * 6)
+        for row in rows[:12]:
             self.assertEqual(row[2], row[3])
-        self.assertEqual(rows[6][2:], ["base", "skills-top"])
-        self.assertEqual(rows[12][2:], ["base", "skills-top-short"])
+        self.assertEqual(rows[12][2:], ["base", "skills-top"])
+        self.assertEqual(rows[24][2:], ["base", "skills-top-short"])
 
     def test_the_read_folder_holds_the_two_versions_the_posting_and_the_prompt(self):
         s = Setup(self)
@@ -1248,7 +1275,7 @@ class RunOrderCase(unittest.TestCase):
 
         with mock.patch.object(ab, "fake_reply", watching):
             self.assertEqual(s.run().exit_code, 0)
-        self.assertEqual(len(seen), 12)
+        self.assertEqual(len(seen), 24)
         self.assertEqual(seen[0], ("aa/1", True, 0))
         self.assertTrue(all(key for _id, key, _replies in seen))
 
@@ -1256,54 +1283,56 @@ class RunOrderCase(unittest.TestCase):
         s = Setup(self)
         self.assertEqual(s.frozen_run().exit_code, 0)
         self.assertEqual(s.read(ab.RUN_LOG).splitlines(), [
-            "planned reads: 12", "reads run: 12", "spend: 12", "spend ceiling: none",
+            "planned reads: 24", "reads run: 24", "spend: 24", "spend ceiling: none",
             "cut: no", "key sha256: " + sha256_of(s.path(ab.KEY_FILE))])
-        self.assertIn("spend tally: 12 (a tally of declared costs, not measured spend); "
+        self.assertIn("spend tally: 24 (a tally of declared costs, not measured spend); "
                       "ceiling: none", s.result_lines())
 
     def test_10_12_spend_ceiling_cuts_between_reads(self):
-        s = Setup(self, comparisons=TWO, spend_ceiling="8",
+        s = Setup(self, comparisons=TWO, spend_ceiling="16",
                   hypotheses=["base vs skills-top | " + SIX,
                               "base vs skills-top-short | " + SHORT_SIX],
                   fake_reader=[PREFER_GLANCE])
         result = s.frozen_run()
         self.assertEqual(result.exit_code, 1)
         self.assertEqual((s.reply_count("aa"), s.reply_count("c1"), s.reply_count("c2")),
-                         (6, 2, 0))
+                         (12, 4, 0))
         self.assertEqual(s.read(ab.RUN_LOG).splitlines(), [
-            "planned reads: 18", "reads run: 8", "spend: 8", "spend ceiling: 8", "cut: yes",
-            "key sha256: " + sha256_of(s.path(ab.KEY_FILE))])
+            "planned reads: 36", "reads run: 16", "spend: 16", "spend ceiling: 16",
+            "cut: yes", "key sha256: " + sha256_of(s.path(ab.KEY_FILE))])
         lines = s.result_lines()
-        self.assertIn("cut: ran 8 of 18 planned reads at spend ceiling 8", lines)
-        self.assertIn("cut: ran 8 of 18 planned reads at spend ceiling 8",
+        self.assertIn("cut: ran 16 of 36 planned reads at spend ceiling 16", lines)
+        self.assertIn("cut: ran 16 of 36 planned reads at spend ceiling 16",
                       result.error.splitlines())
-        self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE; threshold 1/2)", lines)
-        self.assertIn("hypothesis h1 counts: valid=2 base=0 skills-top=2 tie=0", lines)
+        self.assertIn("A/A gate: passed (0 of 12 valid A/A reads non-TIE, at any strength; "
+                      "threshold 1/2)", lines)
+        # 4 valid reads of c1 are 2 valid pairs.
+        self.assertIn("hypothesis h1 pair counts: valid=2 base=0 skills-top=2 tie=0", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("hypothesis h2 counts: valid=0 base=0 skills-top-short=0 tie=0", lines)
+        self.assertIn("hypothesis h2 pair counts: valid=0 base=0 skills-top-short=0 tie=0",
+                      lines)
         self.assertIn("hypothesis h2 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("read c1/3: reader=r1 A=base B=skills-top not run", lines)
+        self.assertIn("read c1/5: reader=r1 A=base B=skills-top not run", lines)
         self.assertIn("failed reads: 0", lines)
 
     def test_a_ceiling_reached_exactly_at_the_end_is_not_a_cut(self):
-        s = Setup(self, spend_ceiling="12")
+        s = Setup(self, spend_ceiling="24")
         result = s.frozen_run()
         self.assertEqual(result.exit_code, 0)
         self.assertIn("cut: no", s.result_lines())
 
     def test_10_30_a_failed_read_with_a_cut_exits_1_and_reports_both(self):
-        s = Setup(self, spend_ceiling="8", hypotheses=[SIX],
+        s = Setup(self, spend_ceiling="16", hypotheses=[SIX],
                   fake_reader=[PREFER_GLANCE, "omit PREFER | read 1"])
         result = s.frozen_run()
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
             "failed read c1/1: missing PREFER",
-            "cut: ran 8 of 12 planned reads at spend ceiling 8"])
+            "cut: ran 16 of 24 planned reads at spend ceiling 16"])
         lines = s.result_lines()
         self.assertIn("failed reads: 1", lines)
         self.assertIn("failed read c1/1: missing PREFER", lines)
-        self.assertIn("cut: ran 8 of 12 planned reads at spend ceiling 8", lines)
+        self.assertIn("cut: ran 16 of 24 planned reads at spend ceiling 16", lines)
         self.assertIn("exit status: 1", lines)
 
 
@@ -1320,11 +1349,12 @@ class ScoringCase(unittest.TestCase):
         s, result, lines = self.done(fake_reader=[PREFER_GLANCE])
         self.assertEqual((result.exit_code, result.error), (0, ""))
         self.assertIn("hypothesis h1 rule: " + SIX_RULE, lines)
-        self.assertIn("hypothesis h1 counts: valid=6 base=0 skills-top=6 tie=0", lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
-        self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE; threshold 1/2)", lines)
-        self.assertIn("position c1: 3 of 6 non-TIE picks in slot A (50%): no slot bias", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=6 tie=0", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
+        self.assertIn("A/A gate: passed (0 of 12 valid A/A reads non-TIE, at any strength; "
+                      "threshold 1/2)", lines)
+        self.assertIn("position c1: 6 of 12 non-TIE reads in slot A (50%): no slot bias",
+                      lines)
         self.assertIn("read c1/1: reader=r1 A=base B=skills-top scores=5/5 "
                       "prefer=B, slightly flags=none", lines)
         self.assertEqual(result.text, s.read("result-1.txt"))
@@ -1333,29 +1363,31 @@ class ScoringCase(unittest.TestCase):
     def test_10_2_always_tie_is_inconclusive(self):
         _s, result, lines = self.done(fake_reader=["tie"])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("hypothesis h1 counts: valid=6 base=0 skills-top=0 tie=6", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=0 tie=6", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("position c1: 0 of 0 non-TIE picks in slot A: not assessable", lines)
+        self.assertIn("position c1: 0 of 0 non-TIE reads in slot A: not assessable", lines)
 
     def test_10_3_slot_a_bias_is_position_inconclusive(self):
         _s, result, lines = self.done(fake_reader=["prefer slot A"])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("hypothesis h1 counts: valid=6 base=3 skills-top=3 tie=0", lines)
-        self.assertIn("position c1: 6 of 6 non-TIE picks in slot A (100%): INCONCLUSIVE",
+        # Each version wins 6 of the 12 reads, and every pair is order-split, so a TIE.
+        self.assertIn("reads all readers c1: valid=12 base=6 skills-top=6 tie=0", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=0 tie=6", lines)
+        self.assertIn("position c1: 12 of 12 non-TIE reads in slot A (100%): INCONCLUSIVE",
                       lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
-        self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE; threshold 1/2)", lines)
+        self.assertIn("A/A gate: passed (0 of 12 valid A/A reads non-TIE, at any strength; "
+                      "threshold 1/2)", lines)
 
     def test_10_8_noisy_aa_trips_the_gate(self):
         # The comparison also prefers "At a glance", so the INCONCLUSIVE comes from the gate.
         rules = [PREFER_GLANCE] + items("random seed 1 non-tie", arm="aa", strength="strongly")
         _s, result, lines = self.done(fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("A/A gate: tripped (6 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE, 100%; threshold 1/2)", lines)
-        self.assertIn("hypothesis h1 counts: valid=6 base=0 skills-top=6 tie=0", lines)
+        self.assertIn("A/A gate: tripped (12 of 12 valid A/A reads non-TIE, at any strength, "
+                      "100%; threshold 1/2)", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=6 tie=0", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: the A/A gate tripped", lines)
 
@@ -1363,7 +1395,9 @@ class ScoringCase(unittest.TestCase):
         _s, result, lines = self.done(fake_reader=[PREFER_GLANCE, "omit PREFER | read 1"])
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), ["failed read c1/1: missing PREFER"])
-        self.assertIn("hypothesis h1 counts: valid=5 base=0 skills-top=5 tie=0", lines)
+        # Its pair (reads 1 and 2) is a failed pair: 11 valid reads, 5 valid pairs.
+        self.assertIn("reads all readers c1: valid=11 base=0 skills-top=11 tie=0", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=5 base=0 skills-top=5 tie=0", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("read c1/1: reader=r1 A=base B=skills-top FAILED (missing PREFER)", lines)
         self.assertIn("failed reads: 1", lines)
@@ -1391,14 +1425,16 @@ class ScoringCase(unittest.TestCase):
 
     def test_10_11_mechanism_against_a_zero_floor(self):
         _s, result, lines = self.done(mechanisms=[TOO_LONG],
-                                      fake_reader=items(WRITE_TOO_LONG, reads=[1, 2, 3, 4]))
+                                      fake_reader=items(WRITE_TOO_LONG, reads=EIGHT))
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("mechanism too long in c1 count: 4 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 A/A floor: 0 of 6 valid reads", lines)
+        self.assertIn("mechanism too long in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 A/A floor: 0 of 12 valid reads", lines)
         self.assertIn("mechanism too long in c1 separation: separates the versions from the "
                       "A/A floor", lines)
-        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 reads left out]",
-                      lines)
+        self.assertIn("mechanism too long in c1 margin: Fisher exact p = 0.0013 two-sided "
+                      "against the A/A floor", lines)
+        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
     def test_10_14_two_arms_and_overall_position(self):
         rules = ["base vs skills-top | prefer slot B",
@@ -1408,12 +1444,14 @@ class ScoringCase(unittest.TestCase):
                                          "base vs skills-top-short | " + SHORT_SIX],
             fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("position c1: 0 of 6 non-TIE picks in slot A (0%): INCONCLUSIVE", lines)
-        self.assertIn("hypothesis h1 counts: valid=6 base=3 skills-top=3 tie=0", lines)
+        self.assertIn("position c1: 0 of 12 non-TIE reads in slot A (0%): INCONCLUSIVE",
+                      lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=0 tie=6", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("position c2: 3 of 6 non-TIE picks in slot A (50%): no slot bias", lines)
-        self.assertIn("hypothesis h2 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
-        self.assertIn("position overall: 3 of 12 non-TIE picks in slot A (25%): no slot bias",
+        self.assertIn("position c2: 6 of 12 non-TIE reads in slot A (50%): no slot bias",
+                      lines)
+        self.assertIn("hypothesis h2 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
+        self.assertIn("position overall: 6 of 24 non-TIE reads in slot A (25%): no slot bias",
                       lines)
 
     def test_10_15_mechanism_at_its_floor_cannot_separate(self):
@@ -1421,12 +1459,12 @@ class ScoringCase(unittest.TestCase):
             mechanisms=["jargon | default | supported at 3 or more"],
             fake_reader=['aa | write "jargon" in DOUBTS', 'write "jargon" in DOUBTS'])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("mechanism jargon in c1 count: 6 of 6 valid reads", lines)
-        self.assertIn("mechanism jargon in c1 A/A floor: 6 of 6 valid reads", lines)
+        self.assertIn("mechanism jargon in c1 count: 12 of 12 valid reads", lines)
+        self.assertIn("mechanism jargon in c1 A/A floor: 12 of 12 valid reads", lines)
         self.assertIn("mechanism jargon in c1 separation: unable to separate the versions",
                       lines)
-        self.assertIn("mechanism jargon in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism jargon in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
     def test_10_16_prefer_rationale_matches_by_default_only(self):
         _s, result, lines = self.done(
@@ -1434,10 +1472,11 @@ class ScoringCase(unittest.TestCase):
                         "needs a summary | DOUBTS | supported at 3 or more"],
             fake_reader=['write "needs a summary" in PREFER'])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("mechanism NEEDS A SUMMARY in c1 count: 6 of 6 valid reads", lines)
+        self.assertIn("mechanism NEEDS A SUMMARY in c1 count: 12 of 12 valid reads", lines)
         self.assertIn("mechanism NEEDS A SUMMARY in c1 verdict: SUPPORTED "
-                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
-        self.assertIn("mechanism needs a summary in c1 count: 0 of 6 valid reads", lines)
+                      "(SUPPORTED at 3 or more) (what readers wrote, not a cause) "
+                      "[not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism needs a summary in c1 count: 0 of 12 valid reads", lines)
         self.assertIn("mechanism needs a summary in c1 separation: unable to separate the "
                       "versions", lines)
 
@@ -1454,66 +1493,69 @@ class ScoringCase(unittest.TestCase):
     def test_10_22_unmarked_preference_refutes(self):
         _s, result, lines = self.done(fake_reader=[WITHOUT_GLANCE])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("hypothesis h1 counts: valid=6 base=6 skills-top=0 tie=0", lines)
-        self.assertIn("hypothesis h1 verdict: REFUTED [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=6 skills-top=0 tie=0", lines)
+        self.assertIn("hypothesis h1 verdict: REFUTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
 
-    def test_10_23_slight_aa_picks_do_not_trip_the_gate(self):
+    def test_10_23_slight_aa_picks_trip_the_gate_from_revision_4(self):
         rules = [PREFER_GLANCE, "aa | prefer slot A | slightly"]
         _s, result, lines = self.done(fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE; threshold 1/2)", lines)
-        self.assertIn("position aa: 6 of 6 non-TIE picks in slot A (100%): INCONCLUSIVE",
+        self.assertIn("A/A gate: tripped (12 of 12 valid A/A reads non-TIE, at any strength, "
+                      "100%; threshold 1/2)", lines)
+        self.assertIn("position aa: 12 of 12 non-TIE reads in slot A (100%): INCONCLUSIVE",
                       lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 reason: the A/A gate tripped", lines)
 
-    def test_a_clearly_strong_half_of_aa_trips_the_gate_at_the_threshold(self):
-        rules = items("prefer slot A", reads=[1, 3, 5], arm="aa", strength="clearly")
+    def test_a_half_of_aa_at_any_strength_trips_the_gate_at_the_threshold(self):
+        rules = items("prefer slot A", reads=[1, 2, 3, 4, 5, 6], arm="aa", strength="clearly")
         _s, _result, lines = self.done(fake_reader=rules)
-        self.assertIn("A/A gate: tripped (3 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE, 50%; threshold 1/2)", lines)
-        rules = items("prefer slot A", reads=[1, 3], arm="aa", strength="clearly")
+        self.assertIn("A/A gate: tripped (6 of 12 valid A/A reads non-TIE, at any strength, "
+                      "50%; threshold 1/2)", lines)
+        rules = items("prefer slot A", reads=[1, 2, 3, 4, 5], arm="aa")
         _s, _result, lines = self.done(fake_reader=rules)
-        self.assertIn("A/A gate: passed (2 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE; threshold 1/2)", lines)
+        self.assertIn("A/A gate: passed (5 of 12 valid A/A reads non-TIE, at any strength; "
+                      "threshold 1/2)", lines)
 
     def test_a_failed_aa_read_means_the_gate_is_not_evaluated(self):
         rules = [PREFER_GLANCE, "aa | omit PREFER | read 1"]
         _s, result, lines = self.done(fake_reader=rules)
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("A/A gate: not evaluated (5 valid reads of 6 planned)", lines)
+        self.assertIn("A/A gate: not evaluated (11 valid reads of 12 planned)", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: the A/A gate was not evaluated", lines)
 
     def test_10_24_not_blind_reads_reported_separately_and_never_counted(self):
-        _s, result, lines = self.done(readers=["r1 | fake | not-blind", "r2 | fake"],
+        _s, result, lines = self.done(readers=["r1 | fake | not-blind | family m1", "r2 | fake | family m2"],
                                       fake_reader=[PREFER_GLANCE])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("reads blind readers c1: valid=3 base=0 skills-top=3 tie=0", lines)
-        self.assertIn("reads not-blind readers c1: valid=3 base=0 skills-top=3 tie=0", lines)
+        self.assertIn("reads blind readers c1: valid=6 base=0 skills-top=6 tie=0", lines)
+        self.assertIn("reads not-blind readers c1: valid=6 base=0 skills-top=6 tie=0", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=3 base=0 skills-top=3 tie=0", lines)
         self.assertIn("read c1/1: reader=r1 A=base B=skills-top scores=5/5 prefer=B, "
                       "slightly flags=not-blind reader", lines)
-        self.assertIn("read c1/4: reader=r2 A=skills-top B=base scores=5/5 prefer=A, "
+        self.assertIn("read c1/8: reader=r2 A=skills-top B=base scores=5/5 prefer=A, "
                       "slightly flags=none", lines)
 
     def test_10_25_scores_per_version_reader_and_aa_spread(self):
-        # base is in slot A on odd reads and in slot B on even reads of the arm.
+        # base is in slot A on the first read of each pair: the odd reads of the arm.
         rules = [PREFER_GLANCE]
-        rules += items("score 4 8", reads=[1, 3, 5]) + items("score 8 4", reads=[2, 4, 6])
+        rules += (items("score 4 8", reads=[1, 3, 5, 7, 9, 11])
+                  + items("score 8 4", reads=[2, 4, 6, 8, 10, 12]))
         rules += items("score 3 9", arm="aa")
         _s, _result, lines = self.done(fake_reader=rules)
-        self.assertIn("scores c1 version base: scores=6 total=24 mean=4.00", lines)
-        self.assertIn("scores c1 version skills-top: scores=6 total=48 mean=8.00", lines)
-        self.assertIn("scores c1 reader r1 version base: scores=3 total=12 mean=4.00", lines)
-        self.assertIn("scores c1 reader r2 version skills-top: scores=3 total=24 mean=8.00",
+        self.assertIn("scores c1 version base: scores=12 total=48 mean=4.00", lines)
+        self.assertIn("scores c1 version skills-top: scores=12 total=96 mean=8.00", lines)
+        self.assertIn("scores c1 reader r1 version base: scores=6 total=24 mean=4.00", lines)
+        self.assertIn("scores c1 reader r2 version skills-top: scores=6 total=48 mean=8.00",
                       lines)
-        self.assertIn("scores aa version skills-top: scores=12 total=72 mean=6.00", lines)
+        self.assertIn("scores aa version skills-top: scores=24 total=144 mean=6.00", lines)
         self.assertIn("A/A score spread: 6 (highest 9, lowest 3)", lines)
 
     def test_10_39_scores_are_5_and_5_without_a_score_rule(self):
         _s, _result, lines = self.done(fake_reader=[PREFER_GLANCE])
         reads = [line for line in lines if line.startswith("read ")]
-        self.assertEqual(len(reads), 12)
+        self.assertEqual(len(reads), 24)
         self.assertTrue(all("scores=5/5" in line for line in reads), reads)
 
     def test_10_39_a_score_rule_sets_both_scores(self):
@@ -1541,17 +1583,21 @@ class ScoringCase(unittest.TestCase):
             "failed read c1/1: missing READ", "failed read c1/2: missing SCORE-A",
             "failed read c1/3: missing SCORE-B"])
         self.assertIn("failed reads: 3", lines)
-        self.assertIn("hypothesis h1 counts: valid=3 base=0 skills-top=3 tie=0", lines)
+        # Reads 1 and 2 are one failed pair, reads 3 and 4 another: 4 valid pairs remain.
+        self.assertIn("hypothesis h1 pair counts: valid=4 base=0 skills-top=4 tie=0", lines)
 
     def test_10_27_single_pick_position_not_assessable(self):
         one = "SUPPORTED if skills-top preferred in 1 or more; otherwise INCONCLUSIVE"
         _s, result, lines = self.done(hypotheses=[SIX, one],
                                       fake_reader=items(PREFER_GLANCE, reads=[2]))
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("position c1: 1 of 1 non-TIE picks in slot A (100%): not assessable",
+        self.assertIn("position c1: 1 of 1 non-TIE reads in slot A (100%): not assessable",
                       lines)
+        # The one pick and its pair's TIE make a TIE pair: no paired pick is left.
+        self.assertIn("hypothesis h1 evidence: no non-TIE paired pick, 6 TIE; p and interval "
+                      "not computed", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("hypothesis h2 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h2 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
 
     def test_or_more_holds_however_many_reads_are_valid(self):
         four = "SUPPORTED if skills-top preferred in 4 or more; otherwise INCONCLUSIVE"
@@ -1559,23 +1605,23 @@ class ScoringCase(unittest.TestCase):
                                       fake_reader=[PREFER_GLANCE, "omit PREFER | read 1"])
         self.assertEqual(result.exit_code, 1)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("hypothesis h2 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h2 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
 
     def test_n_of_m_needs_exactly_m_valid_reads(self):
-        # Five valid reads all prefer skills-top, but "5 of 6" needs exactly 6 valid reads.
+        # Five valid pairs all prefer skills-top, but "5 of 6" needs exactly 6 valid pairs.
         five_of_six = ("SUPPORTED if skills-top preferred in 5 of 6; "
                        "otherwise INCONCLUSIVE")
         _s, result, lines = self.done(hypotheses=[five_of_six],
                                       fake_reader=[PREFER_GLANCE, "omit PREFER | read 1"])
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("hypothesis h1 counts: valid=5 base=0 skills-top=5 tie=0", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=5 base=0 skills-top=5 tie=0", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        # The control: with all 6 reads valid the same rule is SUPPORTED.
+        # The control: with all 6 pairs valid the same rule is SUPPORTED.
         _s, _result, lines = self.done(hypotheses=[five_of_six], fake_reader=[PREFER_GLANCE])
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
 
     def test_the_first_clause_that_holds_decides(self):
-        # Both clauses hold (all six reads prefer skills-top). The order of the plan decides.
+        # Both clauses hold (all six pairs prefer skills-top). The order of the plan decides.
         supported_first = ("SUPPORTED if skills-top preferred in 3 or more; "
                            "REFUTED if skills-top preferred in 2 or more; "
                            "otherwise INCONCLUSIVE")
@@ -1584,8 +1630,8 @@ class ScoringCase(unittest.TestCase):
                          "otherwise INCONCLUSIVE")
         _s, _result, lines = self.done(hypotheses=[supported_first, refuted_first],
                                        fake_reader=[PREFER_GLANCE])
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
-        self.assertIn("hypothesis h2 verdict: REFUTED [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h2 verdict: REFUTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
         self.assertEqual([line for line in lines if "reason" in line], [])
 
     def test_the_result_names_the_plan_and_freeze_hashes(self):
@@ -1593,14 +1639,14 @@ class ScoringCase(unittest.TestCase):
         self.assertIn("plan sha256: " + sha256_of(s.path("plan.txt")), lines)
         self.assertIn("freeze sha256: " + sha256_of(s.path("plan.txt.freeze")), lines)
         self.assertIn("key c1/1: reader=r1 A=base B=skills-top", lines)
-        self.assertIn("key aa/4: reader=r2 A=skills-top B=skills-top", lines)
+        self.assertIn("key aa/7: reader=r2 A=skills-top B=skills-top", lines)
         self.assertFalse([line for line in lines if line.startswith("amended")])
 
     def test_a_noise_threshold_is_a_fraction(self):
-        rules = items("prefer slot A", reads=[1, 2], arm="aa", strength="strongly")
+        rules = items("prefer slot A", reads=[1, 2, 3, 4], arm="aa", strength="strongly")
         _s, _result, lines = self.done(noise_threshold="1/3", fake_reader=rules)
-        self.assertIn("A/A gate: tripped (2 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE, 33%; threshold 1/3)", lines)
+        self.assertIn("A/A gate: tripped (4 of 12 valid A/A reads non-TIE, at any strength, "
+                      "33%; threshold 1/3)", lines)
 
     def test_scoring_reads_the_replies_not_the_fake_rules(self):
         s, _result, lines = self.done(fake_reader=[PREFER_GLANCE])
@@ -1611,52 +1657,56 @@ class ScoringCase(unittest.TestCase):
         later = s.result_lines(2)
         self.assertIn("read c1/1: reader=r1 A=base B=skills-top scores=3/9 prefer=A, strongly "
                       "flags=PRIOR missing", later)
-        self.assertIn("hypothesis h1 counts: valid=6 base=1 skills-top=5 tie=0", later)
+        # Read 1 now picks base and read 2 skills-top: an order-split pair, so a TIE.
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=5 tie=1", later)
         self.assertNotEqual(lines, later)
 
     def test_10_40_unevaluated_gate_makes_mechanisms_inconclusive(self):
-        rules = items(WRITE_TOO_LONG, reads=[1, 2, 3, 4]) + [PREFER_GLANCE]
+        rules = items(WRITE_TOO_LONG, reads=EIGHT) + [PREFER_GLANCE]
         rules_failed = rules + ["aa | omit PREFER | read 1"]
         # The control: without the failed A/A read the mechanism and hypothesis stand.
         _s, ok, lines = self.done(mechanisms=[TOO_LONG], fake_reader=rules)
         self.assertEqual(ok.exit_code, 0)
-        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 reads left out]",
-                      lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]", lines)
         _s, result, lines = self.done(mechanisms=[TOO_LONG], fake_reader=rules_failed)
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("A/A gate: not evaluated (5 valid reads of 6 planned)", lines)
-        self.assertIn("mechanism too long in c1 count: 4 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("A/A gate: not evaluated (11 valid reads of 12 planned)", lines)
+        self.assertIn("mechanism too long in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
         self.assertIn("mechanism too long in c1 reason: the A/A gate was not evaluated", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: the A/A gate was not evaluated", lines)
 
     def test_a_tripped_gate_makes_mechanisms_inconclusive_too(self):
-        rules = items(WRITE_TOO_LONG, reads=[1, 2, 3, 4])
+        rules = items(WRITE_TOO_LONG, reads=EIGHT)
         rules += items("random seed 1 non-tie", arm="aa", strength="strongly")
         _s, result, lines = self.done(mechanisms=[TOO_LONG], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("A/A gate: tripped (6 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE, 100%; threshold 1/2)", lines)
-        self.assertIn("mechanism too long in c1 count: 4 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("A/A gate: tripped (12 of 12 valid A/A reads non-TIE, at any strength, "
+                      "100%; threshold 1/2)", lines)
+        self.assertIn("mechanism too long in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
         self.assertIn("mechanism too long in c1 reason: the A/A gate tripped", lines)
 
     def test_10_41_position_leaves_mechanisms_alone(self):
-        rules = items(WRITE_TOO_LONG, reads=[1, 2, 3, 4])
+        rules = items(WRITE_TOO_LONG, reads=EIGHT)
         rules.append("base vs skills-top | prefer slot B")
         _s, result, lines = self.done(mechanisms=[TOO_LONG], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("position c1: 0 of 6 non-TIE picks in slot A (0%): INCONCLUSIVE", lines)
+        self.assertIn("position c1: 0 of 12 non-TIE reads in slot A (0%): INCONCLUSIVE",
+                      lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
-        self.assertIn("mechanism too long in c1 count: 4 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 A/A floor: 0 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 reads left out]",
-                      lines)
+        self.assertIn("mechanism too long in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 A/A floor: 0 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 margin: Fisher exact p = 0.0013 two-sided "
+                      "against the A/A floor", lines)
+        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
         self.assertEqual([line for line in lines if line.startswith("mechanism")
                           and "reason" in line], [])
 

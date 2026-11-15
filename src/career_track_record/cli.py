@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-from career_track_record import ab, barred, claims, keywords, panel, record_check, tone
+from career_track_record import ab, barred, claims, drafts, keywords, panel, record_check, tone
 
 
 class _Parser(argparse.ArgumentParser):
@@ -58,6 +58,9 @@ def _build_parser():
                    add_help=False)
     # Listed for --help only: main() hands "record" to its own parser (_parse_record).
     top.add_parser("record", help="check your record's tables against rules you declare",
+                   add_help=False)
+    # Listed for --help only: main() hands "drafts" to its own parser (_parse_drafts).
+    top.add_parser("drafts", help="check a file of a document's versions, or extract one",
                    add_help=False)
     return parser
 
@@ -180,6 +183,21 @@ Check the tables of your record against the rules you declare.
   -h, --help     show this summary and exit
 
 exit: 0 all checks OK, 1 a check found a problem, 2 a DEAD check or cannot run
+"""
+
+
+_DRAFTS_HELP = """\
+usage: track-record drafts check FILE [--earlier COPY]
+       track-record drafts extract FILE ID --out OUT [--earlier COPY]
+
+Check the file that holds a document's versions, or write out one version.
+
+  --earlier COPY  an earlier copy that must still be the start of FILE
+  --out OUT       the new file extract writes; it must not exist
+  -h, --help      show this summary and exit
+
+exit: 0 OK, 1 a fault that check reports or extract refuses,
+      2 a DEAD check or cannot run
 """
 
 
@@ -495,6 +513,92 @@ def _main_record(args):
     return result.exit_code
 
 
+_DRAFTS_VALUE_OPTIONS = {"check": ("--earlier",), "extract": ("--earlier", "--out")}
+
+
+def _parse_drafts(args):
+    """Parse the command line of ``drafts``. Raises _OptionError on any problem, naming the
+    first one in the order of the spec's section 8."""
+    if _asks_for_help(args, ("--earlier", "--out"), ("--earlier", "--out")):
+        return {"help": True}
+    if not args:
+        raise _OptionError("drafts needs check or extract")
+    sub = args[0]
+    if sub not in _DRAFTS_VALUE_OPTIONS:
+        raise _OptionError("unknown subcommand %s" % barred.printed_path(sub))
+    allowed = _DRAFTS_VALUE_OPTIONS[sub]
+    given = {}
+    words = []
+    i = 1
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            words.extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            words.append(arg)
+            continue
+        name, equals, value = arg.partition("=")
+        if name not in allowed:
+            raise _OptionError("unknown option %s" % barred.printed_path(name))
+        if name in given:
+            raise _OptionError("%s given more than once" % name)
+        if not equals:
+            if i >= len(args) or args[i] in ("--earlier", "--out"):
+                raise _OptionError("%s needs a value" % name)
+            value = args[i]
+            i += 1
+        elif value == "":
+            raise _OptionError("%s needs a value" % name)
+        given[name] = value
+    if not words:
+        raise _OptionError("%s needs a FILE" % sub)
+    if len(words) > (1 if sub == "check" else 2):
+        raise _OptionError("%s takes one FILE, not several" % sub)
+    if sub == "extract":
+        if len(words) < 2:
+            raise _OptionError("extract needs a version id")
+        if "--out" not in given:
+            raise _OptionError("extract needs --out OUT")
+    return {"sub": sub, "file": words[0], "id": words[1] if len(words) > 1 else None,
+            "earlier": given.get("--earlier"), "out": given.get("--out")}
+
+
+def _err_strict(text):
+    """Write to standard error; a closed or failing stream raises OSError."""
+    stream = sys.stderr
+    if stream is None:
+        raise OSError("no standard error")
+    try:
+        _write(stream, text)
+    except (OSError, ValueError):
+        _silence(stream)
+        raise OSError("standard error cannot be written")
+
+
+def _main_drafts(args):
+    try:
+        opts = _parse_drafts(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_DRAFTS_HELP)
+        return 0
+    if opts["sub"] == "check":
+        result = drafts.check(opts["file"], opts["earlier"])
+    else:
+        result = drafts.extract(opts["file"], opts["id"], opts["out"], opts["earlier"],
+                                emit=_err_strict)
+    if not result.ran:
+        _err(result.error + "\n")
+        return result.exit_code
+    if opts["sub"] == "check":
+        _out(result.text)
+    return result.exit_code
+
+
 def _parse_tone(args):
     """Parse the options of ``tone``. Returns (options, reasons); reasons is a list of
     one-line option problems, empty when the command line is usable."""
@@ -666,6 +770,8 @@ def _main(argv, environ):
         return _main_claims(argv[1:])
     if argv and argv[0] == "record":
         return _main_record(argv[1:])
+    if argv and argv[0] == "drafts":
+        return _main_drafts(argv[1:])
     return _main_keywords(_build_parser().parse_args(argv))
 
 

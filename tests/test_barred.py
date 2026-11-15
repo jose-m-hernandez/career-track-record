@@ -640,6 +640,11 @@ SWEEP = [
           "canary.txt", "clean.txt", "prefix-notes.txt", "moonshot-notes.txt"], []),
     (L3, ["hyphkeep.txt", "hyphff1.txt", "hyphff2.txt", "hyphkeepcrlf.txt", "nokeep.txt"],
      []),
+    (L1, ["shyend.txt", "shyendsp.txt", "shyendcrlf.txt", "shyendcr.txt", "shymid.txt",
+          "shynonword.txt", "shyalone.txt"], []),
+    (L1, ["shycomment.ts"], ["--strip-comments"]),
+    (L1, ["shycomment.ts"], []),
+    (L3, ["shyend.txt"], []),
 ]
 
 
@@ -1086,11 +1091,12 @@ class FixturesCase(unittest.TestCase):
                  "endash compound note nbhyph two substr early bom short nocontrol "
                  "fold trim word word2 decomp lrm canary moonshot-notes moonshot-plain "
                  "moonshot-short prefix-notes strip hyphkeep hyphff1 hyphff2 hyphkeepcrlf "
-                 "nokeep").split()
+                 "nokeep shyend shyendsp shyendcrlf shyendcr shymid shynonword shyalone "
+                 "shyspace shyline").split()
         for name in names:
             self.assertTrue(os.path.isfile(os.path.join(FX, name + ".txt")), name)
         for name in ("src lines nlnote url footnote spcolon single unterm strblock "
-                     "value").split():
+                     "value shycomment").split():
             self.assertTrue(os.path.isfile(os.path.join(FX, name + ".ts")), name)
         for name in (L1, L2, L3, "sample.pdf", "hyphmid.pdf"):
             self.assertTrue(os.path.isfile(os.path.join(FX, name)), name)

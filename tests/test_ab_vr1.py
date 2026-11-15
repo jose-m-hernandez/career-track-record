@@ -46,38 +46,41 @@ class NoiseControlCase(unittest.TestCase):
         self.assertIn("A/A version: named by aa-version in the plan", lines)
         self.assertNotIn("A/A arm: added by the tool, using version skills-top", lines)
         self.assertIn("key aa/1: reader=r1 A=base B=base", lines)
-        self.assertIn("key aa/6: reader=r2 A=base B=base", lines)
+        self.assertIn("key aa/12: reader=r2 A=base B=base", lines)
         self.assertEqual(s.plan.effective_aa_version(), "base")
         self.assertEqual(s.read(ab.KEY_FILE).splitlines()[0], "aa/1\tr1\tbase\tbase")
 
 
 class MechanismCase(unittest.TestCase):
     def test_vr1_den_mech_planned(self):
-        # Reads c1/1 to c1/3 match, c1/4 is a failed read: 3 of 5 valid, against an A/A floor
-        # of 3 of 6. Shares of the valid reads: 60% against 50%, so the mechanism separates.
-        rules = items('write "xx" in DOUBTS', reads=[1, 2, 3])
-        rules += items('write "xx" in DOUBTS', reads=[1, 2, 3], arm="aa")
-        rules += ["omit PREFER | read 4"]
+        # Reads c1/1 to c1/6 match, c1/12 is a failed read: 6 of 11 valid, against an A/A
+        # floor of 6 of 12. Shares of the valid reads: 55% against 50%, so the mechanism
+        # separates; from revision 4 it also needs a margin, which so small a gap lacks.
+        rules = items('write "xx" in DOUBTS', reads=[1, 2, 3, 4, 5, 6])
+        rules += items('write "xx" in DOUBTS', reads=[1, 2, 3, 4, 5, 6], arm="aa")
+        rules += ["omit PREFER | read 12"]
         _s, result, lines = done(self, mechanisms=[MECH_XX], fake_reader=rules)
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("mechanism xx in c1 count: 3 of 5 valid reads", lines)
-        self.assertIn("mechanism xx in c1 A/A floor: 3 of 6 valid reads", lines)
+        self.assertIn("mechanism xx in c1 count: 6 of 11 valid reads", lines)
+        self.assertIn("mechanism xx in c1 A/A floor: 6 of 12 valid reads", lines)
         self.assertIn("mechanism xx in c1 separation: separates the versions from the A/A "
                       "floor", lines)
-        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism xx in c1 reason: no margin over the A/A floor", lines)
 
     def test_vr1_den_mech_counts_not_shares(self):
-        # 3 of 6 is a lower share than the floor's 2 of 3, though the count is higher.
-        rules = items('write "xx" in DOUBTS', reads=[1, 2, 3])
-        rules += items('write "xx" in DOUBTS', reads=[1, 2], arm="aa")
-        rules += items("omit PREFER", reads=[4, 5, 6], arm="aa")
+        # 6 of 12 is a lower share than the floor's 4 of 6, though the count is higher.
+        rules = items('write "xx" in DOUBTS', reads=[1, 2, 3, 4, 5, 6])
+        rules += items('write "xx" in DOUBTS', reads=[1, 2, 3, 4], arm="aa")
+        rules += items("omit PREFER", reads=[7, 8, 9, 10, 11, 12], arm="aa")
         _s, result, lines = done(self, mechanisms=[MECH_XX], fake_reader=rules)
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("mechanism xx in c1 count: 3 of 6 valid reads", lines)
-        self.assertIn("mechanism xx in c1 A/A floor: 2 of 3 valid reads", lines)
+        self.assertIn("mechanism xx in c1 count: 6 of 12 valid reads", lines)
+        self.assertIn("mechanism xx in c1 A/A floor: 4 of 6 valid reads", lines)
         self.assertIn("mechanism xx in c1 separation: unable to separate the versions", lines)
-        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) [not blind: 0 reads left out]",
-                      lines)
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
     def test_vr1_mech_matches_not_replies(self):
         # One reply holds the pattern in two fields: it is one matching reply, not two.
@@ -86,24 +89,28 @@ class MechanismCase(unittest.TestCase):
         _s, result, lines = done(self, fake_reader=rules,
                                  mechanisms=["xx | default | supported at 2 or more"])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("mechanism xx in c1 count: 1 of 6 valid reads", lines)
-        self.assertIn("mechanism xx in c1 A/A floor: 0 of 6 valid reads", lines)
+        self.assertIn("mechanism xx in c1 count: 1 of 12 valid reads", lines)
+        self.assertIn("mechanism xx in c1 A/A floor: 0 of 12 valid reads", lines)
         self.assertIn("mechanism xx in c1 separation: separates the versions from the A/A "
                       "floor", lines)
-        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 2 or more) [not blind: 0 reads left out]",
-                      lines)
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 2 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
     def test_vr1_mech_k_gt(self):
-        # "supported at 3 or more" holds with exactly 3 matching replies.
-        rules = items('write "xx" in DOUBTS', reads=[1, 2, 3])
-        _s, result, lines = done(self, mechanisms=[MECH_XX], fake_reader=rules)
+        # "supported at 8 or more" holds with exactly 8 matching replies (8 of 12 against a
+        # floor of 0 of 12 also has its margin, 10.85).
+        eight = "xx | default | supported at 8 or more"
+        rules = items('write "xx" in DOUBTS', reads=[1, 2, 3, 4, 5, 6, 7, 8])
+        _s, result, lines = done(self, mechanisms=[eight], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("mechanism xx in c1 count: 3 of 6 valid reads", lines)
-        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
-        fewer = items('write "xx" in DOUBTS', reads=[1, 2])
-        _s, _result, lines = done(self, mechanisms=[MECH_XX], fake_reader=fewer)
-        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) [not blind: 0 reads left out]",
-                      lines)
+        self.assertIn("mechanism xx in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism xx in c1 verdict: SUPPORTED (SUPPORTED at 8 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
+        fewer = items('write "xx" in DOUBTS', reads=[1, 2, 3, 4, 5, 6, 7])
+        _s, _result, lines = done(self, mechanisms=[eight], fake_reader=fewer)
+        self.assertIn("mechanism xx in c1 verdict: INCONCLUSIVE (SUPPORTED at 8 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
+        self.assertEqual([x for x in lines if x.startswith("mechanism xx in c1 reason")], [])
 
     def test_vr1_mech_prefer_whole_line(self):
         # The strength word is part of the PREFER line and is not rationale text, so the
@@ -111,22 +118,22 @@ class MechanismCase(unittest.TestCase):
         _s, result, lines = done(self, fake_reader=[PREFER_GLANCE],
                                  mechanisms=["slightly | default | supported at 3 or more"])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("mechanism slightly in c1 count: 0 of 6 valid reads", lines)
-        self.assertIn("mechanism slightly in c1 A/A floor: 0 of 6 valid reads", lines)
+        self.assertIn("mechanism slightly in c1 count: 0 of 12 valid reads", lines)
+        self.assertIn("mechanism slightly in c1 A/A floor: 0 of 12 valid reads", lines)
         self.assertIn("mechanism slightly in c1 separation: unable to separate the versions",
                       lines)
-        self.assertIn("mechanism slightly in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism slightly in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
 
 class HypothesisCountCase(unittest.TestCase):
     def test_vr1_kofn_ge(self):
-        # "3 of 4" needs exactly 4 valid reads; 6 valid reads, all for skills-top, do not do.
+        # "3 of 4" needs exactly 4 valid pairs; 6 valid pairs, all for skills-top, do not do.
         rule = "SUPPORTED if skills-top preferred in 3 of 4; otherwise INCONCLUSIVE"
         _s, result, lines = done(self, hypotheses=[rule], fake_reader=[PREFER_GLANCE])
         self.assertEqual(result.exit_code, 0)
         self.assertIn("hypothesis h1 rule: SUPPORTED if skills-top preferred in 3 of 4", lines)
-        self.assertIn("hypothesis h1 counts: valid=6 base=0 skills-top=6 tie=0", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=6 tie=0", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertEqual([x for x in lines if x.startswith("hypothesis h1 reason")], [])
 
@@ -139,12 +146,13 @@ class PositionCase(unittest.TestCase):
         rules = items("prefer slot A", reads=[1, 2])
         _s, result, lines = done(self, hypotheses=[self.ONE_OR_MORE], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("position c1: 2 of 2 non-TIE picks in slot A (100%): INCONCLUSIVE",
+        self.assertIn("position c1: 2 of 2 non-TIE reads in slot A (100%): INCONCLUSIVE",
                       lines)
-        self.assertIn("position overall: 2 of 2 non-TIE picks in slot A (100%): INCONCLUSIVE",
+        self.assertIn("position overall: 2 of 2 non-TIE reads in slot A (100%): INCONCLUSIVE",
                       lines)
-        # The count alone would support it (skills-top is picked once, in slot A of read 2).
-        self.assertIn("hypothesis h1 counts: valid=6 base=1 skills-top=1 tie=4", lines)
+        # Reads 1 and 2 are one pair, split between the orders, so a TIE pair.
+        self.assertIn("reads all readers c1: valid=12 base=1 skills-top=1 tie=10", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=0 tie=6", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
 
@@ -153,26 +161,28 @@ class PositionCase(unittest.TestCase):
         rules = items(PREFER_GLANCE, reads=[2])
         _s, result, lines = done(self, hypotheses=[self.ONE_OR_MORE], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("position c1: 1 of 1 non-TIE picks in slot A (100%): not assessable",
+        self.assertIn("position c1: 1 of 1 non-TIE reads in slot A (100%): not assessable",
                       lines)
-        self.assertIn("position overall: 1 of 1 non-TIE picks in slot A (100%): "
+        self.assertIn("position overall: 1 of 1 non-TIE reads in slot A (100%): "
                       "not assessable", lines)
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]", lines)
+        # The one pick and its pair's TIE make a TIE pair, so "1 or more" does not hold.
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
 
     def test_vr1_pos_overall_for_arm(self):
         # c1 is all slot B, so its position is INCONCLUSIVE; the position of the whole run
-        # (3 of 12 in slot A) is not. A hypothesis on c1 follows c1's position.
+        # (6 of 24 in slot A) is not. A hypothesis on c1 follows c1's position.
         rules = ["base vs skills-top | prefer slot B",
                  "base vs skills-top-short | " + PREFER_GLANCE]
         three = "SUPPORTED if skills-top preferred in 3 or more; otherwise INCONCLUSIVE"
         _s, result, lines = done(self, comparisons=TWO, hypotheses=[
             "base vs skills-top | " + three], fake_reader=rules)
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("position c1: 0 of 6 non-TIE picks in slot A (0%): INCONCLUSIVE", lines)
-        self.assertIn("position overall: 3 of 12 non-TIE picks in slot A (25%): no slot bias",
+        self.assertIn("position c1: 0 of 12 non-TIE reads in slot A (0%): INCONCLUSIVE",
                       lines)
-        # The counts alone would support it: skills-top is picked 3 times of 6.
-        self.assertIn("hypothesis h1 counts: valid=6 base=3 skills-top=3 tie=0", lines)
+        self.assertIn("position overall: 6 of 24 non-TIE reads in slot A (25%): no slot bias",
+                      lines)
+        # Each version wins 6 of the 12 reads, but every pair is order-split.
+        self.assertIn("hypothesis h1 pair counts: valid=6 base=0 skills-top=0 tie=6", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: position is INCONCLUSIVE on c1", lines)
 
@@ -185,12 +195,12 @@ class SpendInTheNoiseArmCase(unittest.TestCase):
             fake_reader=[PREFER_GLANCE])
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(),
-                         ["cut: ran 3 of 12 planned reads at spend ceiling 3"])
+                         ["cut: ran 3 of 24 planned reads at spend ceiling 3"])
         self.assertEqual(s.read(ab.RUN_LOG).splitlines()[:5], [
-            "planned reads: 12", "reads run: 3", "spend: 3", "spend ceiling: 3", "cut: yes"])
+            "planned reads: 24", "reads run: 3", "spend: 3", "spend ceiling: 3", "cut: yes"])
         self.assertEqual((s.reply_count("aa"), s.reply_count("c1")), (3, 0))
-        self.assertIn("A/A gate: not evaluated (3 valid reads of 6 planned)", lines)
-        self.assertIn("cut: ran 3 of 12 planned reads at spend ceiling 3", lines)
+        self.assertIn("A/A gate: not evaluated (3 valid reads of 12 planned)", lines)
+        self.assertIn("cut: ran 3 of 24 planned reads at spend ceiling 3", lines)
         self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
         self.assertIn("hypothesis h1 reason: the A/A gate was not evaluated", lines)
         self.assertIn("exit status: 1", lines)
@@ -215,7 +225,7 @@ class ChangeScopeMatchingCase(unittest.TestCase):
         s = Setup(self, change_scope=scope)
         result = s.frozen_run()
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        self.assertEqual(s.reply_count("c1"), 6)
+        self.assertEqual(s.reply_count("c1"), 12)
 
 
 class PlanParserCase(unittest.TestCase):
@@ -231,19 +241,20 @@ class PlanParserCase(unittest.TestCase):
         self.assertEqual(u.freeze().exit_code, 0)
 
     def test_vr1_pp_read_k_range(self):
-        one = ["r1 | fake"]
-        s = Setup(self, readers=one, fake_reader=["prefer slot A | read 4"])
-        refused(self, s, "read 4", "read 4 is outside the arm's reads (1 to 3)")
-        t = Setup(self, readers=one, fake_reader=["prefer slot A | read 3"])
+        one = ["r1 | fake | family m1"]
+        s = Setup(self, readers=one, fake_reader=["prefer slot A | read 7"])
+        refused(self, s, "read 7", "read 7 is outside the arm's reads (1 to 6)")
+        t = Setup(self, readers=one, fake_reader=["prefer slot A | read 6"])
         self.assertEqual(t.freeze().exit_code, 0)
         u = Setup(self, readers=one, fake_reader=["prefer slot A | read 1"])
         self.assertEqual(u.freeze().exit_code, 0)
 
     def test_vr1_pp_fields_trim_removed(self):
         # Spaces around a field are not part of it.
-        s = Setup(self, versions=["base   |   base.txt", "skills-top  |  skills-top.txt  ",
-                                  "skills-top-short |  skills-top-short.txt"],
-                  readers=["r1  |   fake  ", "r2 |   fake   |  cost  2  "])
+        s = Setup(self, versions=["base   |   base.txt | drafted-by user",
+                                  "skills-top  |  skills-top.txt  |  drafted-by user ",
+                                  "skills-top-short |  skills-top-short.txt | drafted-by user"],
+                  readers=["r1  |   fake  |  family  m1 ", "r2 |   fake   |  cost  2  | family m2"])
         plan = s.plan
         self.assertEqual(plan.versions, [("base", "base.txt"), ("skills-top", "skills-top.txt"),
                                          ("skills-top-short", "skills-top-short.txt")])
@@ -296,15 +307,15 @@ class FakeRuleReachCase(unittest.TestCase):
         s, result, lines = done(self, fake_reader=rules, mechanisms=[
             "xx | default | supported at 1 or more"])
         self.assertEqual(result.exit_code, 0)
-        self.assertIn("reads all readers aa: valid=6 skills-top=0 tie=6", lines)
-        self.assertIn("reads all readers c1: valid=6 base=0 skills-top=2 tie=4", lines)
+        self.assertIn("reads all readers aa: valid=12 skills-top=0 tie=12", lines)
+        self.assertIn("reads all readers c1: valid=12 base=0 skills-top=2 tie=10", lines)
         self.assertIn("read aa/2: reader=r1 A=skills-top B=skills-top scores=5/5 prefer=TIE "
                       "flags=none", lines)
         self.assertIn("read c1/2: reader=r1 A=skills-top B=base scores=1/9 prefer=A, slightly "
                       "flags=none", lines)
         self.assertIn("A/A score spread: 0 (highest 5, lowest 5)", lines)
-        self.assertIn("mechanism xx in c1 A/A floor: 0 of 6 valid reads", lines)
-        self.assertIn("mechanism xx in c1 count: 1 of 6 valid reads", lines)
+        self.assertIn("mechanism xx in c1 A/A floor: 0 of 12 valid reads", lines)
+        self.assertIn("mechanism xx in c1 count: 1 of 12 valid reads", lines)
 
 
 if __name__ == "__main__":

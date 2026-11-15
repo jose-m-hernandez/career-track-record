@@ -74,12 +74,13 @@ class Result(object):
 class Reader(object):
     """A reader. ``command`` is the word ``fake`` or the text of a live command."""
 
-    def __init__(self, name, command=FAKE, not_blind=False, cost=1, group=None):
+    def __init__(self, name, command=FAKE, not_blind=False, cost=1, group=None, family=None):
         self.name = name
         self.command = command
         self.not_blind = not_blind
         self.cost = cost
         self.group = group
+        self.family = family
 
     @property
     def kind(self):
@@ -201,10 +202,11 @@ def structure(state, text, list_keys, scalar_keys):
     return scalars, lists
 
 
-def parse_readers(state, items):
+def parse_readers(state, items, family=False):
     """The Readers of a plan's ``readers`` items: ``<name> | <command>``, then optionally
     ``not-blind``, ``cost <n>`` and ``reader-group <name>``, once each, in any order. A live command must split into words
-    and name an absolute path or a program looked up on PATH."""
+    and name an absolute path or a program looked up on PATH. With ``family`` a reader may
+    also carry ``family <name>``, once, stored lower-cased."""
     readers, names = [], set()
     for number, item in items:
         parts = state.fields(number, item)
@@ -223,6 +225,7 @@ def parse_readers(state, items):
         not_blind, cost, ok = False, 1, True
         seen_cost = False
         group = None
+        kin = None
         for extra in parts[2:]:
             if extra == "not-blind" and not not_blind:
                 not_blind = True
@@ -241,6 +244,19 @@ def parse_readers(state, items):
                     state.bad(number, "a name holds letters, digits and - only: %s"
                               % short(got))
                     ok = False
+            elif family and extra.startswith("family ") and kin is None:
+                got = extra[7:].strip()
+                if NAME.match(got):
+                    kin = got.lower()
+                else:
+                    state.bad(number, "a family is one token of letters, digits and -: %s"
+                              % short(got))
+                    ok = False
+            elif family:
+                state.bad(number, "a reader's extra fields may be not-blind, cost <n>, "
+                          "reader-group <name> and family <name>, each at most once: %s"
+                          % short(extra))
+                ok = False
             else:
                 state.bad(number, "a reader's extra fields may be not-blind, cost <n> and "
                           "reader-group <name>, each at most once: %s" % short(extra))
@@ -261,7 +277,7 @@ def parse_readers(state, items):
         if ok:
             names.add(name)
             readers.append(Reader(name, command, not_blind, cost if command != FAKE else 1,
-                                  group))
+                                  group, kin))
     return readers
 
 

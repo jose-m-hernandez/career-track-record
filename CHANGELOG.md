@@ -6,6 +6,25 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-15
+
+### Added
+
+- `track-record drafts` checks the file that holds a document's versions, and reports each break by file and line: a section that breaks the form, ids out of order, a parent or a named version that does not exist, an empty change note, dates that run backwards, a second send entry, a `sha256:` line that does not match, a run folder that does not exist, and an earlier copy that is no longer the start of the file. `track-record drafts extract` checks the file and writes one version's text to a new file. It never writes to the draft file and never prints a version's text, a change note or a result note; it runs a self-test of every rule first, reports a check that looked at nothing as DEAD (exit 2), and exits 1 for a fault.
+- The drafts spec, docs/specs/drafts.md, is revision 1, signed by its owner.
+
+### Changed
+
+- The barred-check spec, docs/specs/barred.md, is revision 7.1, signed by the maintainer: its status line now states where the layout check came from and how it was specified and built. This corrects a clause of revision 7, which said that nothing in it comes from any private tool or record. No behaviour changes.
+- The claim gate spec, docs/specs/claims.md, is revision 2.1, signed by the maintainer: its status line now states where the quote check came from and how it was specified and built. This corrects a clause of revision 2, which said that nothing in the quote check came from any private tool or record. No behaviour changes.
+- The barred-wording spec, docs/specs/barred.md, is revision 8, signed by its owner. Every input file that is not a PDF, and every file name, is now also compared after a line-end soft hyphen that follows a word character becomes a hyphen, as a PDF's layout text already was; the text as read is still compared, so nothing matched before is missed. **It changes results:** a text or file name that wraps a word at a line-end soft hyphen now fails an entry for the whole word that it passed before, and the run exits 1 where it exited 0.
+- A plan frozen with an earlier release is refused: `run` and `score` exit 2 and say to score it with the release that froze it or write it again as a new plan. A new plan must name each reader's model `family` and who drafted each version (`drafted-by`).
+- The default is now 12 reads per arm, up from 6, because each reader reads every pair in both orders. `reads-per-reader` must be an even number.
+- A reader's pick counts only when both orders agree. `slightly` picks now count in the A/A gate. If a model drafted or edited the winning version and a blind reader is of that model's family, blind readers of another family must agree too, or the verdict is INCONCLUSIVE.
+- The Reader A/B spec, docs/specs/reader-ab.md, is revision 4, signed by its owner. Each reader reads every pair of versions in both orders, and a pick counts only when both orders agree. **It changes verdicts:** rules count paired picks, `slightly` A/A picks count toward the noise gate, a read floor counts valid pairs, a mechanism needs a margin over its A/A floor, and a version drafted by a model of a reader's family needs readers of another family to agree. The default run makes twice the reads it did: 12 per arm, was 6. `freeze` now refuses, with exit 2, an odd `reads-per-reader`, a version without `drafted-by`, a reader without `family`, or an amendment that changes a threshold. `run` and `score` refuse a plan frozen under an earlier revision, exit 2. An optional `document` key (`résumé`, the default, `cover letter`, `essay` or `profile`) names the kind of document in the reader prompt. Without it, the prompt and its hash are unchanged.
+- The command line spec, docs/specs/cli.md, is revision 7: it names `track-record drafts` among the eight commands and lists it with those whose fixed help text is in their own spec.
+- The README names eight checks and has a `track-record drafts` section. AGENTS.md names eight tools.
+
 ## [0.9.0] - 2026-11-14
 
 ### Added

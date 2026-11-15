@@ -309,7 +309,8 @@ def _line_end_soft_hyphens(text):
     """Turn a soft hyphen that ends a line after a word character into a hyphen-minus.
 
     Spaces and tabs after it still count as the line's end. Every line break is kept,
-    so no line number moves. Used on a PDF's layout-mode text only (spec section 3.2)."""
+    so no line number moves. Used on a PDF's layout-mode text, on the text of every other
+    input file, and on every file name (spec sections 3.2 and 6)."""
     pieces = []
     start = 0
     breaks = list(_LINE_BREAK.finditer(text))
@@ -356,7 +357,9 @@ def printed_path(path):
 
 def _name_hits(name, entries):
     forms = _forms(name)
-    return [e for e in entries if _match(e, forms)[0] > 0]
+    rule_forms = _forms(_line_end_soft_hyphens(name))
+    return [e for e in entries
+            if _match(e, forms)[0] > 0 or _match(e, rule_forms)[0] > 0]
 
 
 def _check_file(position, path, entries, controls, strip, min_chars, list_path):
@@ -370,9 +373,10 @@ def _check_file(position, path, entries, controls, strip, min_chars, list_path):
         try:
             text = _read_text(path, strip)
             joined, rejoined, kept = _forms(text)
-            layout_forms = ()
             if path.lower().endswith(".pdf"):
-                layout_forms = _forms(_line_end_soft_hyphens(_read_layout_text(path)))
+                extra_forms = _forms(_line_end_soft_hyphens(_read_layout_text(path)))
+            else:
+                extra_forms = _forms(_line_end_soft_hyphens(text))
         except _Dead:
             raise
         except Exception:
@@ -387,11 +391,10 @@ def _check_file(position, path, entries, controls, strip, min_chars, list_path):
     found = []
     for entry in entries:
         count, line = _match(entry, (joined, rejoined, kept))
-        if layout_forms:
-            layout_count, layout_line = _match(entry, layout_forms)
-            count = max(count, layout_count)
-            if line is None:
-                line = layout_line
+        extra_count, extra_line = _match(entry, extra_forms)
+        count = max(count, extra_count)
+        if line is None:
+            line = extra_line
         if count > 0:
             found.append((entry.number, line, count))
     if not name_hits and not found:
