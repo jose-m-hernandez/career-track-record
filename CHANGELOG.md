@@ -6,6 +6,23 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-14
+
+### Added
+
+- `track-record record` checks the tables of your record against rules you declare, and reports each break by file and line: references that point at nothing (dangling references), repeated keys, empty or disallowed cells, bad dates, corrections that point the wrong way, and an old file that is no longer the start of the file now. It never prints a cell value, runs a self-test of every check first, calls a check that looked at nothing DEAD, and exits 1 for a finding (0 with `--report-only`) and 2 for a DEAD check. The drafter of this design had read the specification of a private tool that does a similar job for the maintainer's own records. No code or data from that tool is in the command's spec. Its wording was checked against that tool's specification and redrafted where it echoed it; the plain-English terms the check left in common, such as the flag name `--report-only`, keep their ordinary meaning.
+- The record check spec, docs/specs/record-check.md, is revision 1, signed by its owner.
+- The record-model document, docs/record-model.md: a record as a graph of nodes and references, what the record check covers and what it does not.
+- A test, tests/test_placeholders.py, that fails while any file holds the placeholder marker for a sentence its owner has not yet worded, in any case and with any run of non-letter, non-digit characters between its two words, and the decision record behind it.
+- A rule in CONTRIBUTING.md, and its decision record, that every date a change writes is the UTC day it is written.
+
+### Changed
+
+- The command line spec, docs/specs/cli.md, is revision 6: it names `track-record record` among the seven commands and lists it with those whose fixed help text is in their own spec.
+- The decision record on the shared reader harness gains an Updated line: `track-record record` reads its declaration with the harness's plan-file syntax.
+- The README names seven checks and has a `track-record record` section. AGENTS.md names seven tools. METHOD.md says the record check covers rules 1 to 4 as far as a table can show them, and points to docs/record-model.md.
+- The README says that no desktop AI agent app has been tested yet.
+
 ## [0.8.0] - 2026-11-10
 
 ### Added

@@ -1,6 +1,6 @@
 # career-track-record
 
-Six checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
+Seven checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
 
 - **Did any wording I ruled out get into this file?** The barred-wording check (`track-record barred`) finds it, whatever the case, ligature or invisible character around it, and reports which entry it was, never the wording itself.
 - **What do the postings I saved ask for that my copy never says?** The keyword scan (`track-record keywords`) lists the gaps. It never rewrites your copy or sets a score to chase.
@@ -8,8 +8,11 @@ Six checks for the career copy you send. Open the repository in your own AI agen
 - **Which of these two drafts reads better?** Reader A/B (`track-record ab`) asks test readers, under a plan you freeze first. A control that reads one draft against itself shows how often a reader picks a side when the drafts are the same. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote.
 - **Is every sentence in this file one I approved?** The claim gate (`track-record claims`) fails on any sentence your claims list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. It never decides whether a claim is true.
 - **How does this one draft read to a recruiter, and to the hiring manager?** The reader panel (`track-record panel`) reads one draft blind through lenses you name, each a reader in a role. Every lens also reads two planted anchors, one strong and one weak; a lens that cannot tell them apart is not counted. Each rule you wrote ends PASS, FAIL or INCONCLUSIVE.
+- **Do the tables of my record still point at each other?** The record check (`track-record record`) reads the tables you declare and reports, by file and line, references that point at nothing, repeated keys, missing grades, bad dates, corrections that point the wrong way, and old rows edited in place. It never prints what a cell says.
 
 Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples. The two reader tools measure their readers rather than prove them, and each result says how (see [Why you can trust a result](#why-you-can-trust-a-result)). It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
+
+Tested in a desktop AI agent app: none yet.
 
 Designed and directed by José Miguel Hernandez, built with AI coding agents. Where it was recorded, [docs/provenance.md](docs/provenance.md) names the harness and model that wrote each file.
 
@@ -48,12 +51,12 @@ You should see this:
 
 `clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
 
-Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other five tools are under [The tools](#the-tools).
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other six tools are under [The tools](#the-tools).
 
 ## Why you can trust a result
 
 - **No network library.** No tool imports a network or mail library, and a [test](tests/test_no_network.py) fails if one does.
-- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. The reader tools are different: their readers can't be checked the same way. Reader A/B reads one version against itself in every run, which shows how often a reader picks a side when the drafts are the same. It doesn't show that a reader noticed your change. The reader panel reads a strong and a weak anchor through every lens in every run, and a lens that can't tell them apart is not counted.
+- **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. Every claim-gate run also names a control phrase, and a file without it, or with no sentence to check, is DEAD. The voice and tone check tests each rule against its own examples before it reads any file. The reader tools are different: their readers can't be checked the same way. Reader A/B reads one version against itself in every run, which shows how often a reader picks a side when the drafts are the same. It doesn't show that a reader noticed your change. The reader panel reads a strong and a weak anchor through every lens in every run, and a lens that can't tell them apart is not counted. The record check runs a self-test of every check, on tables built into the tool, before it reads your declaration, and it calls a check that looked at nothing DEAD, never OK.
 - **The rules are fixed before the answer.** A Reader A/B or reader panel plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
 The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` and `track-record panel` only, a reader command you name yourself. That command runs only when you add `--live`, and no live reader ships with the tool (the built-in `fake` reader only tests a plan). A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
@@ -204,6 +207,62 @@ The list approves a team of six, so the changed sentence is a new one and fails.
 Markdown marks such as `**` count as ordinary text. A word that layout split with a hyphen at a line end fails until you fix it or approve it with the hyphen.
 
 Exit 0 means every file is OK. Exit 1 means a sentence is not approved, with `--stale-check` an approved entry no file uses, or with `--check-sources` an approved quote not found. Exit 2 means a file is DEAD, with `--check-sources` an approved entry's source cannot be read, or the gate couldn't run, for example because no file or control was named, or the list has an unknown status, two entries for one sentence, or a quote line it can't use (before the first entry, a second one for an entry, under an entry with no source, or with no quote). Spec: [docs/specs/claims.md](docs/specs/claims.md).
+
+### `track-record record`
+
+Keep your record as tables: plain files, one row per line, tab-separated or CSV, where a fact names its source and a correction names the fact it corrects. Nothing stops those references from drifting apart: a source is renamed, a row is pasted twice, a date is mistyped, an old row is edited in place. The record check reads a declaration you write, the tables it names and the rules it sets, and reports each break by file and line. It never edits a file, and it never prints what a cell says: output holds only the tables, columns and paths your declaration names, line numbers and counts.
+
+The declaration is a text file in the plan-file syntax of the reader commands: `key: value` lines, each item on its own indented line, fields separated by ` | `, and `#` comment lines. Paths are relative to the declaration's folder, may also be absolute or use `..`, and are opened as written. This one is invented:
+
+```text
+# invented example
+tables:
+  entries | entry-table.tsv | tsv | entry
+  origins | origin-table.csv | csv | origin
+references:
+  entries | cites | origins | origin | list ,
+required:
+  entries | grade
+values:
+  entries | grade | A | B | C | D
+dates:
+  entries | recorded
+corrections:
+  entries | corrects | recorded
+earlier:
+  entries | entry-table-before.tsv
+```
+
+`tables` names each table, its file, its format (`tsv` or `csv`) and its key column. `references` says that each reference in a column must be a key of a column in another table, and how a cell holds references: `single`, `list ,` (a list, split at the characters you name) or `pattern REGEX` (each match is one). `required` forbids an empty cell, `values` allows only the values you list, `dates` wants `YYYY-MM-DD` dates that exist, `corrections` checks that a correction points at one earlier row of the same table and is not dated before it, and `earlier` checks that an earlier copy of a file is still, byte for byte, the start of the file now. The rules are in [docs/specs/record-check.md](docs/specs/record-check.md), and the idea behind them in [docs/record-model.md](docs/record-model.md).
+
+From a clone, in the repository's own test fixtures (`tests/fixtures/record/known/`), the check gives:
+
+    cd tests/fixtures/record/known
+    track-record record record.txt
+    FAIL  table entries: whole rows 6, ragged rows 1, empty keys 0, repeats 1, keys with repeats 1
+    entry-table.tsv:6: repeated key, first on line 3
+    entry-table.tsv:8: fields 3, the header has 5
+    OK    table origins: whole rows 2, ragged rows 0, empty keys 0, repeats 0, keys with repeats 0
+    FAIL  references entries.cites to origins.origin: whole rows 6, blank 1, references 6, dangling 1, rows with dangling 1, distinct dangling 1
+    entry-table.tsv:4: dangling 1
+    FAIL  required entries.grade: whole rows 6, empty 1
+    entry-table.tsv:7: empty
+    FAIL  values entries.grade: whole rows 6, filled 5, outside the set 1
+    entry-table.tsv:4: outside the set
+    FAIL  dates entries.recorded: whole rows 6, filled 6, not a date 1
+    entry-table.tsv:4: not a date
+    FAIL  corrections entries.corrects: whole rows 6, corrections 2, faults 1
+    entry-table.tsv:7: dated before the row it corrects, line 5
+    OK    earlier entries: bytes earlier 90, bytes now 201
+    checks: OK 2, FAIL 6, DEAD 0
+
+The run exits 1 because checks FAIL. A line number is where the row starts. A row with the wrong number of fields is ragged: it is named but nothing else checks it, and a reference to it dangles. A whole row has as many fields as the header.
+
+A check that looked at nothing is DEAD, never OK: its table file is missing, empty, not UTF-8 or not readable as CSV, a column it needs is missing or repeated in the header, no whole row is left, or it met nothing to check (every cell blank, no filled cell, no correction). A DEAD check vouches for nothing, and the run exits 2. An earlier copy that is the table's own file, by the same path or through a link, is DEAD too. Before it reads your declaration, the check also runs every kind of check, and each way a cell holds references, on built-in invented tables with one planted fault each, and stops with `cannot run: self-test failed` if one does not find exactly its fault.
+
+Add `--report-only` to report every finding without letting a finding raise the exit status, for a record with known faults that you are repairing. A DEAD check still exits 2. Exit 0 means every check is OK (or, with `--report-only`, none is DEAD), 1 means a check found a problem, and 2 means a check is DEAD or the check couldn't run, for example because the declaration has a problem. Spec: [docs/specs/record-check.md](docs/specs/record-check.md).
+
+Limits: every table is read into memory whole. A `pattern` rule runs your own regular expression as written, and one that backtracks heavily can run slowly.
 
 ### `track-record panel`
 

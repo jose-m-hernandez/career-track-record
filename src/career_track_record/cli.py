@@ -5,7 +5,7 @@ import os
 import re
 import sys
 
-from career_track_record import ab, barred, claims, keywords, panel, tone
+from career_track_record import ab, barred, claims, keywords, panel, record_check, tone
 
 
 class _Parser(argparse.ArgumentParser):
@@ -55,6 +55,9 @@ def _build_parser():
                    add_help=False)
     # Listed for --help only: main() hands "panel" to its own parser (_parse_plan_command).
     top.add_parser("panel", help="read one version blind through named lenses",
+                   add_help=False)
+    # Listed for --help only: main() hands "record" to its own parser (_parse_record).
+    top.add_parser("record", help="check your record's tables against rules you declare",
                    add_help=False)
     return parser
 
@@ -165,6 +168,18 @@ Fail on any sentence your claims list has not approved.
 
 exit: 0 every sentence approved, 1 a sentence not approved, 2 a DEAD file or cannot run;
     with --check-sources, also 1 a quote not found, 2 a source that cannot be read
+"""
+
+
+_RECORD_HELP = """\
+usage: track-record record [--report-only] DECLARATION
+
+Check the tables of your record against the rules you declare.
+
+  --report-only  report findings but exit 0 for them
+  -h, --help     show this summary and exit
+
+exit: 0 all checks OK, 1 a check found a problem, 2 a DEAD check or cannot run
 """
 
 
@@ -434,6 +449,52 @@ def _main_claims(args):
     return result.exit_code
 
 
+def _parse_record(args):
+    """Parse the command line of ``record``. Raises _OptionError on any problem."""
+    if _asks_for_help(args):
+        return {"help": True}
+    report_only = False
+    declarations = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            declarations.extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            declarations.append(arg)
+            continue
+        name, equals, _value = arg.partition("=")
+        if name != "--report-only":
+            raise _OptionError("unknown option %s" % barred.printed_path(name))
+        if equals:
+            raise _OptionError("--report-only takes no value")
+        report_only = True
+    if not declarations:
+        raise _OptionError("record needs a DECLARATION file")
+    if len(declarations) > 1:
+        raise _OptionError("record takes one DECLARATION file, not several")
+    return {"declaration": declarations[0], "report_only": report_only}
+
+
+def _main_record(args):
+    try:
+        opts = _parse_record(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_RECORD_HELP)
+        return 0
+    result = record_check.run(opts["declaration"], report_only=opts["report_only"])
+    if not result.ran:
+        _err(result.error + "\n")
+        return result.exit_code
+    _out(result.text)
+    return result.exit_code
+
+
 def _parse_tone(args):
     """Parse the options of ``tone``. Returns (options, reasons); reasons is a list of
     one-line option problems, empty when the command line is usable."""
@@ -603,6 +664,8 @@ def _main(argv, environ):
         return _main_plan_command(argv[0], argv[1:])
     if argv and argv[0] == "claims":
         return _main_claims(argv[1:])
+    if argv and argv[0] == "record":
+        return _main_record(argv[1:])
     return _main_keywords(_build_parser().parse_args(argv))
 
 

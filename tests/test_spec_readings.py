@@ -16,6 +16,11 @@ BLOCK_SHA = {
     "reader-panel.md": "81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf",
 }
 
+# Signed blocks pinned without a revision 3.1 section after them, so the section tests skip them.
+BLOCK_ONLY_SHA = {
+    "record-check.md": "faba1585b0407cf770b282276101c5f381bea78a419bb5c8ddd1706e95174a0a",
+}
+
 # The key phrases that the ten restored 2.1 methods pin, and those pinned by the revision 3 methods.
 AB_RESTORED = {
     "point_1": ["gets no flag line"],
@@ -81,7 +86,7 @@ class SpecReadingsCase(unittest.TestCase):
         self.assertEqual(section_of(name).count(phrase), 1, "%s: %r" % (name, phrase))
 
     def test_the_signed_blocks_are_unchanged(self):
-        for name, expected in BLOCK_SHA.items():
+        for name, expected in {**BLOCK_SHA, **BLOCK_ONLY_SHA}.items():
             with self.subTest(name=name):
                 text = read_spec(name)
                 begin = text.index("\n", text.index(BEGIN)) + 1
