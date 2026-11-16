@@ -196,7 +196,7 @@ class EmptyScopePatternCase(unittest.TestCase):
                          ["plan line %d: %s" % (s.line_of("x?"), self.MESSAGE)])
 
     def test_vr2_shipped_patterns_are_still_accepted(self):
-        with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as handle:
+        with open(os.path.join(ROOT, "docs", "guides", "ab.md"), encoding="utf-8") as handle:
             readme = handle.read().split("\n")
         start = readme.index("change-scope:") + 1
         readme_patterns = []

@@ -1,7 +1,7 @@
-"""Tests that the README and docs/record-model.md agree with the record check. Every example
+"""Tests that the record guide and docs/record-model.md agree with the record check. Every example
 here is invented.
 
-The README's run, its declaration and the record model's declaration are read from those files
+The guide's run, its declaration and the record model's declaration are read from those files
 and compared with what the tool does.
 """
 
@@ -15,14 +15,13 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from career_track_record import record_check  # noqa: E402
 
-README = os.path.join(ROOT, "README.md")
+GUIDE = os.path.join(ROOT, "docs", "guides", "record.md")
 
 
 class DocsTest(RecordCase):
     def test_the_readme_block_equals_the_run(self):
-        text = read(README)
-        section = text[text.index("### `track-record record`"):]
-        section = section[:section.index("\n## ")]
+        text = read(GUIDE)
+        section = text[text.index("# `track-record record`"):]
         lines = section.split("\n")
         start = lines.index("    track-record record record.txt") + 1
         block = []
@@ -35,8 +34,8 @@ class DocsTest(RecordCase):
         self.assertEqual("".join(line[4:] + "\n" for line in block), out)
 
     def test_the_readme_declaration_is_the_known_fixture(self):
-        text = read(README)
-        section_text = text[text.index("### `track-record record`"):]
+        text = read(GUIDE)
+        section_text = text[text.index("# `track-record record`"):]
         self.assertEqual(fenced_after(section_text, "This one is invented:"),
                          read(os.path.join(KNOWN, "record.txt")))
 

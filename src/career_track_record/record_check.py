@@ -94,10 +94,22 @@ def read_source(path):
         return None, "unreadable"
 
 
+def _widest_field_limit():
+    """Raise the csv module's field size limit as far as the platform accepts, and return the
+    earlier limit. The limit is a C long, which is 32 bits on some platforms and raises
+    OverflowError above it, so a value that is refused is halved until one is taken."""
+    want = sys.maxsize
+    while True:
+        try:
+            return csv.field_size_limit(want)
+        except OverflowError:
+            want //= 2
+
+
 def _csv_rows(text):
     """[(start line, fields)] of a CSV text, or None when it cannot be read as CSV. A field may
     be of any length: the module's limit is raised for this read and put back after it."""
-    old_limit = csv.field_size_limit(min(sys.maxsize, 2 ** 31 - 1))
+    old_limit = _widest_field_limit()
     try:
         reader = csv.reader(io.StringIO(text, newline=""), strict=True)
         rows = []

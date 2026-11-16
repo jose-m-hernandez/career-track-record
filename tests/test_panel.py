@@ -842,6 +842,89 @@ def reply_text(**changes):
     return "".join(out)
 
 
+class PlanIntegerCase(unittest.TestCase):
+    """A whole number in the plan may have any number of digits, on every Python: Python 3.11
+    and later refuse to read more than 4300 digits unless the limit is lifted."""
+
+    def test_a_plan_integer_of_any_size_freezes_or_is_refused_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        end = "; otherwise INCONCLUSIVE"
+        maximum = "recruiter | recruiter.lens.txt | max %s"
+        cases = (
+            ("anchor-strong-at-least", dict(anchor_strong_at_least=big), 0, None),
+            ("anchor-weak-at-most", dict(anchor_weak_at_most="-" + big), 0, None),
+            ("lens max", dict(lenses=[maximum % big, LENSES[1]]), 0, None),
+            ("lens max below the strong threshold",
+             dict(lenses=[maximum % ("-" + big), LENSES[1]]), 2,
+             "max -%s is below anchor-strong-at-least (7)" % big),
+            ("rule score at least",
+             dict(rules=["recruiter | PASS if score at least %s in 1 of 1%s" % (big, end)]),
+             2, "a PASS clause asks for score at least %s, above" % big),
+            ("rule score at most",
+             dict(rules=["recruiter | FAIL if score at most -%s in 1 of 1%s" % (big, end)]),
+             0, None),
+            ("rule k of m",
+             dict(rules=["recruiter | PASS if score at least 7 in %s of %s%s"
+                         % (big, big, end)]), 0, None),
+            ("rule k above m",
+             dict(rules=["recruiter | PASS if score at least 7 in %s of 1%s" % (big, end)]),
+             2, "%s of 1 asks for more reads than it counts" % big),
+            ("reads-per-reader", dict(reads_per_reader=big), 0, None),
+            ("spend-ceiling", dict(spend_ceiling=big), 0, None),
+        )
+        for name, changes, status, message in cases:
+            with self.subTest(name):
+                s = Setup(self, **changes)
+                frozen = s.freeze()
+                self.assertEqual(frozen.exit_code, status, frozen.error[:300])
+                if message is not None:
+                    self.assertIn(message, frozen.error)
+                if before is not None:
+                    self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_spend_ceiling_of_any_size_runs_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        s = Setup(self, spend_ceiling=big)
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        self.assertIn("spend ceiling: " + big, s.read(panel.RUN_LOG).splitlines())
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_live_reader_cost_of_any_size_runs_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        reader = "r2 | %s | cost %s" % (stub_command(self, reply_stub()), big)
+        s = Setup(self, readers=["r1 | fake", reader], lenses=LENSES[:1], reads_per_reader="1")
+        result = s.frozen_run(live=True)
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        spend = [x for x in s.read(panel.RUN_LOG).splitlines() if x.startswith("spend: ")]
+        self.assertEqual(len(spend), 1)
+        self.assertEqual(len(spend[0]), len("spend: ") + 5001)
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_live_preview_prints_a_cost_and_a_ceiling_of_any_size(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        reader = "r2 | %s | cost %s" % (stub_command(self, reply_stub()), big)
+        s = Setup(self, readers=["r1 | fake", reader], spend_ceiling=big,
+                  lenses=LENSES[:1], reads_per_reader="1")
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        self.assertIn("nothing was started and no reply was written", result.text)
+        self.assertIn("(cost %s per read)" % big, result.text)
+        self.assertIn("spend ceiling: %s\n" % big, result.text)
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+
 class ReplyParserCase(unittest.TestCase):
     def test_10_16_a_good_reply(self):
         reply = panel.parse_reply(reply_text(DOUBTS="thin on numbers"))
@@ -865,6 +948,18 @@ class ReplyParserCase(unittest.TestCase):
         for value in ("0", "11", "-3", "1000"):
             with self.subTest(value):
                 self.assertEqual(panel.parse_reply(reply_text(SCORE=value)).score, int(value))
+
+    def test_a_score_of_any_size_parses_on_every_python(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = 10 ** 5000 - 1
+        for value, expected in (("9" * 5000, big), ("-" + "9" * 5000, -big)):
+            with self.subTest(sign=value[0]):
+                reply = panel.parse_reply(reply_text(SCORE=value))
+                self.assertIsNone(reply.failure)
+                self.assertEqual(reply.score, expected)
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
 
     def test_10_16_a_field_is_flagged_unless_it_is_none_or_absent(self):
         for value, flagged in (("none", False), ("", False), (None, False), ("None", True),
@@ -941,6 +1036,20 @@ class FakeReaderCase(unittest.TestCase):
         self.assertNotIn("OWNED", reply.fields)
         self.assertNotIn("STRENGTHS", reply.fields)
 
+    def test_a_fake_reader_score_of_any_size_runs_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        s = Setup(self, fake_reader=["recruiter | strong | score %s" % ("9" * 5000),
+                                     "recruiter | weak | score -%s" % ("9" * 5000)])
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        lines = s.result_lines()
+        self.assertTrue([x for x in lines if "scores=" in x and "9" * 5000 in x], lines[:5])
+        if before is None:
+            self.assertFalse(hasattr(sys, "set_int_max_str_digits"))
+        else:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
     def test_a_rule_cannot_name_an_unknown_field_kind_or_document(self):
         with self.assertRaises(ValueError):
             panel.FakeRule.write("NOPE", "x")
@@ -985,6 +1094,30 @@ class LiveReaderCase(unittest.TestCase):
         ran = s.run(live=True)
         self.assertEqual((ran.exit_code, ran.error), (0, ""))
         self.assertTrue(os.path.exists(marker))
+
+    def test_a_null_byte_in_a_reader_command_is_a_failed_read(self):
+        reader = "r2 | " + stub_command(self, reply_stub()) + " a" + chr(0) + "b"
+        s = Setup(self, readers=["r1 | fake", reader], reads_per_reader="1",
+                  lenses=LENSES[:1])
+        result = s.frozen_run(live=True)
+        self.assertEqual(result.exit_code, 1)
+        self.assertTrue(result.error.splitlines())
+        for line in result.error.splitlines():
+            self.assertTrue(line.startswith("failed read "), line)
+            self.assertTrue(line.endswith(": reader command could not run"), line)
+        self.assertTrue(s.exists(panel.RUN_LOG))
+
+    def test_a_score_of_any_size_is_read_and_reported(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        s = self.live(reply_stub(SCORE="9" * 5000))
+        result = s.frozen_run(live=True)
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        lines = s.result_lines()
+        self.assertTrue(s.result_names())
+        self.assertTrue([x for x in lines if "scores=" in x and "9" * 5000 in x], lines[:5])
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
 
     def test_10_17_a_live_stub_sees_four_files_and_the_frozen_lens(self):
         source = (

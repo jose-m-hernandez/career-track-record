@@ -18,7 +18,7 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 
 from career_track_record import ab  # noqa: E402
 from tests.test_ab import (  # noqa: E402
-    EIGHT, PREFER_GLANCE, SIX, TOO_LONG, WRITE_TOO_LONG, items)
+    EIGHT, PREFER_GLANCE, SIX, TOO_LONG, WITHOUT_GLANCE, WRITE_TOO_LONG, items)
 from tests.test_ab_rev4 import READERS, setup  # noqa: E402
 
 SIX_OF_SIX = "SUPPORTED if skills-top preferred in 6 of 6; otherwise INCONCLUSIVE"
@@ -277,6 +277,83 @@ class ExtensionCase(RunsBase):
         self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 6 or more) "
                       "(what readers wrote, not a cause) [not blind: 0 reads left out]",
                       result.text.splitlines())
+
+    def test_renaming_every_reader_cannot_hide_the_first_runs_other_family(self):
+        # First run, 12 reads per reader: the m1 reader reads 1 to 12 and prefers skills-top;
+        # the m2 reader reads 13 to 24 and prefers base. The extension renames every reader and
+        # asks for four of 6 reads each, ordered m2, m1, m1, m2, under the same fake-reader
+        # rules: its first m2 reader (reads 1 to 6) prefers skills-top and its second (reads 19
+        # to 24) prefers base, so the extension's own m2 pairs split 3 of 6, which meets a
+        # one-half share. Pooled with the first run's m2 pairs (none for skills-top) the share is
+        # 3 of 12, short of the 6 that one half of 12 asks for. The pooled count of skills-top,
+        # 12 of 24, meets the rule. So the family check, given the extension's readers alone,
+        # would find agreement and leave SUPPORTED; only given the first run's readers too does
+        # it say that the other family did not agree. Were the first run's readers dropped, the
+        # family lines would also count the extension's pairs alone.
+        # docs/specs/reader-ab.md section 3.2: an extension "may change the sample size only",
+        # so both plans carry the same fake-reader rules, and the freeze must accept them.
+        half = "SUPPORTED if skills-top preferred in 6 or more; otherwise INCONCLUSIVE"
+        arm = "base vs skills-top"
+        versions = ["base | base.txt | drafted-by user",
+                    "skills-top | skills-top.txt | drafted-by model m1",
+                    "skills-top-short | skills-top-short.txt | drafted-by user"]
+        rules = (items(PREFER_GLANCE, reads=list(range(1, 13)), arm=arm)
+                 + items(WITHOUT_GLANCE, reads=list(range(13, 25)), arm=arm))
+        first = self.first(hypotheses=[half], versions=versions, fake_reader=rules,
+                           reads_per_reader="12")
+        second = self.extension(first, hypotheses=[half], versions=versions,
+                                fake_reader=rules, reads_per_reader="6",
+                                readers=["reader-a | fake | family m2",
+                                         "reader-b | fake | family m1",
+                                         "reader-c | fake | family m1",
+                                         "reader-d | fake | family m2"])
+        frozen = second.freeze()
+        self.assertEqual(frozen.exit_code, 0, frozen.error)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        lines = result.text.splitlines()
+        self.assertIn("hypothesis h1 rule at the pooled pairs: SUPPORTED if skills-top "
+                      "preferred in 12 or more", lines)
+        self.assertIn("hypothesis h1 pair counts: valid=24 base=12 skills-top=12 tie=0", lines)
+        self.assertIn("hypothesis h1 family m1: skills-top 9 of 12 paired picks", lines)
+        self.assertIn("hypothesis h1 family m2: skills-top 3 of 12 paired picks", lines)
+        self.assertIn("hypothesis h1 reason: the other family did not agree", lines)
+        self.assertIn("hypothesis h1 verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+
+    def slightly_extension(self, first_reads, extension_reads):
+        # Both plans carry the same fake-reader rules, so the two runs differ only in how many
+        # reads each reader makes. A/A reads 1 to 4 are "slightly" picks in both runs.
+        rules = [PREFER_GLANCE] + items("prefer slot A", reads=[1, 2, 3, 4], arm="aa",
+                                        strength="slightly")
+        pairs = int(first_reads)
+        rule = ("SUPPORTED if skills-top preferred in %d of %d; otherwise INCONCLUSIVE"
+                % (pairs // 2, pairs))
+        first = self.first(hypotheses=[rule], reads_per_reader=first_reads, fake_reader=rules)
+        second = self.extension(first, hypotheses=[rule], reads_per_reader=extension_reads,
+                                fake_reader=rules)
+        frozen = second.freeze()
+        self.assertEqual(frozen.exit_code, 0, frozen.error)
+        result = second.run()
+        self.assertEqual(result.exit_code, 0, result.error)
+        return result.text.splitlines()
+
+    def test_the_slightly_rate_does_not_count_the_first_runs_a_a_reads(self):
+        # The first run made 4 A/A reads and the extension 24; reads 1 to 4 are slightly picks
+        # in each, so the extension's own rate is 4 of 24. The gate still counts 28 reads.
+        lines = self.slightly_extension("2", "12")
+        self.assertIn("A/A slightly rate: 4 of 24 valid A/A reads are slightly", lines)
+        gate = [x for x in lines if x.startswith("A/A gate: ")]
+        self.assertEqual(len(gate), 1, gate)
+        self.assertIn("of 28 valid A/A reads", gate[0])
+
+    def test_the_slightly_rate_counts_all_of_the_extensions_own_a_a_reads(self):
+        # The first run made 24 A/A reads and the extension 4: the extension's own rate is
+        # 4 of 4, and the gate counts 28 reads.
+        lines = self.slightly_extension("12", "2")
+        self.assertIn("A/A slightly rate: 4 of 4 valid A/A reads are slightly", lines)
+        gate = [x for x in lines if x.startswith("A/A gate: ")]
+        self.assertEqual(len(gate), 1, gate)
+        self.assertIn("of 28 valid A/A reads", gate[0])
 
     def test_10_87_each_change_of_anything_but_the_sample_size_is_refused(self):
         first = self.first()

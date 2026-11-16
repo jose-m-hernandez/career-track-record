@@ -30,6 +30,6 @@ def run_reader_command(args, folder, timeout):
         raise ReaderCommandError("not found")
     except subprocess.TimeoutExpired:
         raise ReaderCommandError("timed out")
-    except OSError:
+    except (OSError, ValueError):
         raise ReaderCommandError("failed")
     return done

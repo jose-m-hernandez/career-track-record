@@ -118,6 +118,32 @@ class LiveReaderCase(unittest.TestCase):
         self.assertEqual(s.reply_count("c1"), 2)
         self.assertIn("exit status: 1", lines)
 
+    def test_a_score_of_any_size_is_read_and_reported(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        s = self.live(reply_stub(**{"SCORE-A": "9" * 5000}))
+        result = s.frozen_run(live=True)
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        lines = s.result_lines()
+        self.assertTrue([x for x in lines if "scores=" in x and "9" * 5000 in x], lines[:5])
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_null_byte_in_a_reader_command_is_a_failed_read(self):
+        # shlex keeps the NUL in the argument, and a plan file can hold one.
+        s = self.live(reply_stub(), extra="a" + chr(0) + "b")
+        result = s.frozen_run(live=True)
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.error.splitlines(), [
+            "failed read aa/3: reader command could not run",
+            "failed read aa/4: reader command could not run",
+            "failed read c1/3: reader command could not run",
+            "failed read c1/4: reader command could not run"])
+        lines = s.result_lines()
+        self.assertIn("failed reads: 4", lines)
+        self.assertIn("exit status: 1", lines)
+        self.assertTrue(s.exists(ab.RUN_LOG))
+
     # Known limit: the tool stops the reader's own process on a timeout, not processes the
     # reader started. This test uses a stub that starts none.
     def test_10_36_stub_past_timeout_is_stopped(self):
