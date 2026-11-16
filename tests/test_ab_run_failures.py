@@ -127,7 +127,7 @@ class KeyFileCase(unittest.TestCase):
             (lambda text: text.replace("aa/1\t", "aa-one\t", 1),
              "cannot parse key.txt: line 1 does not start with a read such as c1/3"),
             (lambda text: text.replace("c1/2\t", "c1/two\t", 1),
-             "cannot parse key.txt: line 8 does not start with a read such as c1/3"),
+             "cannot parse key.txt: line 14 does not start with a read such as c1/3"),
         ]
         for change, line in cases:
             with self.subTest(line):
@@ -208,9 +208,9 @@ def writes_own(*names):
 
 class ReaderWritesItsFolderCase(unittest.TestCase):
     def live(self, source, **overrides):
-        reader = "r2 | " + stub_command(self, source) + " | cost 3"
-        overrides.setdefault("reads_per_reader", "1")
-        return Setup(self, readers=["r1 | fake", reader], **overrides)
+        reader = "r2 | " + stub_command(self, source) + " | cost 3 | family m2"
+        overrides.setdefault("reads_per_reader", "2")
+        return Setup(self, readers=["r1 | fake | family m1", reader], **overrides)
 
     def check(self, source, written, name, absent):
         s = self.live(source)
@@ -218,19 +218,21 @@ class ReaderWritesItsFolderCase(unittest.TestCase):
         reason = "the reader wrote %s into its folder" % name
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
-            "failed read aa/2: " + reason, "failed read c1/2: " + reason])
+            "failed read aa/3: " + reason, "failed read aa/4: " + reason,
+            "failed read c1/3: " + reason, "failed read c1/4: " + reason])
         for arm in ("aa", "c1"):
-            folder = s.read_folder(arm, 2)
-            for file_name in written:
-                with open(os.path.join(folder, file_name), "rb") as handle:
-                    self.assertEqual(handle.read(), b"the reader wrote this\n")
-            self.assertFalse(os.path.exists(os.path.join(folder, absent)))
+            for number in (3, 4):
+                folder = s.read_folder(arm, number)
+                for file_name in written:
+                    with open(os.path.join(folder, file_name), "rb") as handle:
+                        self.assertEqual(handle.read(), b"the reader wrote this\n")
+                self.assertFalse(os.path.exists(os.path.join(folder, absent)))
         lines = s.result_lines()
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base FAILED (%s)" % reason, lines)
-        self.assertIn("failed reads: 2", lines)
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base FAILED (%s)" % reason, lines)
+        self.assertIn("failed reads: 4", lines)
         self.assertIn("exit status: 1", lines)
-        # The declared cost counts as spent: 1 + 3 + 1 + 3.
-        self.assertIn("spend: 8", s.read(ab.RUN_LOG).splitlines())
+        # The declared cost counts as spent: 1 + 1 + 3 + 3 in each of the two arms.
+        self.assertIn("spend: 16", s.read(ab.RUN_LOG).splitlines())
         # Scoring the folder again gives the same failed reads and leaves the files alone.
         again = s.score()
         self.assertEqual(again.exit_code, 1)
@@ -252,7 +254,7 @@ class ReaderWritesItsFolderCase(unittest.TestCase):
         self.assertEqual(track("ab", "freeze", s.plan_path)[0], 0)
         code, out, err = track("ab", "run", s.plan_path, "--live")
         self.assertEqual((code, err), (1, ""))
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base FAILED (the reader wrote "
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base FAILED (the reader wrote "
                       "REPLY.txt into its folder)\n", out)
         self.assertNotIn("Traceback", out)
 
@@ -264,7 +266,8 @@ class StoppedRunCase(unittest.TestCase):
         # Known method: the one live reader makes the A/A arm's folder read-only when it is
         # started, so the folder for read 2 of the arm cannot be made.
         source = ("import os\nos.chmod(os.path.dirname(os.getcwd()), 0o555)\n" + reply_stub())
-        s = Setup(self, readers=["r1 | " + stub_command(self, source)], reads_per_reader="2")
+        s = Setup(self, readers=["r1 | " + stub_command(self, source) + " | family m1"],
+                  reads_per_reader="2")
         arm = s.path(ab.READS_DIR, "aa")
 
         def restore():

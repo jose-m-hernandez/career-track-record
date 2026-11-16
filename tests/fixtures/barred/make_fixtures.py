@@ -67,6 +67,20 @@ TEXT_FILES = {
     ),
     "hyphsp.txt": padded(["a turnkey syn-  ", "ergy plan"]),
     "soft.txt": padded(["turnkey syn\u00adergy"]),
+    "shyend.txt": padded(["a turnkey syn\u00ad", "ergy plan"]),
+    "shyendsp.txt": padded(["a turnkey syn\u00ad  \t", "ergy plan"]),
+    "shyendcrlf.txt": padded(["a turnkey syn\u00ad", "ergy plan"], eol="\r\n"),
+    "shyendcr.txt": (
+        "".join(PAD_LINE + "\n" for _ in range(12))
+        + "a turnkey syn\u00ad\rergy plan\n"
+        + "".join(PAD_LINE + "\n" for _ in range(12))
+    ),
+    "shymid.txt": padded(["a turnkey syn\u00ad x", "ergy plan"]),
+    "shynonword.txt": padded(["a turnkey syn.\u00ad", "ergy plan"]),
+    "shyalone.txt": padded(["\u00ad", "ergy plan"]),
+    "shyspace.txt": padded(["a blorf\u00ad", "quaxel here"]),
+    "shyline.txt": padded(["a blorf\u00ad", "quaxel plan", "blorfquaxel again"]),
+    "shycomment.ts": padded(["a turnkey syn\u00ad // a note", "ergy plan"]),
     "zw.txt": padded(["turnkey\u200b synergy"]),
     "nbsp.txt": padded(["turnkey\u00a0synergy"]),
     "lig.txt": padded(["weﬁx it fast"]),

@@ -65,8 +65,9 @@ class EscapeCase(unittest.TestCase):
 
     def test_version_and_posting_file_names(self):
         s = Setup(self, posting="post\x0bing" + ZWSP + ".txt",
-                  versions=["base | base.txt", "skills-top | skills\u2028-top" + ZWSP + ".txt",
-                            "skills-top-short | skills-top-short.txt"])
+                  versions=["base | base.txt | drafted-by user",
+                            "skills-top | skills\u2028-top" + ZWSP + ".txt | drafted-by user",
+                            "skills-top-short | skills-top-short.txt | drafted-by user"])
         result = s.freeze()
         self.assertEqual(result.exit_code, 2)
         self.assertEqual(result.error.split("\n"), [
@@ -76,8 +77,9 @@ class EscapeCase(unittest.TestCase):
 
     def test_a_changed_version_file_name_after_the_freeze(self):
         name = "skills\u2028-top" + ZWSP + ".txt"
-        s = Setup(self, versions=["base | base.txt", "skills-top | " + name,
-                                  "skills-top-short | skills-top-short.txt"])
+        s = Setup(self, versions=["base | base.txt | drafted-by user",
+                                  "skills-top | " + name + " | drafted-by user",
+                                  "skills-top-short | skills-top-short.txt | drafted-by user"])
         os.rename(s.path("skills-top.txt"), s.path(name))
         self.assertEqual(s.freeze().exit_code, 0)
         s.edit(name, lambda text: text + "  \n")
@@ -104,7 +106,7 @@ class EscapeCase(unittest.TestCase):
         self.assertEqual(len(result.error.split("\n")), 2)
 
     def test_the_command_in_the_live_preview(self):
-        s = Setup(self, readers=["r1 | fake", "r2 | tool\x0b--flag" + ZWSP + "\u2028end"])
+        s = Setup(self, readers=["r1 | fake | family m1", "r2 | tool\x0b--flag" + ZWSP + "\u2028end | family m2"])
         self.assertEqual(s.freeze().exit_code, 0)
         result = s.run()
         self.assertEqual((result.exit_code, result.error), (0, ""))
@@ -148,7 +150,7 @@ class EscapeCase(unittest.TestCase):
         s = Setup(self, mechanisms=["a\x0bb" + ZWSP + " | default | supported at 1 or more"])
         self.assertEqual(s.frozen_run().exit_code, 0)
         lines = s.result_lines()
-        self.assertIn("mechanism a\\x0bb\\u200b in c1 count: 0 of 6 valid reads", lines)
+        self.assertIn("mechanism a\\x0bb\\u200b in c1 count: 0 of 12 valid reads", lines)
         self.assertEqual(len(s.read("result-1.txt").split("\n")) - 1,
                          len(s.read("result-1.txt").splitlines()))
 

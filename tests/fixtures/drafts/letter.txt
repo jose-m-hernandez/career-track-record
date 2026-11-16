@@ -1,0 +1,37 @@
+## v1
+parent: none
+date: 2026-03-02
+change: first draft
+text:
+Dear Example Corp team,
+
+I would like to apply for the analyst role.
+
+## v2
+parent: v1
+date: 2026-03-04
+change: a shorter opening
+text:
+Dear Example Corp team,
+
+I am applying for the analyst role.
+
+## result
+version: v1
+date: 2026-03-05
+run: runs/panel-01
+note: two readers found the opening slow
+
+## v3
+parent: v2
+date: 2026-03-06
+change: names the team
+sha256: e9db1dc84b01be6dbafe216e3dd033b3ecb1c83db3143a2925d3381348bfe6b8
+text:
+Dear Example Corp data team,
+
+I am applying for the analyst role.
+
+## send
+version: v3
+date: 2026-03-07

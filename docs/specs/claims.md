@@ -1,17 +1,17 @@
 # Claim gate: behaviour spec
 
 Status: accepted.
-Date: 2026-11-05.
-Revision: 2. The signed spec (sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a) is reproduced below verbatim. Its owner signed it on 2026-11-05. It revises revision 1's signed text (sha256 bedcdc2861b6a0990d629733fa4a262bc449b2a2a3c35f5cb39bb68922620ac4) and adds the quote check. The build readings of revision 1 follow it and still apply.
+Date: 2026-11-14.
+Revision: 2.1. The signed spec (sha256 ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41) is reproduced below verbatim. The maintainer signed it on 2026-11-14. It is revision 2's signed text (sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a) with one sentence of its status line replaced; it changes no behaviour and no section. Its Status, Date and Revision lines are the only lines that differ. The whole of this file before this revision has sha256 7ea19816ca2f0e79efac011ae69c930782613b6c4e66e1048b9e6ee1054ab261. The build readings of revision 1 follow the signed spec and still apply.
 
 ## Signed spec
 
-<!-- signed spec begins: sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a -->
+<!-- signed spec begins: sha256 ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41 -->
 # Claim gate: behaviour spec
 
-Status: revision 2, drafted on 2026-11-05 for the owner's signature. Revision 2 adds a quote check, a port of an evidence-check method in which a quote must appear in the source it cites; nothing in it comes from any private tool or record.
-Date: 2026-11-05.
-Revision: 2. Adds the quote line, --check-sources and the number boundary (sections 2, 3.0, 3.1, 3.4, 3.5, 6, 7, 8, 9 and 10).
+Status: revision 2.1, drafted on 2026-11-14 for the owner's signature. Revision 2's quote check is a port of a method in the author's private tooling. It was specified from a written description of what that method does, made from a reading of that tool's in-code documentation, and from this repository's METHOD.md and claims code. The implementation was written from that specification and this repository, under instructions not to read the tool or any private record, and to write no person's records, file paths, names or example entries from outside this repository into it.
+Date: 2026-11-14.
+Revision: 2.1. Adds the quote line, --check-sources and the number boundary (sections 2, 3.0, 3.1, 3.4, 3.5, 6, 7, 8, 9 and 10). Revision 2.1 changes no behaviour and no section: it replaces the sentence in revision 2's status line about where the quote check came from.
 
 The command is `<cli> claims` (working name; the release names it).
 

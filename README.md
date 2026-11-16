@@ -1,6 +1,6 @@
 # career-track-record
 
-Seven checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
+Eight checks for the career copy you send. Open the repository in your own AI agent and ask in plain words:
 
 - **Did any wording I ruled out get into this file?** The barred-wording check (`track-record barred`) finds it, whatever the case, ligature or invisible character around it, and reports which entry it was, never the wording itself.
 - **What do the postings I saved ask for that my copy never says?** The keyword scan (`track-record keywords`) lists the gaps. It never rewrites your copy or sets a score to chase.
@@ -9,6 +9,7 @@ Seven checks for the career copy you send. Open the repository in your own AI ag
 - **Is every sentence in this file one I approved?** The claim gate (`track-record claims`) fails on any sentence your claims list has not approved. A sentence you change is a new sentence, so it fails until you approve it again. It never decides whether a claim is true.
 - **How does this one draft read to a recruiter, and to the hiring manager?** The reader panel (`track-record panel`) reads one draft blind through lenses you name, each a reader in a role. Every lens also reads two planted anchors, one strong and one weak; a lens that cannot tell them apart is not counted. Each rule you wrote ends PASS, FAIL or INCONCLUSIVE.
 - **Do the tables of my record still point at each other?** The record check (`track-record record`) reads the tables you declare and reports, by file and line, references that point at nothing, repeated keys, missing grades, bad dates, corrections that point the wrong way, and old rows edited in place. It never prints what a cell says.
+- **Which version of this letter is the current one, and is the file that keeps them still in order?** The draft file check (`track-record drafts`) reads the one file that holds a document's versions, the results other commands gave them and the copy you chose to send, and reports, by file and line, a version out of order, a parent that points at nothing, a date that runs backwards, a hash that does not match and an old copy that is no longer the start of the file. It never writes to the file, and it never prints what a version, a change note or a result note says.
 
 Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking: a control phrase that must be found, a term that must be found in the postings, rules tested against their own examples. The two reader tools measure their readers rather than prove them, and each result says how (see [Why you can trust a result](#why-you-can-trust-a-result)). It needs only Python 3.9 or later (reading a PDF also needs `pdftotext`), and it is under the AGPL.
 
@@ -51,7 +52,7 @@ You should see this:
 
 `clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
 
-Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other six tools are under [The tools](#the-tools).
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other seven tools are under [The tools](#the-tools).
 
 ## Why you can trust a result
 
@@ -118,19 +119,19 @@ Add `--warn-only` to run only the `warn` rules, and `--stale-check` to report ex
 
 ### `track-record ab`
 
-Compare two versions of a résumé, or any career document, by asking test readers which reads better. A reader is a command you name, such as one that calls a language model, or the built-in `fake`, which tests a plan. You write a plan first: the posting, the versions, where they may differ and what counts as a win. The tool hashes the plan and every file it names, and a run refuses anything that has changed since, so the rules can't quietly move after you see the answer. Every run also reads one version against itself, as a control, so you can see how often a reader picks a side when there is no difference. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote. This plan is invented:
+Compare two versions of a résumé, or any career document, by asking test readers which reads better. A reader is a command you name, such as one that calls a language model, or the built-in `fake`, which tests a plan. You write a plan first: the posting, the versions, where they may differ and what counts as a win. The tool hashes the plan and every file it names, and a run refuses anything that has changed since, so the rules can't quietly move after you see the answer. Every run also reads one version against itself, as a control, so you can see how often a reader picks a side when there is no difference. Each reader reads every pair of versions in both orders, and a pick counts only when both orders agree. Each comparison ends SUPPORTED, REFUTED or INCONCLUSIVE, by the rule you wrote. This plan is invented:
 
 ```
 posting: posting.txt
 versions:
-  base | resume-base.txt
-  skills-top | resume-skills-top.txt
+  base | resume-base.txt | drafted-by user
+  skills-top | resume-skills-top.txt | drafted-by user
 comparisons:
   base vs skills-top
 readers:
-  reader-1 | fake
-  reader-2 | /path/to/my-reader.sh | cost 3
-reads-per-reader: 3
+  reader-1 | fake | family m1
+  reader-2 | /path/to/my-reader.sh | cost 3 | family m2
+reads-per-reader: 6
 hypotheses:
   SUPPORTED if skills-top preferred in 6 of 6; REFUTED if base preferred in 4 or more; otherwise INCONCLUSIVE
 change-scope:
@@ -141,7 +142,7 @@ fake-reader:
   prefer containing "At a glance"
 ```
 
-A reader's program is an absolute path, as here, or a program name found on your `PATH`. `freeze` refuses a relative path such as `./my-reader.sh`, because each read runs inside a folder of its own. Mark a reader `not-blind` when you know it gets your identity from its own setup: its reads are reported separately and never counted toward a verdict. `cost 3` is what one read costs, in a unit you choose; it feeds the spend estimate. Two readers with three reads each make six reads per comparison, which is what `6 of 6` counts. This plan has a live reader, so without `--live` it prints the commands and runs nothing, the fake reader included.
+A reader's program is an absolute path, as here, or a program name found on your `PATH`. `freeze` refuses a relative path such as `./my-reader.sh`, because each read runs inside a folder of its own. Mark a reader `not-blind` when you know it gets your identity from its own setup: its reads are reported separately and never counted toward a verdict. `cost 3` is what one read costs, in a unit you choose; it feeds the spend estimate. A reader's reads come in pairs, the same two versions in opposite orders, so `reads-per-reader` is an even number (6 if you leave it out): three pairs per reader. Two readers at 6 reads each make 12 reads and six paired picks per comparison, and six paired picks is what `6 of 6` counts. When a reader prefers the same version in both orders the pair is a pick for it; when its two orders disagree, or one is a tie, the pair is a TIE. Each version says who wrote it with `drafted-by` (`user`, `third-party`, `unknown` or `model <family>`), and each reader names its model `family`. This plan has a live reader, so without `--live` it prints the commands and runs nothing, the fake reader included.
 
 The tool has three subcommands:
 
@@ -155,9 +156,11 @@ Exit 0 means the run completed and was scored, whatever the verdicts, or it only
 
 **What a reader result means.** The readers are AI models standing in for the people who will read your draft, such as a recruiter or a hiring manager. How well they stand in for people hasn't been measured, so a result is evidence about these readers, not about people. Beside each verdict, a result shows:
 - the exact p-value;
-- the 95% interval for the share of reads that picked one version;
-- how many reads were missing, and whether they could have changed the verdict;
+- the 95% interval for the share of paired picks that went to one version;
+- how many reads, and how many pairs, were missing, and whether they could have changed the verdict;
 - how many reads were left out because their reader was not blind.
+
+A hypothesis is also scored a second time with every `slightly` pick counted as a TIE, and the result prints that second reading beside the verdict; when the two differ, the verdict line says it holds only when `slightly` counts as a pick. When a verdict favours a version that a model wrote and a reader of that model's family is among the readers, the readers of every other family must agree at the rule's share, on at least 3 pairs, or the verdict is INCONCLUSIVE. A mechanism needs a margin over its A/A floor. Revision 4 changes verdicts: rules count paired picks, and the default run makes 12 reads per arm, was 6. `run` and `score` refuse a plan frozen under an earlier release, with exit 2; score it with the release that froze it, or write a new plan.
 
 It also prints one line on validity: reads from one model and prompt may not be independent, so the p-value may be too small. These lines never change a verdict. They help you judge how much to rely on it.
 
@@ -264,6 +267,76 @@ Add `--report-only` to report every finding without letting a finding raise the 
 
 Limits: every table is read into memory whole. A `pattern` rule runs your own regular expression as written, and one that backtracks heavily can run slowly.
 
+### `track-record drafts`
+
+A cover letter or a résumé goes through many versions, and which one is current, what changed and why, and what each one earned are easy to lose. Keep them in one plain-text file per document, in the order they were written, and add to it only at the end: a version when you write it, a result when another command has read it, and the send mark when you choose the copy to send. The drafts command checks that file. It never writes to it, and it never prints what a version says, what a change note says or what a result note says: output holds only the file's path, ids, line numbers and counts.
+
+The file is a run of sections, each starting with a header line (`## v2`, `## result` or `## send`). A version holds only what is known when you write it; its text is every line after `text:` up to the next header line. The `sha256:` line and a result's `note:` line are optional. A result names its run folder as a path relative to the draft file's folder. A section's date is the day you added it. Here is the spec's invented example letter in three versions, the file the runs below check:
+
+```text
+## v1
+parent: none
+date: 2026-03-02
+change: first draft
+text:
+Dear Example Corp team,
+
+I would like to apply for the analyst role.
+
+## v2
+parent: v1
+date: 2026-03-04
+change: a shorter opening
+text:
+Dear Example Corp team,
+
+I am applying for the analyst role.
+
+## result
+version: v1
+date: 2026-03-05
+run: runs/panel-01
+note: two readers found the opening slow
+
+## v3
+parent: v2
+date: 2026-03-06
+change: names the team
+sha256: e9db1dc84b01be6dbafe216e3dd033b3ecb1c83db3143a2925d3381348bfe6b8
+text:
+Dear Example Corp data team,
+
+I am applying for the analyst role.
+
+## send
+version: v3
+date: 2026-03-07
+```
+
+There are two commands. `track-record drafts check FILE [--earlier COPY]` checks the file. `track-record drafts extract FILE ID --out OUT [--earlier COPY]` checks it and then writes version `ID`'s text, and nothing else, to the new file `OUT`, so that you can hand it to `track-record ab`, `panel`, `barred` or `claims`. `--earlier COPY` names a copy of the file from before your latest additions; the check then proves that the copy is still, byte for byte, the start of the file, so nothing already in it was edited. A blank line removed from the part the copy holds is an edit.
+
+From a clone, in a copy of the repository's own test fixtures (`tests/fixtures/drafts/`) made in a folder outside the clone, with the run folder the example cites, the check gives:
+
+    mkdir -p /tmp/drafts-example/runs/panel-01
+    cp tests/fixtures/drafts/letter*.txt /tmp/drafts-example
+    cd /tmp/drafts-example
+    track-record drafts check letter.txt --earlier letter-before.txt
+    OK    letter.txt: versions 3, parents resolved 3, results 1, run folders found 1, send entries 1; send copy v3; earlier copy 259 bytes, file 600 bytes
+
+`letter-edited.txt` is the earlier copy with a result written into the middle instead of at the end:
+
+    track-record drafts check letter-edited.txt --earlier letter-before.txt
+    FAIL  letter-edited.txt: versions 2, parents resolved 2, results 1, run folders found 1, send entries 0; faults 1; earlier copy 259 bytes, file 359 bytes
+    letter-edited.txt:10: differs from the earlier copy
+
+The check reports a section that breaks the form (a key out of order, an unknown key, a version with no text, a line outside any section), a repeated id or one out of order, a parent or a named version that does not exist or comes later, an empty change note, a date that is not a real day or comes before the section just before it, a second send entry, a `sha256:` line that does not match the text, an earlier copy that is no longer the start of the file, and a run folder that does not exist. A version's sha256 is taken over its text lines, once the blank lines at the end are dropped, so the line breaks of the file and the blank lines between sections do not change it; `extract` writes exactly those bytes.
+
+`extract` stops on any fault except a missing run folder: it writes no file, writes the lines `check` would write to standard error, and exits as `check` would. A missing run folder is written to standard error and the version is still written. Without `--earlier`, it says so on standard error. It refuses an `OUT` that already exists, and never deletes a path it did not create.
+
+A check that looked at nothing is DEAD, never OK: the file is empty or holds no version, or the earlier copy is missing, cannot be read, is empty or is the draft file itself. Before it reads your file, the command runs each of its nine rules on built-in invented files with one planted fault each, and stops with `cannot run: self-test failed: rule N` if one does not find exactly its fault. Exit 0 means every rule holds, 1 means a fault that `check` reports or `extract` refuses, and 2 means a DEAD check or that the command could not run, for example because the draft file cannot be read. Spec: [docs/specs/drafts.md](docs/specs/drafts.md).
+
+Known limit: a text that holds a complete, well-formed version header or entry cannot be told from a real one.
+
 ### `track-record panel`
 
 Read one version of a résumé, or any career document, through several lenses: each a reader in a role you name, such as a recruiter or the hiring manager, given as a plain-text prompt file you write. Readers are the same as in `track-record ab`: a command you name, or the built-in `fake`. The plan is frozen by hash before the first read, lens files included.
@@ -312,6 +385,15 @@ The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are t
 - `min-valid-reads` (`ab`, `panel`): the read floor. A comparison or rule with fewer valid reads from blind readers is INCONCLUSIVE. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 6, [docs/specs/reader-panel.md](docs/specs/reader-panel.md) § 3.1 and § 6.
 - `replicate-of` (`ab`, `panel`): the freeze file of a first run of the same plan, to run it again in a new folder and compare the two runs' counts. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.2, [docs/specs/reader-panel.md](docs/specs/reader-panel.md) § 3.2.
 - `reader-group <name>` (`ab`, `panel`), a field on a reader's line: readers that are alike, such as one model behind two commands. The result counts each group's valid reads, and a group changes no verdict. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 5.5, [docs/specs/reader-panel.md](docs/specs/reader-panel.md) § 5.5.
+
+### Plan keys added in revision 4
+
+- `drafted-by <who>` (`ab`), a field on each version's line: `user`, `third-party`, `unknown`, or `model <family>` (more than one as a comma list). Required. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 6.
+- `family <name>` (`ab`), a field on each reader's line: the model family behind it. Required, and separate from `reader-group`. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 6.
+- `document` (`ab`): the kind of document the versions are, `résumé` (the default), `cover letter`, `essay` or `profile`. It changes only the noun in the reader prompt. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1.
+- `extends` (`ab`): the freeze file of a first run whose sample size this plan extends, once. Only `reads-per-reader` and the number of readers of the models that already read may change; the result pools the first run's reads with its own and prints the first run's verdict beside the pooled one. A first run that pools A/A reads cannot be extended. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.2.
+- `aa-pool` (`ab`): freeze files of earlier runs whose control reads this run's noise gate counts with its own. A pooled run must share the prompt, the reader commands, the control version file and the posting. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.1 and § 6.
+- `amends` (`ab`) may now change the read count, but never a threshold: each rule keeps its share of the planned pairs, so with twice the reads `6 of 6` becomes `12 of 12`. Spec: [docs/specs/reader-ab.md](docs/specs/reader-ab.md) § 3.2.
 
 ## Coming
 

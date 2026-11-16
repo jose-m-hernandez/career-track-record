@@ -48,12 +48,14 @@ def reply_stub(**fields):
 # Known limit: a reader's standard output and standard error are held in memory with no size limit; read-timeout bounds time only, so no test covers a reader that prints without end.
 class LiveReaderCase(unittest.TestCase):
     def live(self, source, extra="", cost=None, **overrides):
-        """A setup with a fake reader first and the stub second (one read each per arm)."""
+        """A setup with a fake reader first and the stub second (one pair each per arm: the
+        stub's reads are 3 and 4, and read 4 has skills-top in slot A)."""
         reader = "r2 | " + stub_command(self, source, extra)
         if cost is not None:
             reader += " | cost %d" % cost
-        overrides.setdefault("reads_per_reader", "1")
-        return Setup(self, readers=["r1 | fake", reader], **overrides)
+        reader += " | family m2"
+        overrides.setdefault("reads_per_reader", "2")
+        return Setup(self, readers=["r1 | fake | family m1", reader], **overrides)
 
     def test_10_13_live_reader_without_live_flag_only_prints(self):
         tmp = tempfile.TemporaryDirectory()
@@ -68,8 +70,8 @@ class LiveReaderCase(unittest.TestCase):
         self.assertIn(shlex.quote(sys.executable), result.text)
         self.assertIn("reader r2: ", result.text)
         self.assertIn("(cost 3 per read)", result.text)
-        self.assertIn("planned reads: 4\n", result.text)
-        self.assertIn("estimated spend: 8 (the sum of the planned reads' declared costs; "
+        self.assertIn("planned reads: 8\n", result.text)
+        self.assertIn("estimated spend: 16 (the sum of the planned reads' declared costs; "
                       "the tool cannot see real spend)\n", result.text)
         self.assertIn("nothing was started and no reply was written", result.text)
         # Nothing was written: no key, no read folder, no run log, no result.
@@ -85,7 +87,7 @@ class LiveReaderCase(unittest.TestCase):
         s = Setup(self)
         self.assertEqual(s.freeze().exit_code, 0)
         self.assertEqual(s.run(live=False).exit_code, 0)
-        self.assertEqual(s.reply_count("c1"), 6)
+        self.assertEqual(s.reply_count("c1"), 12)
 
     def test_the_preview_still_checks_the_freeze(self):
         s = self.live(reply_stub())
@@ -104,15 +106,16 @@ class LiveReaderCase(unittest.TestCase):
         result = s.frozen_run(live=True)
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
-            "failed read aa/2: exit status 3", "failed read c1/2: exit status 3"])
+            "failed read aa/3: exit status 3", "failed read aa/4: exit status 3",
+            "failed read c1/3: exit status 3", "failed read c1/4: exit status 3"])
         lines = s.result_lines()
-        self.assertIn("failed reads: 2", lines)
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base FAILED (exit status 3)", lines)
-        # The stub's standard output is not scored: only the fake reader's read is valid.
-        self.assertIn("reads all readers c1: valid=1 base=0 skills-top=0 tie=1", lines)
-        self.assertFalse(s.exists(ab.READS_DIR, "c1", "2", ab.READ_REPLY))
-        self.assertEqual(s.read(ab.READS_DIR, "c1", "2", ab.READ_STDERR), "stub failed\n")
-        self.assertEqual(s.reply_count("c1"), 1)
+        self.assertIn("failed reads: 4", lines)
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base FAILED (exit status 3)", lines)
+        # The stub's standard output is not scored: only the fake reader's reads are valid.
+        self.assertIn("reads all readers c1: valid=2 base=0 skills-top=0 tie=2", lines)
+        self.assertFalse(s.exists(ab.READS_DIR, "c1", "4", ab.READ_REPLY))
+        self.assertEqual(s.read(ab.READS_DIR, "c1", "4", ab.READ_STDERR), "stub failed\n")
+        self.assertEqual(s.reply_count("c1"), 2)
         self.assertIn("exit status: 1", lines)
 
     # Known limit: the tool stops the reader's own process on a timeout, not processes the
@@ -123,15 +126,16 @@ class LiveReaderCase(unittest.TestCase):
         result = s.frozen_run(live=True)
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
-            "failed read aa/2: timed out", "failed read c1/2: timed out"])
+            "failed read aa/3: timed out", "failed read aa/4: timed out",
+            "failed read c1/3: timed out", "failed read c1/4: timed out"])
         lines = s.result_lines()
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base FAILED (timed out)", lines)
-        # A timed-out read still counts its declared cost: (1 + 3) reads in each of 2 arms.
-        self.assertIn("spend tally: 8 (a tally of declared costs, not measured spend); "
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base FAILED (timed out)", lines)
+        # A timed-out read still counts its declared cost: 2 x (1 + 3) in each of 2 arms.
+        self.assertIn("spend tally: 16 (a tally of declared costs, not measured spend); "
                       "ceiling: none", lines)
         self.assertEqual(s.read(ab.RUN_LOG).splitlines()[:5], [
-            "planned reads: 4", "reads run: 4", "spend: 8", "spend ceiling: none", "cut: no"])
-        self.assertFalse(s.exists(ab.READS_DIR, "c1", "2", ab.READ_REPLY))
+            "planned reads: 8", "reads run: 8", "spend: 16", "spend ceiling: none", "cut: no"])
+        self.assertFalse(s.exists(ab.READS_DIR, "c1", "4", ab.READ_REPLY))
 
     def test_10_37_stub_sees_exactly_four_files(self):
         source = (
@@ -149,23 +153,23 @@ class LiveReaderCase(unittest.TestCase):
         self.assertEqual(s.freeze().exit_code, 0)
         result = s.run(live=True)
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        reply = ab.parse_reply(s.read(ab.READS_DIR, "c1", "2", ab.READ_REPLY))
+        reply = ab.parse_reply(s.read(ab.READS_DIR, "c1", "4", ab.READ_REPLY))
         self.assertIsNone(reply.failure)
         doubts = dict(part.split("=", 1) for part in reply.fields["DOUBTS"].split(" "))
         self.assertEqual(doubts["files"], "A.txt,B.txt,POSTING.txt,PROMPT.txt")
         frozen = [line.split("  ", 1)[0] for line in s.read("plan.txt.freeze").splitlines()
                   if line.endswith("  " + ab.PROMPT_LABEL)]
         self.assertEqual(frozen, [doubts["prompt"]])
-        # Read 2 of c1 has skills-top in slot A and base in slot B.
+        # Read 4 of c1 (the stub's second) has skills-top in slot A and base in slot B.
         self.assertEqual(doubts["a"], sha256_of(s.path("skills-top.txt")))
         self.assertEqual(doubts["b"], sha256_of(s.path("base.txt")))
         self.assertEqual(doubts["posting"], sha256_of(s.path("posting.txt")))
         self.assertEqual(doubts["argv"], "[]")
         # After the read the folder also holds the reply and the log of standard error.
-        self.assertEqual(sorted(os.listdir(s.read_folder("c1", 2))),
+        self.assertEqual(sorted(os.listdir(s.read_folder("c1", 4))),
                          ["A.txt", "B.txt", "POSTING.txt", "PROMPT.txt", "REPLY.txt",
                           "STDERR.txt"])
-        self.assertIn("reads all readers c1: valid=2 base=0 skills-top=1 tie=1",
+        self.assertIn("reads all readers c1: valid=4 base=1 skills-top=1 tie=2",
                       s.result_lines())
 
     def test_the_command_is_split_into_words_and_run_without_a_shell(self):
@@ -174,7 +178,7 @@ class LiveReaderCase(unittest.TestCase):
                   "PREFER: TIE\\nDOUBTS: ' + repr(sys.argv[1:]) + '\\n')\n")
         s = self.live(source, extra="--flag 'a b' \"$HOME\" '|' '*'")
         self.assertEqual(s.frozen_run(live=True).exit_code, 0)
-        reply = ab.parse_reply(s.read(ab.READS_DIR, "aa", "2", ab.READ_REPLY))
+        reply = ab.parse_reply(s.read(ab.READS_DIR, "aa", "4", ab.READ_REPLY))
         self.assertEqual(reply.fields["DOUBTS"], repr(["--flag", "a b", "$HOME", "|", "*"]))
 
     def test_standard_error_is_saved_and_never_scored(self):
@@ -184,26 +188,28 @@ class LiveReaderCase(unittest.TestCase):
         s = self.live(source, mechanisms=["from the log | default | supported at 1 or more"])
         result = s.frozen_run(live=True)
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        self.assertEqual(s.read(ab.READS_DIR, "c1", "2", ab.READ_STDERR),
+        self.assertEqual(s.read(ab.READS_DIR, "c1", "4", ab.READ_STDERR),
                          "PREFER: B, strongly\nDOUBTS: from the log\n")
-        self.assertIn("mechanism from the log in c1 count: 0 of 2 valid reads",
+        self.assertIn("mechanism from the log in c1 count: 0 of 4 valid reads",
                       s.result_lines())
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base scores=6/4 prefer=A, "
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base scores=6/4 prefer=A, "
                       "slightly flags=none", s.result_lines())
 
     def test_a_command_that_is_not_found_is_a_failed_read(self):
-        s = Setup(self, readers=["r1 | fake", "r2 | /no/such/reader-program"],
-                  reads_per_reader="1")
+        s = Setup(self, readers=["r1 | fake | family m1", "r2 | /no/such/reader-program | family m2"],
+                  reads_per_reader="2")
         result = s.frozen_run(live=True)
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
-            "failed read aa/2: reader command not found",
-            "failed read c1/2: reader command not found"])
+            "failed read aa/3: reader command not found",
+            "failed read aa/4: reader command not found",
+            "failed read c1/3: reader command not found",
+            "failed read c1/4: reader command not found"])
 
     def test_the_spend_ceiling_is_a_tally_of_declared_costs(self):
         # Each stub read costs 3: aa/1 and aa/2 make 6, c1/1 makes 9, and the ceiling of 7 is
         # reached, so c1/2 is not started.
-        s = Setup(self, readers=["r1 | " + stub_command(self, reply_stub()) + " | cost 3"],
+        s = Setup(self, readers=["r1 | " + stub_command(self, reply_stub()) + " | cost 3 | family m1"],
                   reads_per_reader="2", spend_ceiling="7")
         result = s.frozen_run(live=True)
         self.assertEqual(result.exit_code, 1)
@@ -221,10 +227,10 @@ class LiveReaderCase(unittest.TestCase):
             "SUPPORTED if skills-top preferred in 1 or more; otherwise INCONCLUSIVE"])
         result = s.frozen_run(live=True)
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base scores=6/4 prefer=B, clearly "
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base scores=6/4 prefer=B, clearly "
                       "flags=none", s.result_lines())
-        self.assertIn("A/A gate: tripped (1 of 2 valid A/A reads clearly or strongly "
-                      "non-TIE, 50%; threshold 1/2)", s.result_lines())
+        self.assertIn("A/A gate: tripped (2 of 4 valid A/A reads non-TIE, at any strength, "
+                      "50%; threshold 1/2)", s.result_lines())
 
     def test_a_second_run_in_the_folder_of_a_live_run_is_refused(self):
         s = self.live(reply_stub())

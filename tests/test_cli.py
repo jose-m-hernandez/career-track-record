@@ -390,20 +390,20 @@ class AbCli(CliBase):
         self.assertEqual((code, out, err), (0, "freeze written: plan.txt.freeze\n", ""))
         code, out, err = track("ab", "run", s.plan_path)
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("hypothesis h1 verdict: SUPPORTED [not blind: 0 reads left out]\n", out)
-        self.assertIn("A/A gate: passed (0 of 6 valid A/A reads clearly or strongly "
-                      "non-TIE; threshold 1/2)\n", out)
+        self.assertIn("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly counts as a pick [not blind: 0 reads left out]\n", out)
+        self.assertIn("A/A gate: passed (0 of 12 valid A/A reads non-TIE, at any strength; "
+                      "threshold 1/2)\n", out)
         self.assertEqual(out, s.read("result-1.txt"))
         code, out, err = track("ab", "score", s.plan_path)
         self.assertEqual((code, err), (0, ""))
         self.assertEqual(out, s.read("result-2.txt"))
 
     def test_end_to_end_10_12_exits_1(self):
-        s = Setup(self, comparisons=TWO, spend_ceiling="8", fake_reader=[PREFER_GLANCE])
+        s = Setup(self, comparisons=TWO, spend_ceiling="16", fake_reader=[PREFER_GLANCE])
         self.assertEqual(track("ab", "freeze", s.plan_path)[0], 0)
         code, out, err = track("ab", "run", s.plan_path)
         self.assertEqual((code, err), (1, ""))
-        self.assertIn("cut: ran 8 of 18 planned reads at spend ceiling 8\n", out)
+        self.assertIn("cut: ran 16 of 36 planned reads at spend ceiling 16\n", out)
         self.assertIn("exit status: 1\n", out)
 
     def test_end_to_end_10_4_exits_2(self):
@@ -419,11 +419,11 @@ class AbCli(CliBase):
         self.assertFalse(s.exists("reads"))
 
     def test_a_plan_error_is_one_line_per_problem_and_writes_no_freeze(self):
-        s = Setup(self, fake_reader=items("prefer slot A", reads=[9]))
+        s = Setup(self, fake_reader=items("prefer slot A", reads=[13]))
         code, out, err = track("ab", "freeze", s.plan_path)
         self.assertEqual((code, out), (2, ""))
-        self.assertEqual(err, "cannot run: plan line %d: read 9 is outside the arm's reads "
-                              "(1 to 6)\n" % s.line_of("read 9"))
+        self.assertEqual(err, "cannot run: plan line %d: read 13 is outside the arm's reads "
+                              "(1 to 12)\n" % s.line_of("read 13"))
         self.assertFalse(s.exists("plan.txt.freeze"))
 
     def test_run_without_a_freeze_exits_2(self):

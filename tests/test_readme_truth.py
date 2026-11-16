@@ -11,6 +11,8 @@ from career_track_record import ab, panel  # noqa: E402
 
 README = os.path.join(ROOT, "README.md")
 AB_SPEC = os.path.join(ROOT, "docs", "specs", "reader-ab.md")
+AGENTS = os.path.join(ROOT, "AGENTS.md")
+CLI_SPEC = os.path.join(ROOT, "docs", "specs", "cli.md")
 
 BEGIN = "<!-- signed spec begins"
 END = "<!-- signed spec ends -->"
@@ -45,16 +47,17 @@ def need_of(clause):
 
 
 def problems(text):
-    """Every rule in the README's two example plans that its blind reads cannot meet."""
+    """Every rule in the README's two example plans that its blind reads cannot meet. An ab
+    rule counts paired picks: each blind reader's reads come in pairs."""
     found = blocks(text)
     out = []
     plan = ab.parse_text(found["ab"])
-    blind = len([r for r in plan.readers if not r.not_blind]) * plan.reads_per_reader
+    pairs = len([r for r in plan.readers if not r.not_blind]) * plan.reads_per_reader // 2
     for hyp in plan.hypotheses:
         for kind, clause in hyp.clauses:
             need = need_of(clause)
-            if need > blind:
-                out.append("ab %s %s needs %d, blind reads %d" % (hyp.name, kind, need, blind))
+            if need > pairs:
+                out.append("ab %s %s needs %d, blind pairs %d" % (hyp.name, kind, need, pairs))
     plan = panel.parse_text(found["panel"])
     per_lens = len([r for r in plan.readers if not r.not_blind]) * plan.reads_per_reader
     for rule in plan.rules:
@@ -74,9 +77,12 @@ class ReadmeTruthTest(unittest.TestCase):
         old = "  reader-2 | /path/to/my-reader.sh | cost 3"
         new = "  reader-2 | /path/to/my-reader.sh | not-blind | cost 3"
         text = read(README)
-        self.assertEqual(text.count(old + "\n"), 2)
+        # The ab example's reader-2 line goes on with its family, so this exact line, with
+        # its line break, is the panel example's alone; the replacement reaches both.
+        self.assertEqual(text.count(old + "\n"), 1)
+        self.assertEqual(text.count(old), 2)
         self.assertEqual(problems(text.replace(old, new)), [
-            "ab h1 SUPPORTED needs 6, blind reads 3", "ab h1 REFUTED needs 4, blind reads 3",
+            "ab h1 SUPPORTED needs 6, blind pairs 3", "ab h1 REFUTED needs 4, blind pairs 3",
             "panel r1 PASS needs 6, counted reads 3", "panel r2 PASS needs 6, counted reads 3",
             "panel r3 PASS needs 10, counted reads 6"])
 
@@ -100,6 +106,13 @@ class ReadmeTruthTest(unittest.TestCase):
         spec = read(AB_SPEC)
         signed = spec[spec.index(BEGIN):spec.index(END)]
         self.assertIn(LIMIT, signed)
+
+    def test_the_public_counts_agree(self):
+        self.assertTrue(read(README).startswith("# "))
+        self.assertIn("\nEight checks for the career copy you send.", read(README))
+        self.assertIn("The other seven tools are under", read(README))
+        self.assertIn("\nEight tools ship:", read(AGENTS))
+        self.assertIn("lists the eight commands,", read(CLI_SPEC))
 
 
 if __name__ == "__main__":

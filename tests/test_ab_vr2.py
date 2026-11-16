@@ -36,9 +36,11 @@ NO_SIGINT = not hasattr(signal, "SIGINT") or not hasattr(os, "getppid")
 
 
 def live_setup(case, source, **overrides):
-    """A fake reader first and the stub second, one read each per arm."""
-    overrides.setdefault("reads_per_reader", "1")
-    return Setup(case, readers=["r1 | fake", "r2 | " + stub_command(case, source)],
+    """A fake reader first and the stub second, one pair each per arm (the stub's reads are
+    3 and 4; read 4 has skills-top in slot A)."""
+    overrides.setdefault("reads_per_reader", "2")
+    return Setup(case, readers=["r1 | fake | family m1",
+                                  "r2 | " + stub_command(case, source) + " | family m2"],
                  **overrides)
 
 
@@ -50,16 +52,18 @@ class LiveExitStatusCase(unittest.TestCase):
         result = s.frozen_run(live=True)
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
-            "failed read aa/2: exit status %d" % status,
-            "failed read c1/2: exit status %d" % status])
+            "failed read aa/3: exit status %d" % status,
+            "failed read aa/4: exit status %d" % status,
+            "failed read c1/3: exit status %d" % status,
+            "failed read c1/4: exit status %d" % status])
         lines = s.result_lines()
-        self.assertIn("failed reads: 2", lines)
-        self.assertIn("read c1/2: reader=r2 A=skills-top B=base FAILED (exit status %d)"
+        self.assertIn("failed reads: 4", lines)
+        self.assertIn("read c1/4: reader=r2 A=skills-top B=base FAILED (exit status %d)"
                       % status, lines)
         self.assertIn("exit status: 1", lines)
         # The reply the stub printed is not scored: only the fake reader's reads are valid.
-        self.assertFalse(s.exists(ab.READS_DIR, "c1", "2", ab.READ_REPLY))
-        self.assertEqual(s.reply_count("c1"), 1)
+        self.assertFalse(s.exists(ab.READS_DIR, "c1", "4", ab.READ_REPLY))
+        self.assertEqual(s.reply_count("c1"), 2)
 
     def test_vr2_r29_exit_status_1_with_a_valid_reply_is_a_failed_read(self):
         # Mutants R28 (returncode > 0) and R29 (not in (0, 1)): status 1 must fail.
@@ -98,7 +102,7 @@ class StopAndFailedReadCase(unittest.TestCase):
         # read 2 cannot be made.
         source = ("import os, sys\nos.chmod(os.path.dirname(os.getcwd()), 0o555)\n"
                   "sys.exit(3)\n")
-        s = Setup(self, readers=["r1 | " + stub_command(self, source)],
+        s = Setup(self, readers=["r1 | " + stub_command(self, source) + " | family m1"],
                   reads_per_reader="2")
         arm = s.path(ab.READS_DIR, "aa")
 
@@ -122,40 +126,40 @@ class StopAndFailedReadCase(unittest.TestCase):
 class MechanismSearchCase(unittest.TestCase):
     def test_vr2_x8_a_mechanism_pattern_is_searched_not_matched_at_the_start(self):
         # Mutant X8: re.match in place of re.search. The pattern is mid-text in the reply
-        # field, in three comparison reads and in one A/A read.
+        # field, in eight comparison reads and in one A/A read.
         text = "the summary is too long here"
-        rules = items('write "%s" in DOUBTS' % text, reads=[1, 2, 3])
+        rules = items('write "%s" in DOUBTS' % text, reads=[1, 2, 3, 4, 5, 6, 7, 8])
         rules += items('write "%s" in DOUBTS' % text, reads=[1], arm="aa")
         s = Setup(self, fake_reader=rules,
                   mechanisms=["too long | default | supported at 3 or more"])
         result = s.frozen_run()
         self.assertEqual(result.exit_code, 0, result.error)
         lines = s.result_lines()
-        self.assertIn("mechanism too long in c1 count: 3 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 A/A floor: 1 of 6 valid reads", lines)
+        self.assertIn("mechanism too long in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 A/A floor: 1 of 12 valid reads", lines)
         self.assertIn("mechanism too long in c1 separation: separates the versions from "
                       "the A/A floor", lines)
-        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) [not blind: 0 reads left out]",
-                      lines)
+        self.assertIn("mechanism too long in c1 verdict: SUPPORTED (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
     def test_vr2_x8_a_mid_text_floor_stops_a_mechanism_from_separating(self):
-        # The A/A floor is the point: it is mid-text in every A/A read (6 of 6) and in the
-        # three comparison reads (3 of 6). Only a search sees the floor, so the versions do
+        # The A/A floor is the point: it is mid-text in every A/A read (12 of 12) and in the
+        # eight comparison reads (8 of 12). Only a search sees the floor, so the versions do
         # not separate from it; a match at the start sees a floor of 0 and says they do.
         text = "the summary is too long here"
-        rules = items('write "%s" in DOUBTS' % text, reads=[1, 2, 3])
+        rules = items('write "%s" in DOUBTS' % text, reads=[1, 2, 3, 4, 5, 6, 7, 8])
         rules += items('write "%s" in DOUBTS' % text, arm="aa")
         s = Setup(self, fake_reader=rules,
                   mechanisms=["too long | default | supported at 3 or more"])
         result = s.frozen_run()
         self.assertEqual(result.exit_code, 0, result.error)
         lines = s.result_lines()
-        self.assertIn("mechanism too long in c1 count: 3 of 6 valid reads", lines)
-        self.assertIn("mechanism too long in c1 A/A floor: 6 of 6 valid reads", lines)
+        self.assertIn("mechanism too long in c1 count: 8 of 12 valid reads", lines)
+        self.assertIn("mechanism too long in c1 A/A floor: 12 of 12 valid reads", lines)
         self.assertIn("mechanism too long in c1 separation: unable to separate the "
                       "versions", lines)
-        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE "
-                      "(SUPPORTED at 3 or more) [not blind: 0 reads left out]", lines)
+        self.assertIn("mechanism too long in c1 verdict: INCONCLUSIVE (SUPPORTED at 3 or more) "
+                      "(what readers wrote, not a cause) [not blind: 0 reads left out]", lines)
 
 
 class EmptyScopePatternCase(unittest.TestCase):
@@ -259,7 +263,7 @@ class StopReasonAndInterruptCase(unittest.TestCase):
                  ("./stub.py --model small", "./stub.py", True)]
         for command, program, write_stub in cases:
             with self.subTest(command=command):
-                s = Setup(self, readers=["r1 | fake", "r2 | " + command])
+                s = Setup(self, readers=["r1 | fake | family m1", "r2 | " + command + " | family m2"])
                 if write_stub:
                     os.makedirs(os.path.dirname(s.path(program)), exist_ok=True)
                     s.write(program, "#!%s\nopen(%r, 'w').close()\n"
@@ -278,7 +282,7 @@ class StopReasonAndInterruptCase(unittest.TestCase):
                 self.assertFalse(s.exists("RAN"))
 
     def test_vr5_only_the_program_word_is_checked(self):
-        s = Setup(self, readers=["r1 | fake", "r2 | python3 sub/stub.py --out ./x"])
+        s = Setup(self, readers=["r1 | fake | family m1", "r2 | python3 sub/stub.py --out ./x | family m2"])
         result = s.freeze()
         self.assertEqual(result.exit_code, 0, result.error)
         self.assertEqual(result.error, "")
