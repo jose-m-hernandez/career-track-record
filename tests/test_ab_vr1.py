@@ -13,9 +13,13 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "src"))
 
+from fractions import Fraction  # noqa: E402
+
 from career_track_record import ab  # noqa: E402
+from career_track_record import reader_harness as harness  # noqa: E402
 from tests.test_ab import (  # noqa: E402
-    PREFER_GLANCE, SCOPE, TWO, Setup, items)
+    PREFER_GLANCE, SCOPE, SIX, TWO, Setup, items, reply_text)
+from tests.test_ab_live import reply_stub, stub_command  # noqa: E402
 
 MECH_XX = "xx | default | supported at 3 or more"
 
@@ -276,6 +280,104 @@ class PlanParserCase(unittest.TestCase):
         self.assertEqual(s.freeze().exit_code, 0)
 
 
+class PlanIntegerCase(unittest.TestCase):
+    """A whole number in the plan may have any number of digits, on every Python: Python 3.11
+    and later refuse to read more than 4300 digits unless the limit is lifted."""
+
+    def test_a_plan_integer_of_any_size_freezes_or_is_refused_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        even = "9" * 4999 + "8"
+        end = "; otherwise INCONCLUSIVE"
+        cases = (
+            ("reads-per-reader", dict(reads_per_reader=even), 0, None),
+            ("noise-threshold", dict(noise_threshold="%s/%s9" % (big, big)), 0, None),
+            ("alpha", dict(alpha="0." + "0" * 4999 + "1"), 0, None),
+            ("spend-ceiling", dict(spend_ceiling=big), 0, None),
+            ("reader cost",
+             dict(readers=["r1 | fake | family m1 | cost %s" % big, "r2 | fake | family m2"]),
+             0, None),
+            ("rule k of m",
+             dict(hypotheses=["SUPPORTED if skills-top preferred in %s of %s%s"
+                              % (big, big, end)]), 0, None),
+            ("rule n or more",
+             dict(hypotheses=["SUPPORTED if skills-top preferred in %s or more%s"
+                              % (big, end)]), 0, None),
+            ("rule k above m",
+             dict(hypotheses=["SUPPORTED if skills-top preferred in %s of 1%s" % (big, end)]),
+             2, "%s of 1 asks for more reads than it counts" % big),
+            ("mechanism",
+             dict(hypotheses=[SIX],
+                  mechanisms=["too long | default | supported at %s or more" % big]), 0, None),
+            ("fake rule random seed", dict(fake_reader=["random seed %s" % big]), 0, None),
+            ("fake rule read number", dict(fake_reader=["prefer slot A | read %s" % big]), 2,
+             "read %s is outside the arm's reads" % big),
+        )
+        for name, changes, status, message in cases:
+            with self.subTest(name):
+                s = Setup(self, **changes)
+                frozen = s.freeze()
+                self.assertEqual(frozen.exit_code, status, frozen.error[:300])
+                if message is not None:
+                    self.assertIn(message, frozen.error)
+                if before is not None:
+                    self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_spend_ceiling_of_any_size_runs_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        s = Setup(self, spend_ceiling=big)
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        self.assertIn("spend ceiling: " + big, s.read(ab.RUN_LOG).splitlines())
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def live_reader(self, cost, **overrides):
+        reader = "r2 | %s | cost %s | family m2" % (stub_command(self, reply_stub()), cost)
+        overrides.setdefault("reads_per_reader", "2")
+        return Setup(self, readers=["r1 | fake | family m1", reader], **overrides)
+
+    def test_a_live_reader_cost_of_any_size_runs_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        s = self.live_reader("9" * 5000)
+        result = s.frozen_run(live=True)
+        self.assertEqual(result.exit_code, 0, result.error)
+        spend = [x for x in s.read(ab.RUN_LOG).splitlines() if x.startswith("spend: ")]
+        self.assertEqual(len(spend), 1)
+        self.assertEqual(len(spend[0]), len("spend: ") + 5001)
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_live_preview_prints_a_cost_and_a_ceiling_of_any_size(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = "9" * 5000
+        s = self.live_reader(big, spend_ceiling=big)
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        self.assertIn("nothing was started and no reply was written", result.text)
+        self.assertIn("(cost %s per read)" % big, result.text)
+        self.assertIn("spend ceiling: %s\n" % big, result.text)
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_a_random_seed_of_any_size_picks_and_runs_and_restores_the_limit(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        self.assertIn(ab.random_pick(10 ** 5000 - 1, "c1", 1), ("A", "B", "TIE"))
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+        s = Setup(self, fake_reader=["random seed -%s non-tie" % ("9" * 5000)])
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+
 class ReplyScoreCase(unittest.TestCase):
     def test_vr1_rp_score_float_ok(self):
         # A score that is not a whole number fails the read, even when it reads as a number.
@@ -296,6 +398,68 @@ class ReplyScoreCase(unittest.TestCase):
                 with open(path, encoding="utf-8") as handle:
                     self.assertEqual(ab.parse_reply(handle.read()).failure,
                                      "%s is not an integer" % label)
+
+    # Known limit: turning a very long digit string into a number takes time that grows with the
+    # square of its length, so a reply with millions of digits is slow to read, not wrong.
+    def test_a_score_of_any_size_parses_on_every_python(self):
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        big = 10 ** 5000 - 1
+        reply = ab.parse_reply(reply_text(SCORE_A="9" * 5000, SCORE_B="-" + "9" * 5000))
+        self.assertIsNone(reply.failure)
+        self.assertEqual((reply.score_a, reply.score_b), (big, -big))
+        if before is not None:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
+
+    def test_the_mean_keeps_the_float_rounding_where_a_float_can_hold_the_total(self):
+        # 107 / 40 is 2.675; the float nearest it prints as 2.67, and that output must not move.
+        self.assertEqual(harness.mean(107, 40), "2.67")
+        self.assertEqual(harness.mean(7, 2), "3.50")
+        self.assertEqual(harness.mean(-7, 3), "-2.33")
+
+    def test_the_mean_of_totals_past_the_float_range_is_exact_to_two_places(self):
+        big = 10 ** 400
+        self.assertEqual(harness.mean(big, 3), "3" * 400 + ".33")
+        self.assertEqual(harness.mean(-big, 3), "-" + "3" * 400 + ".33")
+        # Halves go to even on the true quotient: 12.5 hundredths to 12, 37.5 to 38.
+        whole = harness.mean(big, 8)[:-3]
+        self.assertEqual(harness.mean(big + 1, 8), whole + ".12")
+        self.assertEqual(harness.mean(big + 3, 8), whole + ".38")
+        self.assertEqual(harness.fraction_text(Fraction(big, 3)), "3" * 400 + ".33")
+        self.assertEqual(harness.fraction_text(Fraction(107, 40)), "2.67")
+
+    def test_the_digit_limit_is_lifted_only_inside_the_block_and_put_back(self):
+        if not hasattr(sys, "get_int_max_str_digits"):
+            with harness.unlimited_int_digits():
+                pass
+            return
+        before = sys.get_int_max_str_digits()
+        with harness.unlimited_int_digits():
+            self.assertEqual(sys.get_int_max_str_digits(), 0)
+            self.assertEqual(len(str(10 ** 5000)), 5001)
+        self.assertEqual(sys.get_int_max_str_digits(), before)
+        self.assertEqual(len(harness.mean(10 ** 5000, 1)), 5004)
+        self.assertEqual(sys.get_int_max_str_digits(), before)
+        with self.assertRaises(RuntimeError):
+            with harness.unlimited_int_digits():
+                raise RuntimeError("inside the block")
+        self.assertEqual(sys.get_int_max_str_digits(), before)
+
+
+    def test_a_fake_reader_score_of_any_size_runs_and_restores_the_limit(self):
+        # The fake rule's text is read as a number and the reply's number is written as text, so
+        # both must work past 4300 digits on Python 3.11 and later.
+        before = (sys.get_int_max_str_digits() if hasattr(sys, "get_int_max_str_digits")
+                  else None)
+        s = Setup(self, fake_reader=["score %s -%s" % ("9" * 5000, "9" * 5000)])
+        result = s.frozen_run()
+        self.assertEqual((result.exit_code, result.error), (0, ""))
+        lines = s.result_lines()
+        self.assertTrue([x for x in lines if "scores=" in x and "9" * 5000 in x], lines[:5])
+        if before is None:
+            self.assertFalse(hasattr(sys, "set_int_max_str_digits"))
+        else:
+            self.assertEqual(sys.get_int_max_str_digits(), before)
 
 
 class FakeRuleReachCase(unittest.TestCase):

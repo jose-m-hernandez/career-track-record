@@ -1,7 +1,7 @@
-"""Tests that the README agrees with ``track-record drafts``. Every example here is invented.
+"""Tests that the drafts guide agrees with ``track-record drafts``. Every example here is invented.
 
-Each run the README's ``track-record drafts`` section shows is repeated on the fixtures, in a
-temporary folder with the run folder made, and what it prints is compared with the README.
+Each run the drafts guide shows is repeated on the fixtures, in a
+temporary folder with the run folder made, and what it prints is compared with the guide.
 """
 
 import os
@@ -10,20 +10,20 @@ import unittest
 from tests import test_drafts as d
 from tests.test_record_check import ROOT, fenced_after, read
 
+GUIDE = os.path.join(ROOT, "docs", "guides", "drafts.md")
 README = os.path.join(ROOT, "README.md")
-HEADING = "### `track-record drafts`"
+HEADING = "# `track-record drafts`"
 PREFIX = "    track-record drafts "
 
 
 def section():
-    text = read(README)
+    text = read(GUIDE)
     start = text.index(HEADING)
-    rest = text[start:]
-    return rest[:rest.index("\n### ", len(HEADING))].split("\n")
+    return text[start:].split("\n")
 
 
 def shown_runs():
-    """[(command words after ``track-record``, the lines the README shows under it)]."""
+    """[(command words after ``track-record``, the lines the guide shows under it)]."""
     lines = section()
     runs = []
     for index, line in enumerate(lines):
@@ -59,21 +59,21 @@ class DocsTest(d.DraftsCase):
 
     def test_the_readme_names_the_spec_and_the_command(self):
         text = "\n".join(section())
-        self.assertIn("(docs/specs/drafts.md)", text)
+        self.assertIn("(../specs/drafts.md)", text)
         self.assertIn("`track-record drafts check FILE [--earlier COPY]`", text)
         self.assertIn("`track-record drafts extract FILE ID --out OUT [--earlier COPY]`", text)
         self.assertTrue(os.path.isfile(os.path.join(ROOT, "docs", "specs", "drafts.md")))
 
     def test_the_readme_example_is_the_known_fixture(self):
-        text = read(README)
+        text = read(GUIDE)
         section_text = text[text.index(HEADING):]
         self.assertEqual(fenced_after(section_text, HEADING),
                          read(os.path.join(ROOT, "tests", "fixtures", "drafts", "letter.txt")))
 
     def test_the_section_comes_after_the_record_section(self):
         text = read(README)
-        self.assertLess(text.index("### `track-record record`"), text.index(HEADING))
-        self.assertLess(text.index(HEADING), text.index("### `track-record panel`"))
+        self.assertLess(text.index("(docs/guides/record.md)"), text.index("(docs/guides/drafts.md)"))
+        self.assertLess(text.index("(docs/guides/drafts.md)"), text.index("(docs/guides/panel.md)"))
 
 
 if __name__ == "__main__":

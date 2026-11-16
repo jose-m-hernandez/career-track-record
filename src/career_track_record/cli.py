@@ -17,6 +17,13 @@ class _Parser(argparse.ArgumentParser):
         else:
             argparse.ArgumentParser.print_help(self, file)
 
+    def error(self, message):
+        """A usage error goes out through _err, as argparse's own would, and exits 2 even
+        when standard error is closed or cannot be written."""
+        _err(self.format_usage())
+        _err("%s: error: %s\n" % (self.prog, message))
+        raise SystemExit(2)
+
 
 def _build_parser():
     parser = _Parser(prog="track-record")

@@ -11,11 +11,14 @@ What a plan means, how the fake reader answers, and how replies are scored stay 
 command's own module. Nothing here starts a program: that is ``ab_reader_command`` alone.
 """
 
+import contextlib
 import difflib
 import hashlib
 import os
 import re
 import shlex
+import sys
+from fractions import Fraction
 
 from career_track_record import ab_reader_command, barred, pdf_text
 
@@ -703,14 +706,15 @@ def live_preview(readers, spend_ceiling, planned):
     costs = costs_of(readers)
     lines = ["live readers are configured: nothing was started and no reply was written; "
              "add --live to run them"]
-    for reader in readers:
-        if reader.kind == "live":
-            lines.append("reader %s: %s (cost %d per read)"
-                         % (reader.name, show(reader.command), reader.cost))
-    lines.append("planned reads: %d" % len(planned))
-    lines.append("estimated spend: %d (the sum of the planned reads' declared costs; "
-                 "the tool cannot see real spend)" % sum(costs[r.reader] for r in planned))
-    lines.append("spend ceiling: %s" % ("none" if spend_ceiling is None else spend_ceiling))
+    with unlimited_int_digits():
+        for reader in readers:
+            if reader.kind == "live":
+                lines.append("reader %s: %s (cost %d per read)"
+                             % (reader.name, show(reader.command), reader.cost))
+        lines.append("planned reads: %d" % len(planned))
+        lines.append("estimated spend: %d (the sum of the planned reads' declared costs; "
+                     "the tool cannot see real spend)" % sum(costs[r.reader] for r in planned))
+        lines.append("spend ceiling: %s" % ("none" if spend_ceiling is None else spend_ceiling))
     return "".join("%s\n" % line for line in lines)
 
 
@@ -780,11 +784,12 @@ def run_reads(folder, planned, readers, spend_ceiling, read_timeout, key_text, p
         raise
     finally:
         # The run log is always written once the key is: with a stop, a last line says why.
-        lines = ["planned reads: %d" % len(planned), "reads run: %d" % ran,
-                 "spend: %d" % spent,
-                 "spend ceiling: %s" % ("none" if spend_ceiling is None else spend_ceiling),
-                 "cut: %s" % ("yes" if cut else "no"),
-                 "key sha256: %s" % key_hash]
+        with unlimited_int_digits():
+            lines = ["planned reads: %d" % len(planned), "reads run: %d" % ran,
+                     "spend: %d" % spent,
+                     "spend ceiling: %s" % ("none" if spend_ceiling is None else spend_ceiling),
+                     "cut: %s" % ("yes" if cut else "no"),
+                     "key sha256: %s" % key_hash]
         lines += ["failure %s: %s" % (read_id, reason) for read_id, reason in failures]
         if stopped is not None:
             lines.append("stopped: %s" % stopped)
@@ -931,8 +936,47 @@ def percent(part, whole):
     return "%.0f%%" % (100.0 * part / whole)
 
 
+@contextlib.contextmanager
+def unlimited_int_digits():
+    """Lift Python's limit on the digits of an integer's text, for the parse or format calls
+    inside the block, and put the earlier limit back afterwards. A score is any whole number
+    of any size, and Python 3.11 and later refuse to read or print more than 4300 digits
+    unless told otherwise. Python 3.9 has no limit, so there this does nothing."""
+    if not hasattr(sys, "set_int_max_str_digits"):
+        yield
+        return
+    before = sys.get_int_max_str_digits()
+    sys.set_int_max_str_digits(0)
+    try:
+        yield
+    finally:
+        sys.set_int_max_str_digits(before)
+
+
+def _exact_two_places(quotient):
+    """A Fraction as text with two decimals, by integer arithmetic, halves to even. Only runs
+    where a float could not hold the value."""
+    hundredths = round(quotient * 100)
+    with unlimited_int_digits():
+        digits = str(abs(hundredths)).rjust(3, "0")
+    return "%s%s.%s" % ("-" if hundredths < 0 else "", digits[:-2], digits[-2:])
+
+
+def fraction_text(quotient):
+    """A Fraction as text with two decimals: the float's rounding where the value fits in a
+    float, so the output of every value that fitted before is unchanged, else exact."""
+    try:
+        return "%.2f" % float(quotient)
+    except OverflowError:
+        return _exact_two_places(quotient)
+
+
 def mean(total, count):
-    return "%.2f" % (float(total) / count)
+    try:
+        return "%.2f" % (float(total) / count)
+    except OverflowError:
+        # This path runs only where float could not hold the total.
+        return _exact_two_places(Fraction(total, count))
 
 
 def finish_result(folder, out, found, log, stopped):

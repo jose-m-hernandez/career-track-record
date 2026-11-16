@@ -64,6 +64,17 @@ class ReaderCommandCase(unittest.TestCase):
                     [sys.executable, "-c", "pass"], os.path.join(folder, "gone"), 30)
             self.assertEqual(caught.exception.reason, "not found")
 
+    def test_a_null_byte_in_the_command_or_the_folder_raises_its_error(self):
+        with tempfile.TemporaryDirectory() as folder:
+            cases = (("program", ["reader" + chr(0) + "name"], folder),
+                     ("argument", [sys.executable, "a" + chr(0) + "b"], folder),
+                     ("folder", [sys.executable, "-c", "pass"], folder + chr(0) + "x"))
+            for what, args, where in cases:
+                with self.subTest(what):
+                    with self.assertRaises(ab_reader_command.ReaderCommandError) as caught:
+                        ab_reader_command.run_reader_command(args, where, 30)
+                    self.assertEqual(caught.exception.reason, "failed")
+
 
 if __name__ == "__main__":
     unittest.main()

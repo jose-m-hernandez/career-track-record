@@ -90,6 +90,28 @@ RUNS = [
 ]
 CANNOT = [("KW_CANNOT", KW_CANNOT, KW), ("B_CANNOT", B_CANNOT, BX),
           ("T_CANNOT", T_CANNOT, T_CWD)]
+# Usage errors that reach argparse, with its stderr as it was before the fix. The other commands
+# (barred, tone, claims, record, drafts, ab, panel) parse their own arguments and report a
+# problem through _err as one "cannot run" line.
+ARGPARSE_ERRORS = [
+    ("MISSING_MODE", ["keywords"],
+     "usage: track-record keywords [-h] mode ...\n"
+     "track-record keywords: error: the following arguments are required: mode\n"),
+    ("UNKNOWN_COMMAND", ["nonsense"],
+     "usage: track-record [-h] command ...\n"
+     "track-record: error: argument command: invalid choice: 'nonsense' (choose from "
+     "'keywords', 'barred', 'tone', 'ab', 'claims', 'panel', 'record', 'drafts')\n"),
+    ("MISSING_OPTION_AND_FILE", ["keywords", "coverage"],
+     "usage: track-record keywords coverage [-h] --terms FILE [--keep-notes]\n"
+     "                                      FILE [FILE ...]\n"
+     "track-record keywords coverage: error: the following arguments are required: "
+     "--terms, FILE\n"),
+    ("BOGUS_OPTION", ["keywords", "demand", "--bogus"],
+     "usage: track-record keywords demand [-h] --postings DIR --terms FILE\n"
+     "                                    [--out FILE]\n"
+     "track-record keywords demand: error: the following arguments are required: "
+     "--postings, --terms\n"),
+]
 HELP = [["--help"], ["-h"], ["keywords", "--help"], ["keywords", "-h"],
         ["keywords", "demand", "--help"], ["keywords", "demand", "-h"],
         ["keywords", "coverage", "--help"], ["keywords", "coverage", "-h"],
@@ -177,6 +199,21 @@ class OutputFailureCase(unittest.TestCase):
             with self.subTest(run=name):
                 self.assertEqual(closed(args, cwd, 2), (2, "", ""))
 
+    def test_a_usage_error_keeps_its_text_and_exits_2(self):
+        for name, args, text in ARGPARSE_ERRORS:
+            with self.subTest(run=name):
+                self.assertEqual(normal(args, KW), (2, "", text))
+
+    def test_a_usage_error_with_closed_stderr_exits_2(self):
+        for name, args, _text in ARGPARSE_ERRORS:
+            with self.subTest(run=name):
+                self.assertEqual(closed(args, KW, 2), (2, "", ""))
+
+    def test_a_usage_error_with_failing_stderr_exits_2(self):
+        for name, args, _text in ARGPARSE_ERRORS:
+            with self.subTest(run=name):
+                self.assertEqual(broken_err(args, KW), (2, ""))
+
     def test_closed_stderr_keeps_a_normal_status(self):
         for name, args, cwd, _code in RUNS:
             with self.subTest(run=name):
@@ -239,6 +276,39 @@ class OutputFailureCase(unittest.TestCase):
                     written = stderr.buffer.getvalue()
                 self.assertEqual(code, 2)
                 self.assertEqual(written, NO_OUTPUT.encode("utf-8"))
+
+    def test_a_sidecar_nested_too_deeply_to_read_exits_2_with_one_line(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        body = "Raw posting text\nsecond line"
+        with open(os.path.join(tmp, "raw.txt"), "w", encoding="utf-8", newline="\n") as handle:
+            handle.write(body)
+        with open(os.path.join(tmp, "raw.txt.meta.json"), "w", encoding="utf-8") as handle:
+            handle.write("[" * 100000 + "]" * 100000)
+        code, out, err = normal(["keywords", "demand", "--postings", tmp, "--terms", T1], KW)
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(len(err.splitlines()), 1, err[:300])
+        self.assertTrue(err.startswith("cannot run: "), err[:200])
+        self.assertNotIn("Traceback", err)
+
+    def test_a_sidecar_that_raises_recursion_error_exits_2_with_the_reason(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp)
+        with open(os.path.join(tmp, "raw.txt"), "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("Raw posting text\nsecond line")
+        with open(os.path.join(tmp, "raw.txt.meta.json"), "w", encoding="utf-8") as handle:
+            handle.write("{}")
+        out, err = io.StringIO(), io.StringIO()
+        with unittest.mock.patch("json.loads", side_effect=RecursionError), \
+                unittest.mock.patch.object(sys, "stdout", out), \
+                unittest.mock.patch.object(sys, "stderr", err):
+            code = cli.main(["keywords", "demand", "--postings", tmp, "--terms",
+                             T1], environ={})
+        out, err = out.getvalue(), err.getvalue()
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(err, "cannot run: raw.txt.meta.json is not valid JSON\n")
 
     def test_an_overflowing_pattern_is_case_9(self):
         self._case_9("x{99999999999}", OverflowError)

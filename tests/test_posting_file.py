@@ -6,6 +6,7 @@ import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "src"))
 
@@ -290,6 +291,20 @@ class SidecarCase(TempCase):
         self.assertCase(path, 3)
         self.put("raw.txt.meta.json", "[1, 2]")
         self.assertCase(path, 3)
+
+    def test_a_sidecar_nested_too_deeply_to_read_is_not_valid_json(self):
+        # Far above any interpreter's recursion limit, so the JSON reader gives up.
+        depth = 100000
+        path = self.make()
+        self.put("raw.txt.meta.json", "[" * depth + "]" * depth)
+        self.assertCase(path, 3)
+
+    def test_a_sidecar_that_raises_recursion_error_is_not_valid_json(self):
+        # Python 3.14 reads the deep fixture above, so this forces the error it can raise.
+        path = self.make()
+        with mock.patch.object(posting_file.json, "loads", side_effect=RecursionError):
+            error = self.assertCase(path, 3)
+        self.assertEqual(error.message, "raw.txt.meta.json is not valid JSON")
 
     def test_invalid_utf8(self):
         bad = b"\xff\xfe broken"

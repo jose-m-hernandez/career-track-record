@@ -6,6 +6,37 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-11-16
+
+### Added
+
+- A test pins that an extension which renames every reader still counts the first run's pairs from each model family when it checks that a version a model drafted wins with another family's readers.
+- The barred guide documents `--min-chars`.
+
+### Changed
+
+- METHOD.md's status line no longer says that Reader A/B's reads have no control that must be found. It says that every read carries the self-read control, that a plan may add a control that must be found (a copy of a draft weakened on purpose), and that a run without that second control that finds no difference does not show the readers could have found one. It also says that `--check-sources` checks the quotes of approved and proposed entries, not refused ones.
+- The README's tool reference moved word for word into one guide per tool under docs/guides/; the README now links to each.
+- The README's exit-code cells for `ab`, `claims` and `record`, and the `ab` guide, now match the guides and the code: `ab freeze` exits 0 when it writes the freeze file, `claims` exits 1 for an approved entry no file uses (with `--stale-check`) or an approved quote not found (with `--check-sources`), and `record --report-only` exits 0 unless a check is DEAD.
+- The README is cut to a front page: a table of each tool's question, exit codes and guide, three reasons to trust a result, the install and first-run steps, and links.
+
+### Fixed
+
+- An extension's `A/A slightly rate` line counts only the extension's own A/A reads; the first run's reads still count in the A/A gate.
+- `keywords` `coverage` and `report` refuse a run with no copy file (exit 2) instead of printing an empty table or calling every term a gap.
+- A reader command that contains a NUL byte is a failed read, not a crash.
+- A posting's `.meta.json` that is nested too deeply to read is reported as not valid JSON (exit 2), not a traceback.
+- A reader's score may be any whole number of any size on every supported Python; before, a score of more than 4,300 digits crashed `ab` and `panel` on Python 3.11 and later, and a score of more than about 300 digits crashed them on every Python when the result printed a mean. A mean that a float could hold prints as before.
+- A whole number in an `ab` or `panel` plan may have any number of digits on every supported Python; before, a score threshold, a lens's `max` or a rule's count of more than 4,300 digits crashed `freeze` and `run` on Python 3.11 and later, as did a reads-per-reader, noise threshold, `alpha`, mechanism count or fake-reader read number of that size in `ab`.
+- A spend ceiling, a live reader's cost or a fake reader's random seed of more than 4,300 digits no longer crashes `ab run` or `panel run` on Python 3.11 and later.
+- The built-in fake reader no longer fails on a score of more than 4,300 digits on Python 3.11 and later, in a rule's score or in the reply it writes, in `ab` and in `panel`.
+- A usage error exits 2, with the usage line on standard error where it can be written, even when standard error is closed or cannot be written. In 0.10.0, when standard error could not be written the exit status was 120, and when it was closed the usage line went to standard output and the exit status was 1 on Python 3.9 and 2 on Python 3.14.
+- The record check's CSV reader no longer stops at a field of two billion characters; it asks for the largest field size the platform allows.
+
+### Security
+
+- The setuptools that CI builds the package with is raised to 84.2.1 on Python 3.10 and later, which has the fix for two reported weaknesses in that build tool (GHSA-xmj3-9gf7-h52w and GHSA-h35f-9h28-mq5c). On Python 3.9 it stays at 82.0.1, because no fixed setuptools supports Python 3.9. The weaknesses are in the tool that builds the package, not in the package, and nothing that `pip install` puts on your machine changes.
+
 ## [0.10.0] - 2026-11-15
 
 ### Added

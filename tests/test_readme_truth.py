@@ -1,4 +1,4 @@
-"""Pin test: the README's example plans can be met under 0.8.0, and the README names the plan keys 0.8.0 adds."""
+"""Pin test: the example plans in the guides can be met under 0.8.0, and the ab guide names the plan keys 0.8.0 adds."""
 
 import os
 import sys
@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.join(ROOT, "src"))
 from career_track_record import ab, panel  # noqa: E402
 
 README = os.path.join(ROOT, "README.md")
+AB_GUIDE = os.path.join(ROOT, "docs", "guides", "ab.md")
+PANEL_GUIDE = os.path.join(ROOT, "docs", "guides", "panel.md")
 AB_SPEC = os.path.join(ROOT, "docs", "specs", "reader-ab.md")
 AGENTS = os.path.join(ROOT, "AGENTS.md")
 CLI_SPEC = os.path.join(ROOT, "docs", "specs", "cli.md")
@@ -25,12 +27,16 @@ def read(path):
         return handle.read()
 
 
+def guides():
+    return read(AB_GUIDE) + "\n" + read(PANEL_GUIDE)
+
+
 def blocks(text):
     """The first fenced block after each of the two tool headings, as a dict keyed by
     ``ab`` and ``panel``."""
     lines = text.split("\n")
     found = {}
-    for key, heading in (("ab", "### `track-record ab`"), ("panel", "### `track-record panel`")):
+    for key, heading in (("ab", "# `track-record ab`"), ("panel", "# `track-record panel`")):
         start = lines.index(heading)
         first = start + 1
         while lines[first] != FENCE:
@@ -47,7 +53,7 @@ def need_of(clause):
 
 
 def problems(text):
-    """Every rule in the README's two example plans that its blind reads cannot meet. An ab
+    """Every rule in the guides' two example plans that its blind reads cannot meet. An ab
     rule counts paired picks: each blind reader's reads come in pairs."""
     found = blocks(text)
     out = []
@@ -71,12 +77,12 @@ def problems(text):
 
 class ReadmeTruthTest(unittest.TestCase):
     def test_the_example_plans_can_be_met(self):
-        self.assertEqual(problems(read(README)), [])
+        self.assertEqual(problems(guides()), [])
 
     def test_a_not_blind_reader_two_is_caught(self):
         old = "  reader-2 | /path/to/my-reader.sh | cost 3"
         new = "  reader-2 | /path/to/my-reader.sh | not-blind | cost 3"
-        text = read(README)
+        text = guides()
         # The ab example's reader-2 line goes on with its family, so this exact line, with
         # its line break, is the panel example's alone; the replacement reaches both.
         self.assertEqual(text.count(old + "\n"), 1)
@@ -87,8 +93,8 @@ class ReadmeTruthTest(unittest.TestCase):
             "panel r3 PASS needs 10, counted reads 6"])
 
     def test_the_readme_lists_the_new_plan_keys(self):
-        lines = read(README).split("\n")
-        heading = "### Plan keys added in 0.8.0"
+        lines = read(AB_GUIDE).split("\n")
+        heading = "## Plan keys added in 0.8.0"
         self.assertEqual(lines.count(heading), 1)
         section = []
         for line in lines[lines.index(heading) + 1:]:
@@ -100,7 +106,7 @@ class ReadmeTruthTest(unittest.TestCase):
             self.assertEqual(len([s for s in section if s.startswith(start)]), 1, start)
 
     def test_the_sensitivity_line_quotes_the_signed_limit(self):
-        bullets = [l for l in read(README).split("\n") if l.startswith("- `sensitivity: X vs W`")]
+        bullets = [l for l in read(AB_GUIDE).split("\n") if l.startswith("- `sensitivity: X vs W`")]
         self.assertEqual(len(bullets), 1)
         self.assertIn(LIMIT, bullets[0])
         spec = read(AB_SPEC)

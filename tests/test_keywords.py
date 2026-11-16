@@ -359,6 +359,31 @@ class CoverageCase(Base):
         result = keywords.run("coverage", terms=T1, copy=[bom])
         self.assertEqual(self.rows(result)["agents"]["copy"], {"bom.txt": 1})
 
+    @staticmethod
+    def no_copy():
+        # The command line always passes a file; a caller of the API may pass none.
+        def nothing():
+            return
+            yield
+
+        return (("list", []), ("tuple", ()), ("generator", nothing()))
+
+    def test_no_copy_file_is_refused_in_coverage(self):
+        for what, copy in self.no_copy():
+            with self.subTest(copy=what):
+                self.assertCannotRun(keywords.run("coverage", terms=T1, copy=copy))
+
+    def test_no_copy_file_is_refused_in_report(self):
+        for what, copy in self.no_copy():
+            with self.subTest(copy=what):
+                self.assertCannotRun(keywords.run("report", terms=T1,
+                                                  postings=fx("postings-p1"), copy=copy))
+
+    def test_demand_needs_no_copy_file(self):
+        result = keywords.run("demand", terms=T1, postings=fx("postings-p1"), copy=[],
+                              today=TODAY)
+        self.assertEqual(result.exit_code, 0, result.error)
+
 
 class CleanCase(unittest.TestCase):
     def test_note_key_rules(self):

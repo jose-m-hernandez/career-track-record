@@ -129,7 +129,7 @@ def _read_raw(path, sidecar_path, name):
         meta = json.loads(raw.decode("utf-8"))
     except UnicodeDecodeError:
         raise PostingError(CASE_NOT_UTF8, "%s.meta.json is not valid UTF-8" % name)
-    except ValueError:
+    except (ValueError, RecursionError):
         raise PostingError(CASE_MISMATCH, "%s.meta.json is not valid JSON" % name)
     if not isinstance(meta, dict):
         raise PostingError(CASE_MISMATCH, "%s.meta.json is not a JSON object" % name)

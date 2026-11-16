@@ -422,6 +422,48 @@ class DeadTest(base.RecordCase):
         self.assertEqual((code, lines[0]), (0, "OK    table a: " + base.table_counts(1, 0, 0, 0, 0)))
         self.assertEqual(csv.field_size_limit(), before)
 
+    def read_a_tiny_csv_with(self, fake):
+        files = {"a.csv": 'k,v\n%s,x\n' % k(1)}
+        with unittest.mock.patch.object(record_check.csv, "field_size_limit", fake):
+            code, lines = self.lines("tables:\n  a | a.csv | csv | k\n", files)
+        self.assertEqual(code, 0, lines)
+
+    def test_the_field_size_limit_asked_for_is_the_largest_the_platform_accepts(self):
+        real = csv.field_size_limit
+        before = real()
+        self.addCleanup(real, before)
+        largest = sys.maxsize
+        while True:
+            try:
+                real(largest)
+                break
+            except OverflowError:
+                largest //= 2
+        real(before)
+        calls = []
+
+        def fake(*args):
+            calls.append(args)
+            return before
+
+        self.read_a_tiny_csv_with(fake)
+        self.assertEqual(calls[0], (largest,))
+        self.assertEqual(calls[-1], (before,))
+
+    def test_a_platform_with_a_32_bit_limit_gets_the_largest_value_it_accepts(self):
+        calls = []
+
+        def fake(*args):
+            calls.append(args)
+            if args and args[0] > 2 ** 31 - 1:
+                raise OverflowError("Python int too large to convert to C long")
+            return 131072
+
+        self.read_a_tiny_csv_with(fake)
+        self.assertEqual(calls[-2], (2 ** 31 - 1,))
+        self.assertEqual(calls[-1], (131072,))
+        self.assertTrue(all(c[0] > 2 ** 31 - 1 for c in calls[:-2]), calls)
+
     def test_the_field_size_limit_is_put_back_after_a_csv_that_cannot_be_read(self):
         before = csv.field_size_limit()
         self.table_reason({"a.csv": b'k\n"open\n'}, "DEAD  table a: not readable as CSV",

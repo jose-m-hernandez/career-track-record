@@ -303,7 +303,10 @@ def _run(mode, terms, postings_dir, copy, keep_notes, today):
     labelled = []
     texts = []
     if mode in ("coverage", "report"):
-        labelled = _label_copies(list(copy))
+        copy = list(copy)
+        if not copy:
+            raise KeywordError("no copy file given")
+        labelled = _label_copies(copy)
         for norm, _label in labelled:
             if not os.path.isfile(norm):
                 raise KeywordError("copy file does not exist: %s" % norm)

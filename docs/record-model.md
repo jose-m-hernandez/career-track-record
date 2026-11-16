@@ -85,7 +85,7 @@ earlier:
   entries | entry-table-before.tsv
 ```
 
-A smaller example, with its exact output, is in the README, and the rules are in [docs/specs/record-check.md](specs/record-check.md).
+A smaller example, with its exact output, is in [docs/guides/record.md](guides/record.md), and the rules are in [docs/specs/record-check.md](specs/record-check.md).
 
 ## Append-only with corrections
 

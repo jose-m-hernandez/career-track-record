@@ -328,7 +328,13 @@ def parse(path):
 
 
 def parse_text(text):
-    """The work of ``parse``, on the text of a plan."""
+    """The work of ``parse``, on the text of a plan. A whole number in a plan has any number
+    of digits, so the whole parse runs with the digit limit lifted."""
+    with harness.unlimited_int_digits():
+        return _parse_text(text)
+
+
+def _parse_text(text):
     state = harness.ParseState()
     scalars, lists = harness.structure(state, text, _LIST_KEYS, _SCALAR_KEYS)
 
@@ -754,7 +760,8 @@ def _fake_rule_body(state, number, text, mods, strength):
         return FakeRule.omit(match.group(1), **mods)
     match = re.match(r"score (-?[0-9]+) (-?[0-9]+)\Z", text)
     if match:
-        return FakeRule.score(int(match.group(1)), int(match.group(2)), **mods)
+        with harness.unlimited_int_digits():
+            return FakeRule.score(int(match.group(1)), int(match.group(2)), **mods)
     state.bad(number, "not a fake-reader rule: %s" % _short(text))
     return None
 
@@ -1236,8 +1243,9 @@ def parse_reply(text):
             reply.failure = "missing %s" % label
             return reply
     reply.read_id = fields["READ"]
-    reply.score_a = harness.whole_number(fields["SCORE-A"])
-    reply.score_b = harness.whole_number(fields["SCORE-B"])
+    with harness.unlimited_int_digits():
+        reply.score_a = harness.whole_number(fields["SCORE-A"])
+        reply.score_b = harness.whole_number(fields["SCORE-B"])
     if reply.score_a is None:
         reply.failure = "SCORE-A is not an integer"
     elif reply.score_b is None:
@@ -1294,7 +1302,9 @@ def random_pick(seed, arm, number, non_tie=False):
     """What a seeded random rule picks for read ``number`` of ``arm``: the first byte of the
     sha256 of "<seed>:<arm>:<number>". With ``non_tie`` an even byte is A and an odd byte
     is B. Without it the byte mod 3 is 0 for A, 1 for B and 2 for TIE."""
-    digest = hashlib.sha256(("%s:%s:%d" % (seed, arm, number)).encode("utf-8")).digest()
+    with harness.unlimited_int_digits():
+        text = "%s:%s:%d" % (seed, arm, number)
+    digest = hashlib.sha256(text.encode("utf-8")).digest()
     if non_tie:
         return "A" if digest[0] % 2 == 0 else "B"
     return ("A", "B", "TIE")[digest[0] % 3]
@@ -1331,8 +1341,9 @@ def fake_reply(read, rules, text_a, text_b):
     for rule in rules:
         if rule.kind == "score" and _fires(rule, read):
             scores = rule.scores
-    values = {"READ": read.id, "PRIOR": "nothing", "SCORE-A": str(scores[0]),
-              "SCORE-B": str(scores[1])}
+    with harness.unlimited_int_digits():
+        score_a, score_b = str(scores[0]), str(scores[1])
+    values = {"READ": read.id, "PRIOR": "nothing", "SCORE-A": score_a, "SCORE-B": score_b}
     for label in FREE_TEXT_FIELDS[:-1]:
         values[label] = "none"
     written = set()
@@ -1858,6 +1869,11 @@ def _extension_of(plan_path, plan):
 
 
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
+    with harness.unlimited_int_digits():
+        return _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash)
+
+
+def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
     cut = log.get("cut") == "yes"
@@ -2024,11 +2040,11 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
         out.append("DEAD: 0 of %d planned reads are valid" % len(reads))
 
     # A/A gate: every non-TIE read counts, slightly included
-    aa_own = pooled_valid_in(AA)
+    aa_own = valid_in(AA)
     aa_planned = (len([r for r in blind_reads if r.arm == AA]) + pool_planned
                   + (len([r for r in ext.blind_reads if r.arm == AA])
                      if ext is not None else 0))
-    aa_valid = aa_own + pool_valid
+    aa_valid = pooled_valid_in(AA) + pool_valid
     gate, aa_non_tie, aa_count = aa_gate(plan, aa_valid, aa_planned)
     if plan.aa_pool:
         out.append("A/A pool: %d earlier runs, %d valid A/A reads in the gate"
@@ -2292,7 +2308,7 @@ def _score_and_write(plan_path, plan, recorded, freeze_hash):
             if mine[sens_x]:
                 gap = (Fraction(sum(mine[sens_x]), len(mine[sens_x]))
                        - Fraction(sum(mine[sens_w]), len(mine[sens_w])))
-                text = "%.2f" % float(gap)
+                text = harness.fraction_text(gap)
                 if text == "-0.00":
                     text = "0.00"
                 out.append("sensitivity score gap %s: %s" % (reader.name, text))

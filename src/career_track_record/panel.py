@@ -265,7 +265,13 @@ def parse(path):
 
 
 def parse_text(text):
-    """The work of ``parse``, on the text of a plan."""
+    """The work of ``parse``, on the text of a plan. A whole number in a plan has any number
+    of digits, so the whole parse runs with the digit limit lifted."""
+    with harness.unlimited_int_digits():
+        return _parse_text(text)
+
+
+def _parse_text(text):
     state = harness.ParseState()
     scalars, lists = harness.structure(state, text, _LIST_KEYS, _SCALAR_KEYS)
 
@@ -508,10 +514,12 @@ def _fake_rule(state, number, item, arms, reads):
                 on_reads=None if on_read is None else [on_read])
     match = re.match(r"score (-?[0-9]+)\Z", rule_text)
     if match:
-        return FakeRule.score_of(int(match.group(1)), **mods)
+        with harness.unlimited_int_digits():
+            return FakeRule.score_of(int(match.group(1)), **mods)
     match = re.match(r"score containing " + _QUOTED + r" (-?[0-9]+)\Z", rule_text)
     if match:
-        return FakeRule.score_containing(match.group(1), int(match.group(2)), **mods)
+        with harness.unlimited_int_digits():
+            return FakeRule.score_containing(match.group(1), int(match.group(2)), **mods)
     match = re.match(r"write " + _QUOTED + r" in ([A-Z-]+)\Z", rule_text)
     if match:
         if match.group(2) not in LABELS:
@@ -649,7 +657,8 @@ def parse_reply(text):
             reply.failure = "missing %s" % label
             return reply
     reply.read_id = fields["READ"]
-    reply.score = harness.whole_number(fields["SCORE"])
+    with harness.unlimited_int_digits():
+        reply.score = harness.whole_number(fields["SCORE"])
     if reply.score is None:
         reply.failure = "SCORE is not an integer"
     return reply
@@ -701,7 +710,9 @@ def fake_reply(read, rules, text):
             score = rule.score
         elif rule.kind == "score-containing" and rule.text in text:
             score = rule.score
-    values = {"READ": read.id, "PRIOR": "nothing", "SCORE": str(score)}
+    with harness.unlimited_int_digits():
+        score_text = str(score)
+    values = {"READ": read.id, "PRIOR": "nothing", "SCORE": score_text}
     for label in FREE_TEXT_FIELDS:
         values[label] = NONE
     written = set()
@@ -927,6 +938,11 @@ def _possible_verdicts(rule, recs, m):
 
 
 def _score_and_write(plan_path, plan, recorded, freeze_hash):
+    with harness.unlimited_int_digits():
+        return _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash)
+
+
+def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
     cut = log.get("cut") == "yes"
