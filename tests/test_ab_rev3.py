@@ -922,7 +922,8 @@ class ReplicateCase(unittest.TestCase):
         second = Setup(self, hypotheses=[SIX], replicate_of="first.freeze")
         shutil.copyfile(first.path("plan.txt.freeze"), second.path("first.freeze"))
         self.assertEqual(self.freeze_error(second),
-                         ["a freeze file already exists: first.freeze"])
+                         ["a freeze file already exists: first.freeze (one plan per "
+                          "folder, so put plan.txt in its own folder)"])
 
     def test_a_changed_input_is_refused(self):
         for name in ("skills-top.txt", "posting.txt"):
@@ -943,7 +944,8 @@ class ReplicateCase(unittest.TestCase):
         with self.subTest(form="b"):
             second = Setup(self, hypotheses=[SIX], replicate_of="first.freeze")
             shutil.copyfile(first.path("plan.txt.freeze"), second.path("first.freeze"))
-            self.assertIn("a freeze file already exists: first.freeze",
+            self.assertIn("a freeze file already exists: first.freeze (one plan per "
+                          "folder, so put plan.txt in its own folder)",
                           self.freeze_error(second))
 
     def test_replicate_of_names_a_freeze_file(self):

@@ -249,6 +249,55 @@ class CannotRunCli(CliBase):
         self.assertCannotRun(["keywords", "coverage", "--terms", terms,
                               os.path.join(K, "copy.txt")], "term table")
 
+    def test_terms_errors_name_the_format_and_the_guide(self):
+        guide = "docs/guides/keywords.md, section 'A worked example'"
+        columns = "tab-separated with the columns family, pattern and note"
+        postings = os.path.join(K, "postings-p1")
+        header_only = self.path("terms.tsv")
+        with open(header_only, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("family\tpattern\tnote\n")
+        no_pattern = self.path("no-pattern.tsv")
+        with open(no_pattern, "w", encoding="utf-8", newline="\n") as handle:
+            handle.write("family\tpattern\tnote\nagents\n")
+        for args in (["keywords", "demand", "--postings", postings, "--terms",
+                      self.path("none.tsv")],
+                     ["keywords", "demand", "--postings", postings, "--terms", header_only],
+                     ["keywords", "coverage", "--terms", no_pattern,
+                      os.path.join(K, "copy.txt")]):
+            self.assertCannotRun(args, columns, guide)
+
+    def test_a_missing_terms_flag_is_an_argparse_usage_error(self):
+        for args in (["keywords", "demand", "--postings", os.path.join(K, "postings-p1")],
+                     ["keywords", "coverage", os.path.join(K, "copy.txt")],
+                     ["keywords", "report", "--postings", os.path.join(K, "postings-p1"),
+                      "--copy", os.path.join(K, "copy.txt")]):
+            code, out, err = track(*args)
+            self.assertEqual(code, 2, args)
+            self.assertEqual(out, "")
+            self.assertTrue(err.startswith("usage: track-record keywords"), err)
+            self.assertIn("the following arguments are required: --terms", err)
+
+    def test_help_names_the_terms_format_and_the_guide(self):
+        for mode in ("demand", "coverage", "report"):
+            code, out, err = track("keywords", mode, "--help")
+            self.assertEqual(code, 0)
+            flat = " ".join(out.split())
+            self.assertIn("--terms FILE", out)
+            self.assertNotIn("[--terms FILE]", out)
+            self.assertIn("tab-separated with the columns family, pattern and note", flat)
+            self.assertIn("docs/guides/keywords.md, section 'A worked example'", flat)
+
+    def test_a_posting_with_no_header_or_sidecar_names_the_format_and_the_guide(self):
+        folder = self.path("p")
+        os.mkdir(folder)
+        with open(os.path.join(folder, "plain.txt"), "w", encoding="utf-8",
+                  newline="\n") as handle:
+            handle.write("Just the job text, no header and no sidecar.\n")
+        self.assertCannotRun(["keywords", "demand", "--postings", folder, "--terms", T1],
+                             "plain.txt", "header is malformed", "six-line header",
+                             ".meta.json sidecar",
+                             "docs/guides/keywords.md, section 'A worked example'")
+
     def test_case_6_copy_missing(self):
         self.assertCannotRun(["keywords", "report", "--postings",
                               os.path.join(K, "postings-p1"), "--terms", T1,

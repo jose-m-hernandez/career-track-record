@@ -45,6 +45,46 @@ A hypothesis is also scored a second time with every `slightly` pick counted as 
 
 It also prints one line on validity: reads from one model and prompt may not be independent, so the p-value may be too small. These lines never change a verdict. They help you judge how much to rely on it.
 
+## Your first A/B test
+
+This walks through one small test with an AI model as the reader. You need the `codex` command (Codex) installed and logged in, or the `claude` command (Claude Code) as the fallback. A run with `--live` asks that model, and your provider may bill you; the steps below show the cost first.
+
+**The files.** `examples/ab-first-plan.txt` is the plan, and `examples/ab-first/` holds an invented posting and two versions of an invented résumé. They differ only in where the skills sit: the second version moves them to the top, under "At a glance". The plan carries notes on every line, and the tool ignores lines that start with `#`. `examples/readers/model_reader.py` is the reader: an example script, not part of the installed package, that pastes the posting and both versions into one message, asks the model, and prints the reply. Read it before you run it; it is short. It uses `codex` unless you give it `claude`, either as an argument on the reader line (`... model_reader.py claude`, and then write `family claude` on that line) or in the environment variable `MODEL_READER_CLI`. The tool gives a reader no standard input and leaves the prompt in `PROMPT.txt` in the read folder, so the script reads that file (and `POSTING.txt`, `A.txt` and `B.txt`) and passes the text to the model. For Codex it runs `codex exec --sandbox read-only --skip-git-repo-check --ephemeral --ignore-user-config --color never -c approval_policy="never" --output-last-message <temp file> -`: a read-only sandbox, no approval prompts, no saved session, your Codex `config.toml` skipped, and only the model's final message used as the reply (`--skip-git-repo-check` because the read folder is not a git repository). For Claude it runs `claude -p --tools "" --no-session-persistence`, which turns every built-in tool off, and adds `--bare` only when `ANTHROPIC_API_KEY` is set. For Claude every built-in tool is off; whether MCP servers or connectors from your setup load has not been measured. For Codex the sandbox is read-only, so it cannot change your files, but whether your account's apps or connectors (a mail connector, say) are offered to the model has not been measured. The reader line carries the argument, because the tool splits the line into a program and its arguments and runs it without a shell.
+
+**Four words the plan uses.**
+- *A/A* is a control: the tool also has the reader read one version against itself. A fair reader should call that a tie, so the A/A reads show how often your reader picks a side when there is nothing to find.
+- *Drafted by* says who wrote each version: `user` when no AI wrote or edited any of its words, or `model <family>` (for example `model codex`) when an AI did. It is there because a model may favour wording that a model of its own family wrote, so the tool checks such a win against readers of other families.
+- *Family* is the model behind a reader (`codex` or `claude`), one word that you choose consistently.
+- *Paired picks*: each reader reads each pair of versions twice, once in each order, because readers lean towards whichever version comes first. The two reads of a pair make one pick only when they agree; if they disagree, the pair counts as a tie. The rule in the plan counts pairs: `3 of 3` means all three pairs.
+
+**The steps.**
+
+1. Copy the plan and its files to a new folder, because the tool writes its freeze file and results beside the plan, and a folder holds one plan only: `freeze` refuses a second plan in a folder that already has a freeze file, so each plan, including your own later, goes in its own folder. On macOS, Linux or Git Bash:
+
+       mkdir my-first-test
+       cp -r examples/ab-first examples/ab-first-plan.txt my-first-test/
+
+   On Windows (Command Prompt):
+
+       xcopy examples\ab-first my-first-test\ab-first /E /I
+       copy examples\ab-first-plan.txt my-first-test\
+
+2. Open `my-first-test/ab-first-plan.txt` and replace `/path/to/career-track-record` on the reader line with the full path to this repository's folder: run `pwd` on macOS or Linux, or `cd` on Windows, from the top folder of your clone. A reader program has to be named by its full path, not a relative one. On Windows write the path with forward slashes (`C:/Users/you/career-track-record/...`): the tool splits the line by shell rules, which eat a backslash, so `C:\Users\you\r.py` would become `C:Usersyour.py`. Use `python` where the line says `python3` if that is the command you have. If `track-record` is not found, the README's `PYTHONPATH=src python3 -m career_track_record` fallback is POSIX-only; in PowerShell write `$env:PYTHONPATH="src"; python -m career_track_record ab freeze my-first-test/ab-first-plan.txt`. `freeze` warns on standard error, one line per reader, when a reader's program or `.py` script cannot be found, but still writes the freeze; a wrong path you miss shows up only as failed reads, so check it first: `codex --version` (or `claude --version`) should print a version, and `python3 examples/readers/model_reader.py` run from a folder with no `PROMPT.txt` should stop with a one-line reason about that file, which shows the script runs. Before you freeze, read "Is the reader blind?" below: if the reader may know who you are, add `| not-blind` to its reader line now, because a frozen plan can't be changed.
+
+3. Freeze the plan. This writes `my-first-test/ab-first-plan.txt.freeze` and exits 0:
+
+       track-record ab freeze my-first-test/ab-first-plan.txt
+
+4. Run it without `--live`. It prints the reader command, the number of reads (12: 6 for the comparison and 6 for the A/A control, because `reads-per-reader` is 6) and the estimated spend (12 units, one per read), starts nothing, and exits 0:
+
+       track-record ab run my-first-test/ab-first-plan.txt
+
+5. When you are ready to spend, add `--live`. The `run` above printed `planned reads: 12`: `--live` makes that many model calls, one at a time, each on your own Codex (or Claude) subscription or account, and it can take several minutes. Adding `--live` is your consent to that spend; the tool cannot see the real cost, only the units you declared in the plan:
+
+       track-record ab run my-first-test/ab-first-plan.txt --live
+
+The result is printed and saved as `result-1.txt` beside the plan. With only three pairs the test is small: a SUPPORTED verdict here means these readers preferred the change in all three pairs, and nothing more. Beside each verdict, check the A/A lines first. To test your own résumé, copy your two versions and a posting you saved yourself into the folder, change the file names and the `change-scope` patterns in the plan, and freeze it as a new plan. **Is the reader blind?** Not by default, for either reader: both load files from your own setup. For Codex, `--ignore-user-config` skips `config.toml` but not the `AGENTS.md` in your Codex home folder. This was checked without a live model, with `codex debug prompt-input` (Codex 0.156.1), which prints the input the model would see: an invented `AGENTS.md` in a throwaway Codex home appeared in it, and `-c project_doc_max_bytes=0`, `-c project_doc_fallback_filenames=[]` and `-c instructions=""` did not remove it. (`project_doc_max_bytes=0` does stop an `AGENTS.md` in the folder the reader runs in, which the read folder does not have.) None of the settings tried stops Codex loading that file, so the reader uses none. For Claude, without `--bare` the reader loads your `~/.claude` files (`CLAUDE.md` and memory), so it has the same gap, and `--bare` needs an API key, which is the only case where the example reader passes it. If your own instruction or memory files say who you are, add `| not-blind` to the reader line, so its reads are reported and never counted in a verdict. A model that does recall you should say so in the `PRIOR` field, and the result flags that read, but that catches only what the model admits.
+
 ## Plan keys added in 0.8.0
 
 - `sensitivity: X vs W` (`ab`): a version `X` against a copy `W` of it weakened on purpose, run as its own arm before the comparisons. In the spec's words: "When the readers prefer the version, the run shows they could see that planted difference. Known limit: it does not show they could see one as small as the change under test." Spec: [docs/specs/reader-ab.md](../specs/reader-ab.md) § 1, § 3.1 and § 6.

@@ -35,17 +35,20 @@ def _build_parser():
 
     demand = modes.add_parser("demand", help="which terms the postings ask for")
     demand.add_argument("--postings", required=True, metavar="DIR")
-    demand.add_argument("--terms", required=True, metavar="FILE")
+    demand.add_argument("--terms", required=True, metavar="FILE",
+                        help=keywords.TERMS_HELP)
     demand.add_argument("--out", metavar="FILE")
 
     coverage = modes.add_parser("coverage", help="which terms your copy files use")
-    coverage.add_argument("--terms", required=True, metavar="FILE")
+    coverage.add_argument("--terms", required=True, metavar="FILE",
+                          help=keywords.TERMS_HELP)
     coverage.add_argument("--keep-notes", action="store_true")
     coverage.add_argument("files", nargs="+", metavar="FILE")
 
     report = modes.add_parser("report", help="demand against your copy, with gaps")
     report.add_argument("--postings", required=True, metavar="DIR")
-    report.add_argument("--terms", required=True, metavar="FILE")
+    report.add_argument("--terms", required=True, metavar="FILE",
+                        help=keywords.TERMS_HELP)
     report.add_argument("--keep-notes", action="store_true")
     report.add_argument("--copy", required=True, nargs="+", metavar="FILE")
     # Listed for --help only: main() hands "barred" to its own parser (_parse_barred).
@@ -750,6 +753,8 @@ def _main_plan_command(command, args):
         _err("".join("cannot run: %s\n" % line for line in result.error.split("\n")))
         return result.exit_code
     _out(result.text)
+    if result.warnings:
+        _err(result.warnings)
     if result.stopped is not None:
         _err("cannot run: stopped: %s\n" % result.stopped)
     return result.exit_code

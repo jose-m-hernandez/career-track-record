@@ -17,6 +17,7 @@ import hashlib
 import os
 import re
 import shlex
+import shutil
 import sys
 from fractions import Fraction
 
@@ -60,11 +61,14 @@ class Result(object):
     """What a call produced. ``text`` is what the command prints; ``error`` holds the
     problem lines joined with a line feed, without a final one."""
 
-    def __init__(self, exit_code, ran, text="", error="", stopped=None):
+    def __init__(self, exit_code, ran, text="", error="", stopped=None, warnings=""):
         self.exit_code = exit_code
         self.ran = ran
         self.text = text
         self.error = error
+        # Lines the command writes to standard error although the call succeeded (freeze
+        # uses it for a reader whose program cannot be found), each ending in a line feed.
+        self.warnings = warnings
         # The escaped reason when the run stopped early (the command writes it to standard
         # error as one ``cannot run: stopped: <reason>`` line), else None.
         self.stopped = stopped
@@ -441,7 +445,8 @@ def _freeze(plan_path, parse, inputs, prompt_digest):
     if getattr(plan, "replicate_of", None) is not None:
         problems += replicate_problems(plan_path, plan, inputs, parse)
     for name in freeze_files(folder):
-        problems.append("a freeze file already exists: %s" % show(name))
+        problems.append("a freeze file already exists: %s (one plan per folder, so put %s in "
+                        "its own folder)" % (show(name), show(os.path.basename(plan_path))))
     for name in reply_files(folder):
         problems.append("the run folder already holds a reply: %s" % show(name))
     if problems:
@@ -449,7 +454,42 @@ def _freeze(plan_path, parse, inputs, prompt_digest):
     name = os.path.basename(plan_path) + FREEZE_SUFFIX
     write_new(folder, os.path.join(folder, name),
               "".join("%s  %s\n" % (digest, label) for label, digest in hashes))
-    return Result(0, True, text="freeze written: %s\n" % show(name))
+    return Result(0, True, text="freeze written: %s\n" % show(name),
+                  warnings=reader_warnings(getattr(plan, "readers", ())))
+
+
+def reader_warnings(readers):
+    """One warning line for each live reader whose program cannot be started: an absolute
+    path that is not an executable file, a bare name that is not on PATH, or an absolute
+    ``.py`` argument that is not a file. A warning only: the freeze is written either way
+    and nothing here reaches the freeze file."""
+    lines = []
+    for reader in readers:
+        if reader.command == FAKE:
+            continue
+        try:
+            words = shlex.split(reader.command)
+        except ValueError:
+            continue
+        if not words:
+            continue
+        program, found = words[0], None
+        if os.path.isabs(program):
+            if not os.path.isfile(program):
+                found = "the program does not exist: %s" % show(program)
+            elif not os.access(program, os.X_OK):
+                found = "the program is not executable: %s" % show(program)
+        elif "/" not in program and shutil.which(program) is None:
+            found = "the program is not on PATH: %s" % show(program)
+        if found is None:
+            for word in words[1:]:
+                if os.path.isabs(word) and word.endswith(".py") and not os.path.isfile(word):
+                    found = "the script does not exist: %s" % show(word)
+                    break
+        if found is not None:
+            lines.append("warning: reader %s: %s; a live run would fail on it\n"
+                         % (reader.name, found))
+    return "".join(lines)
 
 
 def _without_replicate_line(data):
@@ -846,7 +886,8 @@ def parse_key(data, width):
         arm, slash, count = fields[0].rpartition("/")
         if not arm or not slash or not INTEGER.match(count):
             raise KeyParseError("line %d does not start with a read such as c1/3" % number)
-        rows.append([arm, int(count)] + fields[1:])
+        with unlimited_int_digits():
+            rows.append([arm, int(count)] + fields[1:])
     return rows
 
 

@@ -532,7 +532,8 @@ class FreezeCase(unittest.TestCase):
         again = t.freeze()
         self.assertEqual(again.exit_code, 2)
         self.assertEqual(again.error.splitlines()[0],
-                         "a freeze file already exists: plan.txt.freeze")
+                         "a freeze file already exists: plan.txt.freeze (one plan per "
+                         "folder, so put plan.txt in its own folder)")
         self.assertIn("the run folder already holds a reply: reads/l1/1/REPLY.txt",
                       again.error.splitlines())
 

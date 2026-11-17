@@ -6,6 +6,26 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.2] - 2026-11-17
+
+### Added
+
+- `examples/readers/model_reader.py`, an example reader for `ab --live` that asks `codex exec` (read-only sandbox, no approval prompts) or, as the fallback, `claude -p` (built-in tools off) about one pair and prints the reply, with tests that use a fake CLI and never call a model.
+- The `ab` guide's "Your first A/B test": a plain-words walk-through with a copy-paste plan at `examples/ab-first-plan.txt`, invented files under `examples/ab-first/`, and the `freeze`, `run` and `run --live` steps.
+- The keywords guide's "A worked example": a headed posting, a posting with a `.meta.json` sidecar, how to get its hash, and a three-term `terms.tsv`, all invented, under `examples/keywords/`.
+- `ab freeze` and `panel freeze` now warn on standard error, one line per reader, when a live reader's program is an absolute path that does not exist or cannot be executed, a bare name that is not on PATH, or a `python3 /abs/script.py` whose script does not exist. The freeze is still written and the exit status is still 0; the freeze file's contents and hash do not change. Before, a bad path showed only after a live run had spent its reads.
+
+### Changed
+
+- `keywords` errors for a missing, empty or malformed `--terms` file and a posting with no header or sidecar now name the format and point to the guide's worked example. `--terms` stays required, and its `--help` line names the format and the guide.
+- The refusal "a freeze file already exists" now says why and what to do: one plan per folder, so put the plan in its own folder. The `ab` guide's first test states the rule.
+- The README no longer says that no live reader ships: it says the package ships none, that the example reader under `examples/readers/` starts `codex` or `claude`, which reach the network and spend the user's own plan, and that the no-network test scans `src/` only.
+- The README's front page now leads with the pointer to First run, the exit codes sit in their own "Exit codes" section instead of a tool-table column, the three things each check shows it was looking for are a list, and the credit line sits under Maintainer.
+
+### Fixed
+
+- A read number in a run's key file may have any number of digits on every supported Python; before, one of more than 4,300 digits crashed `ab score` and `panel score` on Python 3.11 and later.
+
 ## [0.10.1] - 2026-11-16
 
 ### Added

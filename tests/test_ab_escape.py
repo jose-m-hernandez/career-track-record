@@ -190,7 +190,8 @@ class EscapeCase(unittest.TestCase):
         result = s.freeze()
         self.assertEqual(result.exit_code, 2)
         self.assertEqual(result.error.split("\n"), [
-            "a freeze file already exists: x\\ny\\u200b.freeze",
+            "a freeze file already exists: x\\ny\\u200b.freeze (one plan per folder, "
+            "so put plan.txt in its own folder)",
             "the run folder already holds a reply: reads/aa/1\\n\\u200b/REPLY.txt"])
 
     def test_names_in_the_command_line_errors(self):

@@ -237,14 +237,16 @@ class FreezeCase(unittest.TestCase):
         again = s.freeze()
         self.assertEqual(again.exit_code, 2)
         self.assertEqual(again.error.splitlines(),
-                         ["a freeze file already exists: plan.txt.freeze"])
+                         ["a freeze file already exists: plan.txt.freeze (one plan per "
+                          "folder, so put plan.txt in its own folder)"])
         self.assertEqual(s.read("plan.txt.freeze"), before)
         # Any freeze file in the folder counts, whatever the plan is called.
         s.write("other-plan.txt", s.read("plan.txt"))
         other = ab.freeze(s.path("other-plan.txt"))
         self.assertEqual(other.exit_code, 2)
         self.assertEqual(other.error.splitlines(),
-                         ["a freeze file already exists: plan.txt.freeze"])
+                         ["a freeze file already exists: plan.txt.freeze (one plan per "
+                          "folder, so put other-plan.txt in its own folder)"])
         self.assertFalse(s.exists("other-plan.txt.freeze"))
 
     def test_10_18_amendment_names_both_freezes(self):
@@ -273,7 +275,8 @@ class FreezeCase(unittest.TestCase):
                    for number in sorted(os.listdir(first.path(ab.READS_DIR, arm)))]
         self.assertEqual(len(replies), 24)
         self.assertEqual(refused.error.splitlines(),
-                         ["a freeze file already exists: plan.txt.freeze"] + replies)
+                         ["a freeze file already exists: plan.txt.freeze (one plan per "
+                          "folder, so put plan.txt in its own folder)"] + replies)
         self.assertEqual(first.tree_hashes(), first_hashes)
 
     def test_10_19_aa_arm_added_and_no_comparison_exits_2_a(self):

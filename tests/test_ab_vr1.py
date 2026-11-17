@@ -445,6 +445,13 @@ class ReplyScoreCase(unittest.TestCase):
                 raise RuntimeError("inside the block")
         self.assertEqual(sys.get_int_max_str_digits(), before)
 
+    def test_a_key_line_whose_read_number_has_5000_digits_parses_and_restores_the_limit(self):
+        before = getattr(sys, "get_int_max_str_digits", lambda: None)()
+        data = ("c1/%s\tA\n" % ("9" * 5000)).encode("utf-8")
+        rows = harness.parse_key(data, 2)
+        self.assertEqual(rows, [["c1", 10 ** 5000 - 1, "A"]])
+        self.assertEqual(getattr(sys, "get_int_max_str_digits", lambda: None)(), before)
+
 
     def test_a_fake_reader_score_of_any_size_runs_and_restores_the_limit(self):
         # The fake rule's text is read as a number and the reply's number is written as text, so

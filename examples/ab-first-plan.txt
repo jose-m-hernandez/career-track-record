@@ -1,0 +1,38 @@
+# Your first A/B test. Lines starting with # are notes; the tool ignores them.
+# Before you freeze: replace the path on the reader line with the full path to
+# model_reader.py on your machine (see docs/guides/ab.md, "Your first A/B test").
+
+# The job posting both versions are read against.
+posting: ab-first/posting.txt
+
+# The two versions. "drafted-by user" means no AI wrote or edited a word of it.
+# If an AI helped, write "drafted-by model <family>" (for example: model codex).
+versions:
+  base | ab-first/resume-base.txt | drafted-by user
+  skills-top | ab-first/resume-skills-top.txt | drafted-by user
+
+# One test: does moving the skills to the top win?
+comparisons:
+  base vs skills-top
+
+# The reader: a command that asks an AI model (codex by default; add the word claude after
+# model_reader.py to use Claude instead, and change the family to claude). "family" names the model behind it;
+# "cost 1" is one spend unit per read, used for the estimate and the spend ceiling.
+readers:
+  reader-1 | python3 /path/to/career-track-record/examples/readers/model_reader.py | cost 1 | family codex
+
+# 6 reads per arm = 3 pairs (each pair reads both orders).
+reads-per-reader: 6
+
+# The rule, fixed before you see any answer. A pick counts only when both orders agree.
+hypotheses:
+  SUPPORTED if skills-top preferred in 3 of 3; REFUTED if base preferred in 2 or more; otherwise INCONCLUSIVE
+
+# The only lines that may differ between the two versions.
+change-scope:
+  ^At a glance$
+  ^Skills$
+  ^(Tools|Practices):
+
+# The most the whole run may cost, in the same units as "cost".
+spend-ceiling: 12
