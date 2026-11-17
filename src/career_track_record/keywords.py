@@ -36,6 +36,15 @@ class Result(object):
             self.exit_code, self.ran, self.error)
 
 
+GUIDE = "docs/guides/keywords.md, section 'A worked example'"
+TERMS_HINT = (" (the terms file is tab-separated with the columns family, pattern and note; see "
+              + GUIDE + ")")
+TERMS_HELP = ("the terms file: tab-separated with the columns family, pattern and note; see "
+              + GUIDE)
+POSTING_HINT = (" (a posting needs a six-line header that records its sha256, or a .meta.json "
+                "sidecar beside it; see " + GUIDE + ")")
+
+
 def _one_line(message):
     return " ".join(message.replace("\r", "\n").split("\n"))
 
@@ -73,7 +82,7 @@ def load_terms(path):
     Raises KeywordError for spec section 8 cases 5, 8 and 9.
     """
     if not os.path.isfile(path):
-        raise KeywordError("term table is missing: %s" % path)
+        raise KeywordError("term table is missing: %s%s" % (path, TERMS_HINT))
     text = _read_utf8(path, "term table")
     rows = []
     lines = text.split("\n")
@@ -88,11 +97,11 @@ def load_terms(path):
         note = cells[2] if len(cells) > 2 else ""
         if family == "" or pattern == "":
             raise KeywordError(
-                "term table line %d needs a family and a pattern" % number
+                "term table line %d needs a family and a pattern%s" % (number, TERMS_HINT)
             )
         rows.append((family, pattern, note))
     if not rows:
-        raise KeywordError("term table has no rows: %s" % path)
+        raise KeywordError("term table has no rows: %s%s" % (path, TERMS_HINT))
     for _family, pattern, _note in rows:
         _compile(pattern)
     return rows
@@ -101,7 +110,7 @@ def load_terms(path):
 def _build_families(terms):
     """Return an ordered list of family dicts, each with its variants."""
     if not terms:
-        raise KeywordError("term table has no rows")
+        raise KeywordError("term table has no rows" + TERMS_HINT)
     order = []
     by_name = {}
     for row_index, row in enumerate(terms):
@@ -209,7 +218,8 @@ def _read_postings(folder):
         try:
             postings.append(posting_file.read_posting(path))
         except posting_file.PostingError as exc:
-            raise KeywordError(exc.message)
+            hint = POSTING_HINT if exc.case == posting_file.CASE_MALFORMED_HEADER else ""
+            raise KeywordError(exc.message + hint)
         except OSError as exc:
             raise KeywordError("%s cannot be read: %s" % (path, exc.strerror or exc))
     return postings
@@ -269,7 +279,7 @@ def _scan_postings(families, postings):
 def _check_must_find(families):
     marked = [e for e in families if e["must_find"]]
     if not marked:
-        raise KeywordError("no family in the term table is marked must-find")
+        raise KeywordError("no family in the term table is marked must-find" + TERMS_HINT)
     if all(e["demand"] == 0 for e in marked):
         raise KeywordError(
             "every must-find family has zero demand: the run does not see the postings"

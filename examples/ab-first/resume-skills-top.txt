@@ -1,0 +1,30 @@
+Jordan Example
+Support Operations Lead
+jordan@example.com | 555-0100 | Springfield
+
+Summary
+Support operations professional with six years of experience running help
+desks, writing help articles and coaching agents. Likes clear processes and
+plain language.
+
+At a glance
+Tools: help desk software, spreadsheets, survey tools
+Practices: coaching, reporting, writing, process improvement
+
+Experience
+
+Support Team Lead, Northwind Kitchens (2021 - Present)
+Runs a help desk of six agents handling about 400 tickets a week.
+- Cut median first reply time from nine hours to three.
+- Rewrote 40 help articles, which reduced repeat tickets by a fifth.
+- Built the monthly report on response times and satisfaction.
+- Coached two agents into senior roles.
+
+Support Agent, Harbor Lane Supplies (2018 - 2021)
+Answered email and chat for an online shop.
+- Handled 60 tickets a day with a satisfaction score of 96 percent.
+- Wrote the first set of reply templates the team still uses.
+- Trained four new agents.
+
+Education
+BA English, Example State University, 2014 - 2018

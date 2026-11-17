@@ -1,0 +1,17 @@
+source_url: https://example.com/jobs/support-lead
+api_endpoint: https://example.com/api/jobs/support-lead
+fetched_at: 2026-01-15T09:00:00Z
+http_status: 200
+sha256: 4db3f35cf7f352de2b622cba5944069bced330073beedcd496c35838e55fdb17
+bytes: 306
+Support Operations Lead
+Brightfield Goods, remote
+
+What you will do
+- Run the help desk and its daily queue.
+- Write help articles and reply templates.
+- Report on response times each month.
+
+What we look for
+- Four or more years in customer support.
+- Experience with help desk software and its reporting.

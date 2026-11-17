@@ -1,0 +1,5 @@
+Jordan Example
+Support Operations Lead
+
+Runs a help desk of six agents. Rewrote 40 help articles and built the
+monthly report on response times.
