@@ -22,4 +22,4 @@ Exit 0 means every file is OK, 1 means a match, and 2 means the check couldn't v
 
 ## `--min-chars`
 
-`--min-chars N` sets the minimum length of each file. The default is 500. `N` is a whole number, 0 or more, with at most 18 significant digits. A joined form of exactly 499 characters is DEAD, and one of exactly 500 is OK. `--min-chars -1`, `--min-chars x` and a value of 19 digits each exit 2 before any file is read. Spec: [docs/specs/barred.md](../specs/barred.md).
+`--min-chars N` sets the minimum length of each file. The default is 500. `N` is a whole number, 0 or more, with at most 18 significant digits. The joined form of a file is its text after the tool's folding (which evens out case and ligatures and drops invisible characters), with every run of whitespace, line breaks included, turned into one space and nothing trimmed, so a final line feed counts as one space. A joined form of exactly 499 characters is DEAD, and one of exactly 500 is OK. `--min-chars -1`, `--min-chars x` and a value of 19 digits each exit 2 before any file is read. Spec: [docs/specs/barred.md](../specs/barred.md).

@@ -6,6 +6,16 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.3] - 2026-11-17
+
+### Changed
+
+- `examples/readers/model_reader.py` now passes `--disable apps` to `codex exec` (one module constant, `CODEX_APPS_OFF`), which turns codex's apps and connectors feature off. The flag is the one `codex exec --help` lists as equivalent to `-c features.apps=false`. Whether a `codex exec` run then offers no connector tools has not been measured. The `claude` fallback is unchanged.
+- The `ab` guide now says in brackets, at its first use of "A/A", that an A/A read gives the reader the same version twice, as a control.
+- The `ab` guide has a worked example of `change-scope`: a pattern is a Python regular expression tried with `re.search` against every changed line, both the removed and the added text must match, `run` stops with exit 2 before any read when a changed line is outside the scope, and `freeze` does not check it.
+- The `ab` guide's first test lists `--disable apps` in the Codex command, and says that the app-server check offered 0 tools with it and 431 without, that this was not a `codex exec` run, and that anyone with a mail app connected to the account they sign in to Codex with should use a reader of their own instead of the example.
+- The `barred` guide's `--min-chars` section says what the joined form is: the text after the tool's folding, with every run of whitespace turned into one space and nothing trimmed, so a final line feed counts as one space.
+
 ## [0.10.2] - 2026-11-17
 
 ### Added
