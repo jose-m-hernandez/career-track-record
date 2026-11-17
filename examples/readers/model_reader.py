@@ -18,17 +18,21 @@ Which CLI: the first argument, or the environment variable MODEL_READER_CLI, eit
 The exact commands, with the message on standard input:
 
     codex exec --sandbox read-only --skip-git-repo-check --ephemeral --ignore-user-config
-        --color never -c approval_policy="never" --output-last-message <temp file> -
+        --disable apps --color never -c approval_policy="never"
+        --output-last-message <temp file> -
     claude [--bare] -p --tools "" --no-session-persistence
 
 `--bare` is added only when ANTHROPIC_API_KEY is set, because it skips the CLAUDE.md files,
 memory and settings of your own setup but also skips your logged-in account.
 
 codex runs in a read-only sandbox, never asks for approval, saves no session, and only the
-final message is used (taken from the temp file, not from what codex prints). claude is
-asked with every built-in tool turned off; whether MCP servers or connectors from your setup load has not been measured. codex's read-only sandbox stops it changing files, but
-whether your account's apps or connectors (a mail connector, say) are offered to it has not
-been measured. Each uses your own logged-in CLI, so it inherits your account and its settings; if those tell
+final message is used (taken from the temp file, not from what codex prints). `--disable apps`
+(the same as `-c features.apps=false`) turns codex's apps and connectors feature off, so the
+connectors of your account (a mail connector, say) are not meant to be offered to it. That the
+tools are gone from a `codex exec` run has not been measured: a tool roster taken from
+`codex app-server` under the same flag is the only measurement, and it is not an `exec` run.
+claude is asked with every built-in tool turned off; whether MCP servers or connectors from your
+setup load has not been measured. codex's read-only sandbox stops it changing files. Each uses your own logged-in CLI, so it inherits your account and its settings; if those tell
 the model who you are, mark the reader `not-blind` in the plan. `--ignore-user-config`
 skips codex's config.toml only: codex still reads the AGENTS.md in your codex home folder, and
 none of the settings tried in codex 0.156.1 turns that off (checked with `codex debug prompt-input`,
@@ -49,6 +53,10 @@ import tempfile
 
 CLIS = ("codex", "claude")
 ENV_VAR = "MODEL_READER_CLI"
+# Turns codex's apps and connectors feature off (`codex exec --help`: `--disable <FEATURE>` is
+# equivalent to `-c features.<name>=false`). One value, so a tool that lists codex's tools can
+# read the same argument the reader sends.
+CODEX_APPS_OFF = ("--disable", "apps")
 # The four files the tool puts in the read folder, in the order they are pasted.
 FILES = (
     ("PROMPT.txt", "the instructions"),
@@ -132,8 +140,8 @@ def ask_codex(message):
     with tempfile.TemporaryDirectory() as scratch:
         reply_path = os.path.join(scratch, "reply.txt")
         args = [find_cli("codex"), "exec", "--sandbox", "read-only", "--skip-git-repo-check",
-                "--ephemeral", "--ignore-user-config", "--color", "never", "-c", 'approval_policy="never"',
-                "--output-last-message", reply_path, "-"]
+                "--ephemeral", "--ignore-user-config", *CODEX_APPS_OFF, "--color", "never",
+                "-c", 'approval_policy="never"', "--output-last-message", reply_path, "-"]
         run_cli(args, message)
         try:
             with open(reply_path, "r", encoding="utf-8") as handle:

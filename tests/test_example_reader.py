@@ -132,6 +132,25 @@ class ModelReaderCase(unittest.TestCase):
             self.assertIn("invented version beta", call["stdin"])
         self.assertEqual(sorted(os.listdir(self.folder)), sorted(FILES))
 
+    def test_codex_argv_carries_the_apps_off_override_from_the_module_constant(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("model_reader_under_test", READER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertEqual(module.CODEX_APPS_OFF, ("--disable", "apps"))
+        self.fake("codex")
+        code, _out, err = self.run_reader("codex")
+        self.assertEqual((code, err), (0, ""))
+        args = self.call("codex")["args"]
+        at = args.index("--disable")
+        self.assertEqual(tuple(args[at:at + 2]), module.CODEX_APPS_OFF)
+        self.assertEqual(args.count("--disable"), 1)
+
+    def test_the_claude_argv_has_no_apps_override(self):
+        self.fake("claude")
+        self.run_reader("claude")
+        self.assertNotIn("--disable", self.call("claude")["args"])
+
     def test_the_argument_beats_the_environment(self):
         self.fake("claude")
         self.fake("codex")
