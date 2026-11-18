@@ -786,6 +786,15 @@ class TermTableErrorHintCase(Base):
         self.assertIn("copy file cannot be read", str(caught.exception))
         self.assertNotIn("tab-separated", str(caught.exception))
 
+    def test_guide_pointer_carries_the_repository_address(self):
+        url = "https://github.com/jose-m-hernandez/career-track-record"
+        for text in (keywords.TERMS_HINT, keywords.TERMS_HELP, keywords.POSTING_HINT):
+            self.assertIn(url, text)
+        path = put(self.path("terms.tsv"), "family\tpattern\tnote\nagents\t(\t\n")
+        with self.assertRaises(keywords.KeywordError) as caught:
+            keywords.load_terms(path)
+        self.assertIn(url, str(caught.exception))
+
 
 if __name__ == "__main__":
     unittest.main()

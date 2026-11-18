@@ -36,7 +36,8 @@ class Result(object):
             self.exit_code, self.ran, self.error)
 
 
-GUIDE = "docs/guides/keywords.md, section 'A worked example'"
+GUIDE = ("docs/guides/keywords.md, section 'A worked example', in the repository at "
+         "https://github.com/jose-m-hernandez/career-track-record")
 TERMS_HINT = (" (the terms file is tab-separated with the columns family, pattern and note; see "
               + GUIDE + ")")
 TERMS_HELP = ("the terms file: tab-separated with the columns family, pattern and note; see "
