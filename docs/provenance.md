@@ -13,7 +13,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | CONTRIBUTING.md | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | LICENSE | not recorded | not recorded | not recorded |
 | LICENSE-COMMERCIAL.md | not recorded | not recorded | not recorded |
-| METHOD.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-16 |
+| METHOD.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-18 |
 | README.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-18 |
 | SECURITY.md | not recorded | not recorded | not recorded |
 | ci/__init__.py | not recorded | not recorded | not recorded |
@@ -34,13 +34,19 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/decisions/2026-11-14-no-file-ships-with-a-sentence-still-to-be-worded.md | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | docs/guides/ab.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-18 |
 | docs/guides/barred.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
-| docs/guides/claims.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
+| docs/guides/claims.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
 | docs/guides/drafts.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
+| docs/guides/grades.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
 | docs/guides/keywords.md | claude-code | claude-sonnet-5-5 | 2026-11-17 |
-| docs/guides/panel.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
-| docs/guides/record.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
+| docs/guides/panel.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| docs/guides/recall.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| docs/guides/record.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| docs/guides/scoring.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| docs/guides/structure-read.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| docs/guides/tailoring.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| docs/guides/testing-a-review.md | claude-code | claude-sonnet-5-5 | 2026-11-18 |
 | docs/guides/tone.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
-| docs/provenance.md | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-17 |
+| docs/provenance.md | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-18 |
 | docs/record-model.md | claude-code | claude-sonnet-5-5 | 2026-11-16 |
 | docs/specs/barred.md | claude-code | claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-14 |
 | docs/specs/claims.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-14 |
