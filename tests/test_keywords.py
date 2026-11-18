@@ -746,5 +746,46 @@ class FixRoundCase(Base):
         self.assertNotIn("GAP", result.text)
 
 
+class TermTableErrorHintCase(Base):
+    @unittest.skipIf(os.geteuid() == 0, "root reads any file")
+    def test_unreadable_term_table_names_the_format(self):
+        path = put(self.path("terms.tsv"), "family\tpattern\tnote\nagents\tagents\t\n")
+        os.chmod(path, 0)
+        self.addCleanup(os.chmod, path, 0o600)
+        with self.assertRaises(keywords.KeywordError) as caught:
+            keywords.load_terms(path)
+        self.assertIn("cannot be read", str(caught.exception))
+        self.assertIn(keywords.TERMS_HINT, str(caught.exception))
+
+    def test_invalid_utf8_term_table_names_the_format(self):
+        path = put(self.path("terms.tsv"), b"family\tpattern\tnote\nagents\tag\xff\xfe\t\n")
+        with self.assertRaises(keywords.KeywordError) as caught:
+            keywords.load_terms(path)
+        self.assertIn("not valid UTF-8", str(caught.exception))
+        self.assertIn(keywords.TERMS_HINT, str(caught.exception))
+
+    def test_invalid_regular_expression_names_the_format(self):
+        path = put(self.path("terms.tsv"), "family\tpattern\tnote\nagents\t(\t\n")
+        with self.assertRaises(keywords.KeywordError) as caught:
+            keywords.load_terms(path)
+        self.assertIn("not a valid regular expression", str(caught.exception))
+        self.assertIn(keywords.TERMS_HINT, str(caught.exception))
+
+    @unittest.skipIf(os.geteuid() == 0, "root reads any file")
+    def test_copy_file_messages_carry_no_terms_hint(self):
+        bad = put(self.path("copy.txt"), b"\xff\xfe")
+        with self.assertRaises(keywords.KeywordError) as caught:
+            keywords._read_utf8(bad, "copy file")
+        self.assertEqual(str(caught.exception), "copy file is not valid UTF-8: " + bad)
+        self.assertNotIn("tab-separated", str(caught.exception))
+        locked = put(self.path("locked.txt"), "x")
+        os.chmod(locked, 0)
+        self.addCleanup(os.chmod, locked, 0o600)
+        with self.assertRaises(keywords.KeywordError) as caught:
+            keywords._read_utf8(locked, "copy file")
+        self.assertIn("copy file cannot be read", str(caught.exception))
+        self.assertNotIn("tab-separated", str(caught.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

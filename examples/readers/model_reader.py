@@ -10,38 +10,33 @@ B.txt. This program reads those four files (and writes nothing), pastes them int
 message, hands the message to a model CLI on standard input, and prints the model's
 reply on standard output. The tool scores that reply; the reply format is in PROMPT.txt.
 
-Which CLI: the first argument, or the environment variable MODEL_READER_CLI, either
-`codex` (the default) or `claude`. In a plan, the reader line carries the argument:
+Which CLI: `codex`, the default; the first argument or the environment variable
+MODEL_READER_CLI may name it too. In a plan, the reader line names this script:
 
-    reader-1 | python3 /full/path/to/model_reader.py claude | cost 1 | family claude
+    reader-1 | python3 /full/path/to/model_reader.py | cost 1 | family codex
 
-The exact commands, with the message on standard input:
+The exact command, with the message on standard input:
 
     codex exec --sandbox read-only --skip-git-repo-check --ephemeral --ignore-user-config
         --disable apps --color never -c approval_policy="never"
         --output-last-message <temp file> -
-    claude [--bare] -p --tools "" --no-session-persistence
-
-`--bare` is added only when ANTHROPIC_API_KEY is set, because it skips the CLAUDE.md files,
-memory and settings of your own setup but also skips your logged-in account.
 
 codex runs in a read-only sandbox, never asks for approval, saves no session, and only the
 final message is used (taken from the temp file, not from what codex prints). `--disable apps`
 (the same as `-c features.apps=false`) turns codex's apps and connectors feature off, so the
-connectors of your account (a mail connector, say) are not meant to be offered to it. That the
+connectors of your account are not meant to be offered to it. That the
 tools are gone from a `codex exec` run has not been measured: a tool roster taken from
 `codex app-server` under the same flag is the only measurement, and it is not an `exec` run.
-claude is asked with every built-in tool turned off; whether MCP servers or connectors from your
-setup load has not been measured. codex's read-only sandbox stops it changing files. Each uses your own logged-in CLI, so it inherits your account and its settings; if those tell
-the model who you are, mark the reader `not-blind` in the plan. `--ignore-user-config`
-skips codex's config.toml only: codex still reads the AGENTS.md in your codex home folder, and
-none of the settings tried in codex 0.156.1 turns that off (checked with `codex debug prompt-input`,
-without a model call). claude without `--bare` loads your ~/.claude files. So neither reader
-is blind by default; docs/guides/ab.md says what to do.
+codex's read-only sandbox stops it changing files. It uses your own logged-in CLI, so it
+inherits your account and its settings; if those tell the model who you are, mark the reader
+`not-blind` in the plan. `--ignore-user-config` skips codex's config.toml only: codex still
+reads the AGENTS.md in your codex home folder, and none of the settings tried in codex 0.156.1
+turns that off (checked with `codex debug prompt-input`, without a model call). So the reader
+may know who you are; docs/guides/ab.md says what to do.
 
-Exit status: 0 with the reply on standard output; 2 if the CLI is not installed, the
-CLI name is not one of the two, or a read-folder file is missing; 1 if the CLI fails or
-returns nothing. A one-line reason goes to standard error. Python 3.9 or later, standard
+Exit status: 0 with the reply on standard output; 2 if codex is not installed, the CLI
+name is not `codex`, or a read-folder file is missing; 1 if codex fails or returns
+nothing. A one-line reason goes to standard error. Python 3.9 or later, standard
 library only.
 """
 
@@ -51,7 +46,6 @@ import subprocess
 import sys
 import tempfile
 
-CLIS = ("codex", "claude")
 ENV_VAR = "MODEL_READER_CLI"
 # Turns codex's apps and connectors feature off (`codex exec --help`: `--disable <FEATURE>` is
 # equivalent to `-c features.<name>=false`). One value, so a tool that lists codex's tools can
@@ -80,8 +74,13 @@ class ReaderError(Exception):
 
 def choose_cli(argv, environ):
     name = argv[0] if argv else environ.get(ENV_VAR, "") or "codex"
-    if name not in CLIS:
-        raise ReaderError("unknown CLI %r: use codex or claude" % name, 2)
+    if name == "claude":
+        raise ReaderError("the claude option was removed in 0.10.5: with its flags and no API key, "
+                          "Claude Code 2.1.327 offered the reader 29 connector tools (measured "
+                          "once; 0 with --strict-mcp-config). A `claude -p` reader of your own "
+                          "must exclude connectors; see docs/guides/ab.md.", 2)
+    if name != "codex":
+        raise ReaderError("unknown CLI %r: use codex" % name, 2)
     return name
 
 
@@ -121,17 +120,6 @@ def run_cli(args, message):
     return done
 
 
-def ask_claude(message, environ):
-    # `--tools ""` turns every built-in tool off; no session is saved. `--bare` skips
-    # CLAUDE.md files, memory and settings, but it needs an API key: it never reads the
-    # logged-in account.
-    args = [find_cli("claude")]
-    if environ.get("ANTHROPIC_API_KEY"):
-        args.append("--bare")
-    args += ["-p", "--tools", "", "--no-session-persistence"]
-    return run_cli(args, message).stdout.decode("utf-8", "replace")
-
-
 def ask_codex(message):
     # Read-only sandbox, approval policy never (no prompts), no saved session, no colour.
     # Only the final message is used: it is taken from a file in a fresh temp folder, not
@@ -151,11 +139,11 @@ def ask_codex(message):
 
 
 def main(argv, environ, folder):
-    name = choose_cli(argv, environ)
+    choose_cli(argv, environ)
     message = build_message(folder)
-    reply = ask_codex(message) if name == "codex" else ask_claude(message, environ)
+    reply = ask_codex(message)
     if not reply.strip():
-        raise ReaderError("%s returned an empty reply" % name)
+        raise ReaderError("codex returned an empty reply")
     sys.stdout.buffer.write((reply.rstrip("\n") + "\n").encode("utf-8"))
     sys.stdout.flush()
     return 0

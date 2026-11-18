@@ -56,15 +56,16 @@ def _failure(message):
 # ---------------------------------------------------------------- terms
 
 def _read_utf8(path, what):
+    hint = TERMS_HINT if what == "term table" else ""
     try:
         with open(path, "rb") as handle:
             raw = handle.read()
     except OSError as exc:
-        raise KeywordError("%s cannot be read: %s" % (what, exc.strerror or exc))
+        raise KeywordError("%s cannot be read: %s%s" % (what, exc.strerror or exc, hint))
     try:
         return raw.decode("utf-8")
     except UnicodeDecodeError:
-        raise KeywordError("%s is not valid UTF-8: %s" % (what, path))
+        raise KeywordError("%s is not valid UTF-8: %s%s" % (what, path, hint))
 
 
 def _compile(pattern):
@@ -72,7 +73,8 @@ def _compile(pattern):
         return re.compile(pattern, re.IGNORECASE)
     except Exception as exc:
         raise KeywordError(
-            "term pattern is not a valid regular expression: %s (%s)" % (pattern, exc)
+            "term pattern is not a valid regular expression: %s (%s)%s"
+            % (pattern, exc, TERMS_HINT)
         )
 
 

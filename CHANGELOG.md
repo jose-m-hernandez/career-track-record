@@ -6,6 +6,24 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.5] - 2026-11-18
+
+### Added
+
+- The `ab` guide has a "Write a reader of your own" section: the contract in short, with the spec sections it comes from, and a short example reader that calls no model.
+
+### Changed
+
+- The `ab` guide's note on whether the reader is blind now comes right after the `--live` step. Its Codex sentences are unchanged, and its Claude sentences went with the option.
+
+### Fixed
+
+- `--terms` errors for a term table that cannot be read, is not valid UTF-8, or holds an invalid regular expression now name the format and the guide, as the other term-table errors do. This completes the correction recorded under 0.10.4.
+
+### Removed
+
+- The example reader's `claude` option (`examples/readers/model_reader.py` given `claude`, as an argument or in `MODEL_READER_CLI`) is removed; the reader now exits 2 and says so. In one check of Claude Code 2.1.327, the session was offered 29 connector tools with the flags the option passed, and 0 with `--strict-mcp-config` added. The `--bare` and API-key arm was not measured. Write a reader of your own: see the `ab` guide. If you use the example reader from 0.10.2 through 0.10.4 with the `claude` option and your Claude Code has claude.ai connectors, don't run it on text you don't trust; upgrade to 0.10.5, or don't use that option. If you already ran it on untrusted text with connectors on, review your connectors' recent activity.
+
 ## [0.10.4] - 2026-11-17
 
 ### Changed
