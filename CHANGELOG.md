@@ -6,6 +6,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.6] - 2026-11-18
+
+### Changed
+
+- The example reader's `claude` option is back, passing `--restricted --strict-mcp-config --tools "" --setting-sources ""` and no `--bare`, and runs from an empty folder it creates. Before it sends any text from the read folder it runs the same flags once on a fixed harmless prompt, reads the init event, and exits 2 with none of that text sent if the event lists any MCP server or any tool, or cannot be read. In one check of Claude Code 2.1.327, the init event listed 0 MCP servers and 0 tools under these flags. Whether plugin hooks, `CLAUDE.md` and auto-memory are skipped has not been measured, and the `--bare` and API-key arm was not measured.
+- The `ab` guide now reports a second Codex check: the app inventory call of `codex app-server` (Codex 0.156.1) returned 0 apps with `--disable apps` and 200 without it (the page size, so not a total). It is not a measurement of the tools a `codex exec` run is offered.
+- The `--terms` and posting error messages and the `--terms` help name the keywords guide with its repository address, because an installed copy of the tool has no `docs/` folder.
+
+### Fixed
+
+- The `ab` guide no longer says a reply's `PREFER` can be `TIE` with a strength; `TIE` takes none, as the spec says.
+
 ## [0.10.5] - 2026-11-18
 
 ### Added

@@ -15,8 +15,8 @@ versions:
 comparisons:
   base vs skills-top
 
-# The reader: a command that asks an AI model (it asks codex; there is no claude
-# option). "family" names the model behind it;
+# The reader: a command that asks an AI model (codex by default; add the word claude after
+# model_reader.py to use Claude instead, and change the family to claude). "family" names the model behind it;
 # "cost 1" is one spend unit per read, used for the estimate and the spend ceiling.
 readers:
   reader-1 | python3 /path/to/career-track-record/examples/readers/model_reader.py | cost 1 | family codex
