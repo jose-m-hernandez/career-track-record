@@ -1,6 +1,6 @@
 """Tests for examples/readers/model_reader.py and the first A/B plan. All data here is invented.
 
-No test starts a real model. A fake `claude` or `codex` is a small Python script in a temp
+No test starts a real model. A fake `codex` (and a fake `claude`, which must stay uncalled) is a small Python script in a temp
 folder that is the only folder on PATH; it records how it was called and prints a canned
 reply."""
 
@@ -19,6 +19,11 @@ REPLY = ("READ: 1\nPRIOR: nothing\nSCORE-A: 6\nSCORE-B: 7\nPREFER: B, slightly\n
          "OWNED: none\nFLAG-FIXES: none\n")
 FILES = {"PROMPT.txt": "invented prompt text", "POSTING.txt": "invented posting text",
          "A.txt": "invented version alpha", "B.txt": "invented version beta"}
+
+REMOVED = ("model_reader: the claude option was removed in 0.10.5: with its flags and no API "
+           "key, Claude Code 2.1.327 offered the reader 29 connector tools (measured once; "
+           "0 with --strict-mcp-config). A `claude -p` reader of your own must exclude "
+           "connectors; see docs/guides/ab.md.\n")
 
 FAKE = '''#!%(python)s
 import json, os, sys
@@ -77,31 +82,6 @@ class ModelReaderCase(unittest.TestCase):
         return sorted((n, os.path.getmtime(os.path.join(self.folder, n)))
                       for n in os.listdir(self.folder))
 
-    def test_claude_by_argument_gets_the_prompt_and_files(self):
-        self.fake("claude")
-        before = self.listing()
-        code, out, err = self.run_reader("claude")
-        self.assertEqual((code, err), (0, ""))
-        self.assertEqual(out, REPLY)
-        call = self.call("claude")
-        self.assertEqual(call["args"][:1], ["-p"])
-        self.assertIn("--tools", call["args"])
-        self.assertEqual(call["args"][call["args"].index("--tools") + 1], "")
-        for text in FILES.values():
-            self.assertIn(text, call["stdin"])
-        self.assertLess(call["stdin"].index("invented prompt text"),
-                        call["stdin"].index("invented version alpha"))
-        self.assertLess(call["stdin"].index("invented version alpha"),
-                        call["stdin"].index("invented version beta"))
-        self.assertEqual(self.listing(), before)
-
-    def test_claude_gets_bare_only_when_an_api_key_is_set(self):
-        self.fake("claude")
-        self.run_reader("claude")
-        self.assertNotIn("--bare", self.call("claude")["args"])
-        self.run_reader("claude", ANTHROPIC_API_KEY="invented-not-a-key")
-        self.assertEqual(self.call("claude")["args"][0], "--bare")
-
     def test_the_prompt_comes_from_prompt_txt_when_stdin_is_empty(self):
         self.fake("codex")
         self.run_reader()
@@ -146,27 +126,39 @@ class ModelReaderCase(unittest.TestCase):
         self.assertEqual(tuple(args[at:at + 2]), module.CODEX_APPS_OFF)
         self.assertEqual(args.count("--disable"), 1)
 
-    def test_the_claude_argv_has_no_apps_override(self):
-        self.fake("claude")
-        self.run_reader("claude")
-        self.assertNotIn("--disable", self.call("claude")["args"])
-
-    def test_the_argument_beats_the_environment(self):
+    def assert_claude_refused(self, *args, **env):
         self.fake("claude")
         self.fake("codex")
-        code, _out, _err = self.run_reader("claude", MODEL_READER_CLI="codex")
-        self.assertEqual(code, 0)
-        self.assertTrue(os.path.exists(os.path.join(self.fake_dir, "claude.call.json")))
+        code, out, err = self.run_reader(*args, **env)
+        self.assertEqual((code, out), (2, ""))
+        self.assertEqual(err, REMOVED)
+        self.assertFalse(os.path.exists(os.path.join(self.fake_dir, "claude.call.json")))
         self.assertFalse(os.path.exists(os.path.join(self.fake_dir, "codex.call.json")))
 
+    def test_claude_by_argument_is_refused_and_not_started(self):
+        self.assert_claude_refused("claude")
+
+    def test_claude_in_the_environment_is_refused_and_not_started(self):
+        self.assert_claude_refused(MODEL_READER_CLI="claude")
+
+    def test_claude_with_an_api_key_is_refused_and_not_started(self):
+        self.assert_claude_refused(MODEL_READER_CLI="claude", ANTHROPIC_API_KEY="invented-not-a-key")
+
+    def test_the_argument_beats_the_environment_for_claude_too(self):
+        self.assert_claude_refused("claude", MODEL_READER_CLI="codex")
+
+    def test_an_unknown_name_says_use_codex(self):
+        code, out, err = self.run_reader("gemini")
+        self.assertEqual((code, out), (2, ""))
+        self.assertEqual(err, "model_reader: unknown CLI 'gemini': use codex\n")
+
     def test_a_missing_cli_fails_in_one_line(self):
-        for args in ((), ("claude",)):
-            code, out, err = self.run_reader(*args)
-            self.assertEqual(code, 2)
-            self.assertEqual(out, "")
-            self.assertEqual(err.count("\n"), 1, err)
-            self.assertIn(args[0] if args else "codex", err)
-            self.assertIn("not installed or not on PATH", err)
+        code, out, err = self.run_reader()
+        self.assertEqual(code, 2)
+        self.assertEqual(out, "")
+        self.assertEqual(err.count("\n"), 1, err)
+        self.assertIn("codex", err)
+        self.assertIn("not installed or not on PATH", err)
 
     def test_a_failing_cli_exits_nonzero_with_its_last_stderr_line(self):
         self.fake("codex")
@@ -183,7 +175,7 @@ class ModelReaderCase(unittest.TestCase):
         code, out, err = self.run_reader("gpt")
         self.assertEqual((code, out), (2, ""))
         self.assertEqual(err.count("\n"), 1, err)
-        self.assertIn("codex or claude", err)
+        self.assertIn("use codex", err)
 
     def test_a_missing_read_folder_file_is_refused(self):
         self.fake("codex")
