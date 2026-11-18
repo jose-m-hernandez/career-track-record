@@ -91,6 +91,20 @@ PANEL_REVISION_3 = [
 ]
 
 
+ERRATA_HEADING = "## Errata (maintainer, 2026-11-17)"
+
+# One key phrase per erratum entry (E-number as in the entry), by spec file.
+ERRATA = {
+    "drafts.md": {"E1": "after any warnings already written, one line `cannot run: cannot write output`"},
+    "reader-ab.md": {
+        "E2": "A reader's name is a label; an extension may name every reader anew.",
+        "E4": "Correction: delete the sentence.",
+        "E5": "`freeze` does not refuse it, as in revision 3.\"",
+    },
+    "keyword-scan.md": {"E3": "Every cited line can be checked word for word against the saved copy of the posting"},
+}
+
+
 def read_spec(name):
     with open(os.path.join(ROOT, "docs", "specs", name), encoding="utf-8") as handle:
         return handle.read()
@@ -102,6 +116,12 @@ def section_of(name):
     text = read_spec(name)
     after = text[text.index(END):]
     return after[after.index(HEADINGS[name]):]
+
+
+def errata_of(name):
+    """The errata section: from its heading to the end of the file."""
+    text = read_spec(name)
+    return text[text.index(ERRATA_HEADING):]
 
 
 class SpecReadingsCase(unittest.TestCase):
@@ -162,6 +182,24 @@ class SpecReadingsCase(unittest.TestCase):
         for phrase in PANEL_REVISION_3:
             with self.subTest(phrase=phrase):
                 self.assertOnce("reader-panel.md", phrase)
+
+    def test_errata_sections_follow_the_signed_text_once_each(self):
+        for name in ERRATA:
+            with self.subTest(name=name):
+                text = read_spec(name)
+                self.assertEqual(text.count(ERRATA_HEADING), 1)
+                if END in text:
+                    self.assertGreater(text.index(ERRATA_HEADING), text.index(END))
+                if name in HEADINGS:
+                    self.assertGreater(text.index(ERRATA_HEADING), text.index(HEADINGS[name]))
+
+    def test_each_erratum_entry_is_present_once(self):
+        for name, entries in ERRATA.items():
+            for number, phrase in entries.items():
+                with self.subTest(name=name, entry=number):
+                    section = errata_of(name)
+                    self.assertEqual(section.count("**%s. " % number), 1)
+                    self.assertEqual(section.count(phrase), 1, phrase)
 
     def test_no_seat_names_in_the_sections(self):
         for name in BLOCK_SHA:

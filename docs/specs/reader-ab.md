@@ -614,3 +614,17 @@ fake-reader:
 
 - 10.40: 10.11's plan with one A/A read made to fail (`aa | omit PREFER | read 1`): the gate is "not evaluated", and both the hypothesis and the `too long` mechanism are INCONCLUSIVE, with the mechanism's 8 of 12 count still shown. Exit `1`.
 - 10.41: 10.11's plan plus `base vs skills-top | prefer slot B`: position is INCONCLUSIVE and so is the hypothesis, but the `too long` mechanism is still SUPPORTED (8 of 12 against a floor of 0 of 12, margin p = 0.0013).
+
+## Errata (maintainer, 2026-11-17)
+
+**E2. Section 3.2.** The signed text reads: "A reader the extension adds is of a model that already read when it has the same command, byte for byte, the same `family` and the same `not-blind` marking as a reader of the first run; only its name differs."
+
+Correction: add after that sentence: "A reader's name is a label; an extension may name every reader anew."
+
+**E4. Section 9, decision 21.** The signed text ends decision 21 with: "The README gives the effect each read count can detect."
+
+Correction: delete the sentence.
+
+**E5. Build interpretation 29.** The build interpretation reads: "**A rule needing more pairs than the arm plans.** `freeze` does not refuse it, as in revision 3; the README's example plans are checked against their planned pairs by a test."
+
+Correction: "**A rule needing more pairs than the arm plans.** `freeze` does not refuse it, as in revision 3."

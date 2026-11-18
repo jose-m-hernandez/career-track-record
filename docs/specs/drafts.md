@@ -308,3 +308,9 @@ And:
 
 cli.md's revision 7 adds `<cli> drafts` and its subcommands `check` and `extract` to sections 1, 2, 4 and 5, with the one-line description `check a file of a document's versions, or extract one`, and lists `drafts` among the commands whose fixed help text is stated in their own spec.
 <!-- signed spec ends -->
+
+## Errata (maintainer, 2026-11-17)
+
+**E1. Section 8, last paragraph.** The signed text reads: "When the output cannot be written, the run follows cli.md section 4: exit `2`, one line `cannot run: cannot write output`, and no traceback."
+
+Correction: "When the output cannot be written, the run follows cli.md section 4: exit `2`; after any warnings already written, one line `cannot run: cannot write output`; and no traceback."

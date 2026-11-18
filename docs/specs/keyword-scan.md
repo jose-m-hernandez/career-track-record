@@ -405,3 +405,9 @@ Edit example-a on disk after its header is written, without fixing the hash, the
    - A **path suffix** is the last k components of the path as given, after `~` expansion and after removing `./` components and repeated slashes, joined by `/`.
    - k is chosen separately for each group of colliding names: the smallest k that makes the labels in that group distinct. Files outside any collision keep their base names.
    - The same path given more than once, after that normalisation, is read once and gets one column, as today.
+
+## Errata (maintainer, 2026-11-17)
+
+**E3. Section 9.** The text reads: "This is the same promise the README makes for every quote the tools show: it can be checked word for word against the saved copy it came from, for as long as the user keeps that copy. Stored postings are covered."
+
+Correction: "Every cited line can be checked word for word against the saved copy of the posting it came from, for as long as the user keeps that copy."

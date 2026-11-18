@@ -45,9 +45,9 @@ This ledger lists every file in the repository once, with the harness and model 
 | docs/specs/barred.md | claude-code | claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-14 |
 | docs/specs/claims.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-14 |
 | docs/specs/cli.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-14 |
-| docs/specs/drafts.md | claude-code | claude-sonnet-5-5 | 2026-11-14 |
-| docs/specs/keyword-scan.md | not recorded | not recorded | not recorded |
-| docs/specs/reader-ab.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-15 |
+| docs/specs/drafts.md | claude-code | claude-sonnet-5-5 | 2026-11-17 |
+| docs/specs/keyword-scan.md | claude-code | claude-sonnet-5-5 | 2026-11-17 |
+| docs/specs/reader-ab.md | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-17 |
 | docs/specs/reader-panel.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-10 |
 | docs/specs/record-check.md | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | docs/specs/tone-and-tells.md | claude-code | claude-opus-5-5 | 2026-11-05 |
@@ -289,7 +289,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_record_check_inputs.py | claude-code | claude-sonnet-5-5 | 2026-11-16 |
 | tests/test_record_docs.py | claude-code | claude-sonnet-5-5 | 2026-11-16 |
 | tests/test_source_hygiene.py | not recorded | not recorded | not recorded |
-| tests/test_spec_readings.py | claude-code | claude-sonnet-5-5 | 2026-11-15 |
+| tests/test_spec_readings.py | claude-code | claude-sonnet-5-5 | 2026-11-17 |
 | tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-15 |
 | tests/test_stats.py | claude-code | claude-sonnet-5-5 | 2026-11-10 |
 | tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-06 |

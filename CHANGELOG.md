@@ -6,6 +6,21 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.4] - 2026-11-17
+
+### Changed
+
+- The `ab` guide now warns that `claude --help` does not list connectors or MCP servers among what the `claude` fallback's flags turn off, and that no live run has been checked for connector tools. Docs only.
+
+### Fixed
+
+- `docs/specs/drafts.md` errata E1: the failure line `cannot run: cannot write output` follows any warnings already written. Docs only.
+- `docs/specs/reader-ab.md` errata E2: a reader's name is a label, so an extension may name every reader anew. Docs only.
+- `docs/specs/keyword-scan.md` errata E3: the verbatim guarantee is stated directly, without a pointer to a README promise that is not there. Docs only.
+- `docs/specs/reader-ab.md` errata E4: the signed text's sentence that the README gives the effect each read count can detect is withdrawn, since no such table exists. Docs only.
+- `docs/specs/reader-ab.md` errata E5: build interpretation 29 no longer says the README's example plans are checked by a test, since no such test exists. Docs only.
+- Correction to 0.10.2: `--terms` errors for a file that cannot be read, is not valid UTF-8, or holds an invalid regular expression do not yet name the format and guide; the hint lands with the parse-error fix.
+
 ## [0.10.3] - 2026-11-17
 
 ### Changed
