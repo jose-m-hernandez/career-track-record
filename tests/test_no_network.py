@@ -42,7 +42,8 @@ ALLOWED_RUN_KEYWORDS = frozenset(["stdin", "capture_output", "timeout", "check"]
 # ab_reader_command.py is also given a working folder, so cwd is the one added keyword.
 READER_COMMAND_RUN_KEYWORDS = ALLOWED_RUN_KEYWORDS | frozenset(["cwd"])
 ALLOW_LIST = {"pdf_text.py": frozenset(["imports subprocess"]),
-              "ab_reader_command.py": frozenset(["imports subprocess"])}
+              "ab_reader_command.py": frozenset(["imports subprocess"]),
+              "record_folder.py": frozenset(["imports subprocess"])}
 
 
 def python_files(directory=SRC):
@@ -127,9 +128,19 @@ def pdftotext_call_problems(source):
     return []
 
 
-def subprocess_use_problems(source, allowed_keywords=ALLOWED_RUN_KEYWORDS):
+GIT_ENV_FUNCTION = "scrubbed_environment"
+
+
+def is_the_scrub_call(node, function):
+    """True only for a call of the bare name ``function`` with no arguments at all."""
+    return (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == function and not node.args and not node.keywords)
+
+
+def subprocess_use_problems(source, allowed_keywords=ALLOWED_RUN_KEYWORDS, env_function=None):
     """Empty only when subprocess is used in the one known shape (pdf_text.py's), with
-    keywords only from allowed_keywords."""
+    keywords only from allowed_keywords. When env_function is named, an env keyword is also
+    allowed, but only with the value ``env_function()``; any other env is a problem."""
     tree = ast.parse(source)
     parents = {}
     for node in ast.walk(tree):
@@ -174,15 +185,41 @@ def subprocess_use_problems(source, allowed_keywords=ALLOWED_RUN_KEYWORDS):
     for call in runs:
         if any(k.arg is None or k.arg == "shell" for k in call.keywords):
             found.append("subprocess.run is given shell or **keywords")
-        if any(k.arg not in allowed_keywords for k in call.keywords):
-            found.append("subprocess.run is given a keyword outside %s"
-                         % ", ".join(sorted(allowed_keywords)))
+        for keyword in call.keywords:
+            if keyword.arg == "env" and env_function is not None:
+                if not is_the_scrub_call(keyword.value, env_function):
+                    found.append("subprocess.run is given an env other than %s()"
+                                 % env_function)
+            elif keyword.arg not in allowed_keywords:
+                found.append("subprocess.run is given a keyword outside %s"
+                             % ", ".join(sorted(allowed_keywords)))
     return found
 
 
 def pdf_text_source():
     with open(os.path.join(SRC, "pdf_text.py"), encoding="utf-8") as handle:
         return handle.read()
+
+
+def record_folder_source():
+    with open(os.path.join(SRC, "record_folder.py"), encoding="utf-8") as handle:
+        return handle.read()
+
+
+def git_call_problems(source):
+    """Empty when there is exactly one subprocess call, run, with a list literal that
+    starts with "git"."""
+    calls = subprocess_calls(source)
+    if len(calls) != 1:
+        return ["%d subprocess calls" % len(calls)]
+    if calls[0].func.attr != "run":
+        return ["the call is subprocess.%s, not run" % calls[0].func.attr]
+    args = calls[0].args
+    if not (args and isinstance(args[0], ast.List) and args[0].elts
+            and isinstance(args[0].elts[0], ast.Constant)
+            and args[0].elts[0].value == "git"):
+        return ["the call does not start with a list literal naming git"]
+    return []
 
 
 def reader_command_source():
@@ -426,6 +463,64 @@ class NoNetworkCase(unittest.TestCase):
             form = "x = y.%s\n" % name
             with self.subTest(form=form):
                 self.assertEqual(problems_in_source(form), ["uses the attribute %s" % name])
+
+    def test_the_record_folder_module_is_excused_only_for_importing_subprocess(self):
+        self.assertEqual(ALLOW_LIST["record_folder.py"], frozenset(["imports subprocess"]))
+        self.assertEqual(problems_in_source(record_folder_source()), ["imports subprocess"])
+        planted = record_folder_source() + "\nimport socket\n"
+        self.assertEqual(unexcused("record_folder.py", problems_in_source(planted)),
+                         ["imports socket"])
+
+    def test_record_folder_makes_exactly_one_git_call_and_calls_run_only(self):
+        self.assertEqual(git_call_problems(record_folder_source()), [])
+        self.assertEqual([c.func.attr for c in subprocess_calls(record_folder_source())],
+                         ["run"])
+
+    def test_record_folder_uses_subprocess_in_the_one_known_shape(self):
+        self.assertEqual(subprocess_use_problems(record_folder_source(),
+                                                 env_function=GIT_ENV_FUNCTION), [])
+        calls = subprocess_calls(record_folder_source())
+        self.assertEqual(sorted(k.arg for k in calls[0].keywords),
+                         sorted(ALLOWED_RUN_KEYWORDS | frozenset(["env"])))
+        self.assertTrue(all(is_the_scrub_call(k.value, GIT_ENV_FUNCTION)
+                            for k in calls[0].keywords if k.arg == "env"))
+
+    def test_a_second_subprocess_call_in_record_folder_is_caught(self):
+        planted = record_folder_source() + '\nsubprocess.run(["git", "status"])\n'
+        self.assertNotEqual(git_call_problems(planted), [])
+        self.assertNotEqual(subprocess_use_problems(planted, env_function=GIT_ENV_FUNCTION), [])
+
+    def test_record_folder_is_not_given_a_shell_or_a_working_folder(self):
+        source = record_folder_source()
+        self.assertIn("check=False)", source)
+        for extra in ("shell=True", "cwd='.'"):
+            with self.subTest(extra):
+                planted = source.replace("check=False)", "check=False, %s)" % extra, 1)
+                self.assertNotEqual(
+                    subprocess_use_problems(planted, env_function=GIT_ENV_FUNCTION), [])
+
+    def test_record_folder_is_given_no_environment_but_the_scrubbed_one(self):
+        source = record_folder_source()
+        self.assertIn("env=scrubbed_environment(),", source)
+        for value in ("{}", "os.environ", "dict(os.environ)", "scrubbed_environment",
+                      "scrubbed_environment(1)", "other_environment()",
+                      "scrubbed_environment() or None"):
+            with self.subTest(value):
+                planted = source.replace("env=scrubbed_environment(),", "env=%s," % value, 1)
+                self.assertNotEqual(
+                    subprocess_use_problems(planted, env_function=GIT_ENV_FUNCTION), [])
+        self.assertNotEqual(subprocess_use_problems(source), [])
+
+    def test_the_other_modules_still_may_not_pass_env(self):
+        for source, keywords in ((pdf_text_source(), ALLOWED_RUN_KEYWORDS),
+                                 (reader_command_source(), READER_COMMAND_RUN_KEYWORDS)):
+            self.assertEqual(subprocess_use_problems(source, keywords), [])
+
+    def test_only_record_folder_imports_subprocess_besides_the_two_older_modules(self):
+        importers = sorted(name for name in os.listdir(SRC) if name.endswith(".py")
+                           and "imports subprocess" in problems(os.path.join(SRC, name)))
+        self.assertEqual(importers,
+                         ["ab_reader_command.py", "pdf_text.py", "record_folder.py"])
 
 
 if __name__ == "__main__":

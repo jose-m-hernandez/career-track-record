@@ -6,6 +6,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-18
+
+### Added
+
+- `track-record setup` chooses your record folder. It asks once where your record folder is (or takes `--folder PATH` without a terminal), makes that folder with `sources`, `postings`, `drafts` and `plans` inside it, and writes a small config file naming it. When it is done it names the files the commands look for in your record folder, and says what to run next. `setup --show` prints what the config holds, marks each path `(not checked)`, and writes nothing. It refuses a folder git tracks, or one inside a git work tree that git does not ignore, and says why. The folders `setup` makes are mode 0700 and the config is mode 0600. `setup` runs no check. The repository's `.gitignore` now ignores `my-record/`, the folder the second choice offers beside a clone.
+- Commands now read the config for the paths you do not give. `keywords` (`--postings`, `--terms`), `barred` (`--list`), `tone` (`--rules`) and `claims` (`--list`) look in your record folder when the flag is missing: `postings`, `terms.tsv`, `barred-list.txt`, `tone-rules.json` and `claims-list.txt`. A flag always wins, and for `barred` so does `BARRED_STRINGS_PATH`. Each path taken from the config is announced on standard error, `using <path> (from config <file>)`. `tone` with no `tone-rules.json` in the record folder uses the shipped rules and says so on standard error. A command given every path, other than the writing commands below, never reads the config, and with no config every command does what it did before. A config that is not usable, or a record folder that is not there, stops a command that needs it with `cannot run: the track-record config is not usable (...)` and nothing on standard output. The top-level help lists `setup` as a ninth line; of the eight checks only `barred`, `tone` and `claims` change help, by one line each, to say they look in your record folder.
+- A command that writes into your record folder checks it again first: `keywords demand --out`, `drafts extract --out`, and `freeze`, `run` and `score` of `ab` and `panel`. If git now tracks files in the folder, or the folder is no longer ignored inside a work tree, the command refuses (exit 1) and writes nothing; if git cannot be run it exits 2. A path inside your record folder that is really a link to somewhere outside it is refused as well (exit 1). A config that exists but is not usable stops these writes (exit 2), so breaking the file does not switch the check off. Without a config file nothing is re-checked, and a write that is outside your record folder both as written and once links are followed is never re-checked. Containment is asked of the file system, so a path spelled in another case or another Unicode form is seen for what it is.
+
+### Changed
+
+- Each file a command creates anew (`keywords demand --out`, `drafts extract --out`, and the files of an `ab` or `panel` run) is opened so that a link standing at its path is never followed. The failure lines are the ones each command already gave, except that the path in the `cannot write` line of `keywords demand --out` is now printed with control characters escaped.
+
 ## [0.10.7] - 2026-11-18
 
 ### Added

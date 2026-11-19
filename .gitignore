@@ -13,3 +13,6 @@ dist/
 
 # macOS
 .DS_Store
+
+# The record folder that `track-record setup` offers beside the clone (option 2)
+my-record/

@@ -553,7 +553,8 @@ def _write_new(out, data):
     created = False
     descriptor = None
     try:
-        descriptor = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o666)
+        descriptor = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                             | getattr(os, "O_NOFOLLOW", 0), 0o666)
         created = True
         view = memoryview(data)
         while len(view):

@@ -974,7 +974,7 @@ usage: track-record tone [--rules FILE] [--warn-only] [--stale-check] FILE...
 
 Flag hype, hedges and filler in your copy.
 
-  --rules FILE      the rule file (default: the shipped rules)
+  --rules FILE      the rule file (default: your record folder, else the shipped rules)
   --warn-only       run only warn rules
   --stale-check     check exemptions for staleness
   --print-defaults  write the shipped rule file and exit

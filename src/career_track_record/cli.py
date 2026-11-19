@@ -5,7 +5,20 @@ import os
 import re
 import sys
 
-from career_track_record import ab, barred, claims, drafts, keywords, panel, record_check, tone
+from career_track_record import (ab, barred, claims, config, drafts, keywords, panel,
+                                 reader_harness, record_check, setup_cmd, tone, write_guard)
+
+
+class _MissingRequired(Exception):
+    """A required argument was absent; ``parser.error`` was asked to say so."""
+
+    def __init__(self, parser, message):
+        Exception.__init__(self, message)
+        self.parser = parser
+        self.message = message
+
+
+_CATCH_REQUIRED = [False]
 
 
 class _Parser(argparse.ArgumentParser):
@@ -19,7 +32,14 @@ class _Parser(argparse.ArgumentParser):
 
     def error(self, message):
         """A usage error goes out through _err, as argparse's own would, and exits 2 even
-        when standard error is closed or cannot be written."""
+        when standard error is closed or cannot be written. While keywords arguments are
+        being parsed for config defaults, a missing required argument is raised instead, so
+        the caller may fill it from the config and say the same words if it cannot."""
+        if _CATCH_REQUIRED[0] and message.startswith("the following arguments are required: "):
+            raise _MissingRequired(self, message)
+        self.say(message)
+
+    def say(self, message):
         _err(self.format_usage())
         _err("%s: error: %s\n" % (self.prog, message))
         raise SystemExit(2)
@@ -72,6 +92,8 @@ def _build_parser():
     # Listed for --help only: main() hands "drafts" to its own parser (_parse_drafts).
     top.add_parser("drafts", help="check a file of a document's versions, or extract one",
                    add_help=False)
+    # Listed for --help only: main() hands "setup" to its own parser (_parse_setup).
+    top.add_parser("setup", help="choose your record folder", add_help=False)
     return parser
 
 
@@ -130,11 +152,43 @@ class _OptionError(Exception):
     """An option problem; the message is one line and never holds a value for --list."""
 
 
+def _config_paths(environ, names):
+    """The config's default path for each of ``names`` (file or folder names under the
+    record folder), each announced by one ``using`` line on standard error. Returns
+    ({name: path}, False): empty when there is no config file. A config that is not usable,
+    or a record folder that is missing, writes the "track-record config is not usable" line (naming the reason, not the
+    folder) and returns (None, True)."""
+    try:
+        defaults = config.load_defaults(environ)
+    except config.ConfigError as exc:
+        _err(exc.line() + "\n")
+        return None, True
+    if defaults is None:
+        return {}, False
+    found = {}
+    for name in names:
+        found[name] = defaults.path(name)
+        _err(defaults.using(name) + "\n")
+    return found, False
+
+
+def _write_refused(targets, environ):
+    """None when a write to ``targets`` (complete output paths) may go ahead. Otherwise the
+    refusal's one line is on standard error and the result is the exit code to end with."""
+    try:
+        write_guard.recheck(targets, environ)
+    except write_guard.Refusal as refusal:
+        _err(refusal.line + "\n")
+        return refusal.code
+    return None
+
+
 _BARRED_VALUE_OPTIONS = ("--list", "--control", "--min-chars")
 _BARRED_OPTIONS = _BARRED_VALUE_OPTIONS + ("--strip-comments",)
 _CLAIMS_VALUE_OPTIONS = ("--list", "--control")
 _CLAIMS_OPTIONS = _CLAIMS_VALUE_OPTIONS + ("--stale-check", "--check-sources")
 _TONE_OPTIONS = ("--rules", "--warn-only", "--stale-check", "--print-defaults")
+_TONE_RULES = "tone-rules.json"
 
 _BARRED_HELP = """\
 usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
@@ -142,7 +196,7 @@ usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
 
 Report wording from your own barred list, by entry number only.
 
-  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
+  --list FILE       the list file (default: $BARRED_STRINGS_PATH, else your record folder)
   --control TEXT    a string each file must hold (repeatable, any one counts)
   --strip-comments  strip comments and note values before matching
   --min-chars N     the minimum length of each file (default 500)
@@ -157,7 +211,7 @@ usage: track-record tone [--rules FILE] [--warn-only] [--stale-check] FILE...
 
 Flag hype, hedges and filler in your copy.
 
-  --rules FILE      the rule file (default: the shipped rules)
+  --rules FILE      the rule file (default: your record folder, else the shipped rules)
   --warn-only       run only warn rules
   --stale-check     check exemptions for staleness
   --print-defaults  write the shipped rule file and exit
@@ -173,7 +227,7 @@ usage: track-record claims --list FILE --control TEXT [--control TEXT]...
 
 Fail on any sentence your claims list has not approved.
 
-  --list FILE      the claims list (required)
+  --list FILE      the claims list (required unless claims-list.txt is in your record folder)
   --control TEXT   a string each file must hold (repeatable, any one counts)
   --stale-check    also report approved entries no file uses
   --check-sources  also check each quote against the source file it cites
@@ -208,6 +262,25 @@ Check the file that holds a document's versions, or write out one version.
 
 exit: 0 OK, 1 a fault that check reports or extract refuses,
       2 a DEAD check or cannot run
+"""
+
+
+_SETUP_HELP = """\
+usage: track-record setup [--folder PATH]
+       track-record setup --show
+
+Choose your record folder: ask once, write a small config naming it, and make the
+folder and its four layout folders. It runs no check.
+
+  --folder PATH  use PATH as the record folder and ask nothing
+  --show         show the config and the folder each command would use
+  -h, --help     show this summary and exit
+
+config: $CTR_CONFIG_DIR/config.json, else $XDG_CONFIG_HOME/track-record/config.json,
+    else ~/.config/track-record/config.json
+
+exit: 0 done, kept or shown, 1 the folder is refused (git tracks it, or a work tree does
+    not ignore it), 2 it cannot run
 """
 
 
@@ -346,6 +419,64 @@ def _asks_for_help(args, value_options=(), not_values=()):
     return False
 
 
+def _parse_setup(args):
+    """Parse the options of ``setup``. Raises _OptionError on any problem."""
+    if _asks_for_help(args, ("--folder",), ("--folder", "--show")):
+        return {"help": True}
+    folder = None
+    show = False
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--" or not arg.startswith("-") or arg == "-":
+            extra = args[i:] if arg == "--" else [arg]
+            if arg == "--" and not extra:
+                break
+            raise _OptionError("setup: extra argument %s" % barred.printed_path(extra[0]))
+        name, equals, value = arg.partition("=")
+        if name == "--show":
+            if equals:
+                raise _OptionError("setup: --show takes no value")
+            if show:
+                raise _OptionError("setup: --show given twice")
+            show = True
+            continue
+        if name != "--folder":
+            raise _OptionError("setup: unknown option %s" % barred.printed_path(name))
+        if folder is not None:
+            raise _OptionError("setup: --folder given twice")
+        if not equals:
+            if i >= len(args) or args[i].startswith("-") or args[i] == "":
+                raise _OptionError("setup: --folder needs a value")
+            value = args[i]
+            i += 1
+        elif value == "":
+            raise _OptionError("setup: --folder needs a value")
+        folder = value
+    if show and folder is not None:
+        raise _OptionError("setup: --show allows no other option")
+    return {"folder": folder, "show": show}
+
+
+def _main_setup(args, environ):
+    try:
+        opts = _parse_setup(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_SETUP_HELP)
+        return 0
+    try:
+        if opts["show"]:
+            return setup_cmd.show(_out, _err, environ)
+        return setup_cmd.run(opts["folder"], _out, _err, environ)
+    except KeyboardInterrupt:
+        _err("cannot run: setup: interrupted\n")
+        return 2
+
+
 def _parse_barred(args):
     """Parse the options of ``barred``. Raises _OptionError on any problem."""
     if _asks_for_help(args, _BARRED_VALUE_OPTIONS, _BARRED_OPTIONS):
@@ -407,6 +538,11 @@ def _main_barred(args, environ):
     list_path = opts["list"]
     if list_path is None:
         list_path = environ.get("BARRED_STRINGS_PATH") or None
+    if list_path is None:
+        found, failed = _config_paths(environ, ("barred-list.txt",))
+        if failed:
+            return 2
+        list_path = found.get("barred-list.txt")
     result = barred.run(list_path=list_path, files=opts["files"],
                         controls=opts["controls"], strip_comments=opts["strip"],
                         min_chars=opts["min_chars"])
@@ -458,7 +594,7 @@ def _parse_claims(args):
     return found
 
 
-def _main_claims(args):
+def _main_claims(args, environ):
     try:
         opts = _parse_claims(args)
     except _OptionError as exc:
@@ -467,7 +603,13 @@ def _main_claims(args):
     if opts.get("help"):
         _out(_CLAIMS_HELP)
         return 0
-    result = claims.run(list_path=opts["list"], files=opts["files"],
+    list_path = opts["list"]
+    if list_path is None:
+        found, failed = _config_paths(environ, ("claims-list.txt",))
+        if failed:
+            return 2
+        list_path = found.get("claims-list.txt")
+    result = claims.run(list_path=list_path, files=opts["files"],
                         controls=opts["controls"], stale_check=opts["stale_check"],
                         check_sources=opts["check_sources"])
     if not result.ran:
@@ -528,7 +670,8 @@ _DRAFTS_VALUE_OPTIONS = {"check": ("--earlier",), "extract": ("--earlier", "--ou
 
 def _parse_drafts(args):
     """Parse the command line of ``drafts``. Raises _OptionError on any problem, naming the
-    first one in the order of the spec's section 8."""
+    first one in the order the checks run: the subcommand, then the options left to right,
+    then the FILE and the arguments after it."""
     if _asks_for_help(args, ("--earlier", "--out"), ("--earlier", "--out")):
         return {"help": True}
     if not args:
@@ -587,7 +730,7 @@ def _err_strict(text):
         raise OSError("standard error cannot be written")
 
 
-def _main_drafts(args):
+def _main_drafts(args, environ):
     try:
         opts = _parse_drafts(args)
     except _OptionError as exc:
@@ -599,6 +742,9 @@ def _main_drafts(args):
     if opts["sub"] == "check":
         result = drafts.check(opts["file"], opts["earlier"])
     else:
+        refused = _write_refused([opts["out"]], environ)
+        if refused is not None:
+            return refused
         result = drafts.extract(opts["file"], opts["id"], opts["out"], opts["earlier"],
                                 emit=_err_strict)
     if not result.ran:
@@ -662,7 +808,7 @@ def _one_line_name(name):
     return name.replace("\r", "?").replace("\n", "?")
 
 
-def _main_tone(args):
+def _main_tone(args, environ):
     opts, reasons = _parse_tone(args)
     if reasons:
         _err("".join("cannot run: %s\n" % reason for reason in reasons))
@@ -678,7 +824,21 @@ def _main_tone(args):
             return 2
         _out(text)
         return 0
-    result = tone.run(rules_path=opts["rules"], files=opts["files"],
+    rules_path = opts["rules"]
+    if rules_path is None:
+        try:
+            defaults = config.load_defaults(environ)
+        except config.ConfigError as exc:
+            _err(exc.line() + "\n")
+            return 2
+        if defaults is not None:
+            if os.path.lexists(defaults.path(_TONE_RULES)):
+                _err(defaults.using(_TONE_RULES) + "\n")
+                rules_path = defaults.path(_TONE_RULES)
+            else:
+                _err("no %s in %s; using the shipped rules\n"
+                     % (_TONE_RULES, barred.printed_path(defaults.folder)))
+    result = tone.run(rules_path=rules_path, files=opts["files"],
                       warn_only=opts["warn_only"], stale_check=opts["stale_check"])
     if not result.ran:
         _err(result.error + "\n")
@@ -726,7 +886,7 @@ def _parse_plan_command(command, args):
     return {"sub": sub, "plan": plans[0], "live": live}
 
 
-def _main_plan_command(command, args):
+def _main_plan_command(command, args, environ):
     """Run ``ab`` or ``panel``: the two share a command line and an exit discipline."""
     module, helps = _PLAN_COMMANDS[command]
     try:
@@ -737,6 +897,9 @@ def _main_plan_command(command, args):
     if "help" in opts:
         _out(helps[opts["help"]])
         return 0
+    refused = _write_refused(write_guard.plan_targets(opts["sub"], opts["plan"]), environ)
+    if refused is not None:
+        return refused
     try:
         if opts["sub"] == "freeze":
             result = module.freeze(opts["plan"])
@@ -775,19 +938,90 @@ def _main(argv, environ):
     if argv and argv[0] == "barred":
         return _main_barred(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "tone":
-        return _main_tone(argv[1:])
+        return _main_tone(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] in _PLAN_COMMANDS:
-        return _main_plan_command(argv[0], argv[1:])
+        return _main_plan_command(argv[0], argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "claims":
-        return _main_claims(argv[1:])
+        return _main_claims(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "record":
         return _main_record(argv[1:])
     if argv and argv[0] == "drafts":
-        return _main_drafts(argv[1:])
-    return _main_keywords(_build_parser().parse_args(argv))
+        return _main_drafts(argv[1:], os.environ if environ is None else environ)
+    if argv and argv[0] == "setup":
+        return _main_setup(argv[1:], os.environ if environ is None else environ)
+    return _main_keywords(argv, os.environ if environ is None else environ)
 
 
-def _main_keywords(args):
+_KEYWORDS_DEFAULTS = (("--postings", "postings"), ("--terms", "terms.tsv"))
+
+
+def _keywords_args(argv, environ):
+    """The parsed keywords command line, with ``--postings`` and ``--terms`` taken from the
+    config when the command line lacks them. Returns (args, error code or None). When the
+    config cannot supply what is missing, the usage error is argparse's own words, as before
+    the config existed; the config is read only when one of those two flags is missing and
+    nothing else required is."""
+    _CATCH_REQUIRED[0] = True
+    try:
+        try:
+            return _build_parser().parse_args(argv), None
+        except _MissingRequired as missing:
+            first = missing
+    finally:
+        _CATCH_REQUIRED[0] = False
+    names = first.message.split(": ", 1)[1].split(", ")
+    flags = dict(_KEYWORDS_DEFAULTS)
+    if any(name not in flags for name in names):
+        first.parser.say(first.message)
+    try:
+        defaults = config.load_defaults(environ)
+    except config.ConfigError as exc:
+        _err(exc.line() + "\n")
+        return None, 2
+    if defaults is None:
+        first.parser.say(first.message)
+    injected = []
+    for flag, name in _KEYWORDS_DEFAULTS:
+        if flag in names:
+            injected += [flag, defaults.path(name)]
+    args = _build_parser().parse_args(argv[:2] + injected + argv[2:])
+    for flag, name in _KEYWORDS_DEFAULTS:
+        if flag in names:
+            _err(defaults.using(name) + "\n")
+    return args, None
+
+
+def _target_is_new(path):
+    """True when nothing is at ``path`` (a link, even a dangling one, is something)."""
+    try:
+        return not os.path.lexists(path)
+    except (OSError, ValueError):
+        return False
+
+
+def _write_demand(out, text, was_new):
+    """Write the demand table to ``out``. A file that was not there when ``was_new`` was
+    decided is created exclusively and without following a link at its path, so a link put
+    there afterwards makes the open fail; a file that existed is opened to be replaced, as it
+    always was."""
+    if was_new:
+        handle = reader_harness.open_new(out, False, encoding="utf-8", newline="\n")
+    else:
+        handle = open(out, "w", encoding="utf-8", newline="\n")
+    with handle:
+        handle.write(text)
+
+
+def _main_keywords(argv, environ):
+    args, failed = _keywords_args(argv, environ)
+    if failed:
+        return failed
+    out_was_new = False
+    if args.mode == "demand" and args.out:
+        out_was_new = _target_is_new(args.out)
+        refused = _write_refused([args.out], environ)
+        if refused is not None:
+            return refused
     try:
         terms = keywords.load_terms(args.terms)
     except keywords.KeywordError as exc:
@@ -803,11 +1037,10 @@ def _main_keywords(args):
                                   copy=args.copy, keep_notes=args.keep_notes)
     if result.ran and args.mode == "demand" and args.out:
         try:
-            with open(args.out, "w", encoding="utf-8", newline="\n") as handle:
-                handle.write(result.text[:-1])
+            _write_demand(args.out, result.text[:-1], out_was_new)
         except OSError as exc:
             _err("cannot run: cannot write %s: %s\n"
-                   % (args.out, exc.strerror or exc))
+                 % (barred.printed_path(args.out), exc.strerror or exc))
             return 2
     if not result.ran:
         _err(result.error + "\n")

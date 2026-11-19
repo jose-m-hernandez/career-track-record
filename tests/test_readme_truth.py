@@ -115,8 +115,10 @@ class ReadmeTruthTest(unittest.TestCase):
 
     def test_the_public_counts_agree(self):
         self.assertTrue(read(README).startswith("# "))
-        self.assertIn("\nEight checks for the career copy you send.", read(README))
+        self.assertIn("\nEight checks for the career copy you send, and a setup command.", read(README))
         self.assertIn("The other seven tools are under", read(README))
+        self.assertIn("\nTo set up your record folder, run track-record setup.\n\n## Exit codes",
+                      read(README))
         self.assertIn("\nEight tools ship:", read(AGENTS))
         self.assertIn("lists the eight commands,", read(CLI_SPEC))
 
