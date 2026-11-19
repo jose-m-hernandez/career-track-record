@@ -19,6 +19,7 @@ import re
 from fractions import Fraction
 
 from career_track_record import reader_harness as harness
+from career_track_record import series
 from career_track_record import stats
 
 # File names inside a read folder, and in the run folder. Every use goes through these.
@@ -254,8 +255,14 @@ class Plan(object):
                  alpha=Fraction(1, 20), alpha_text="0.05", sensitivity=None,
                  sensitivity_scope=(), sensitivity_threshold=Fraction(5, 6), min_valid_reads=None,
                  replicate_of=None, document=RESUME, drafted_by=None, extends=None,
-                 aa_pool=()):
+                 aa_pool=(), aa_band=False, series=None, series_note=None, series_line=None):
         self.posting = posting
+        self.aa_band = aa_band
+        # the series file (a path relative to the plan's folder), its note, and the plan line
+        # that names it; None for a plan that names no series
+        self.series = series
+        self.series_note = series_note
+        self.series_line = series_line
         self.extends = extends
         self.aa_pool = list(aa_pool)
         self.document = document
@@ -309,7 +316,7 @@ _LIST_KEYS = ("versions", "comparisons", "readers", "hypotheses", "mechanisms",
 _SCALAR_KEYS = ("posting", "aa-version", "reads-per-reader", "noise-threshold",
                 "spend-ceiling", "amends", "replicate-of", "read-timeout", "sidedness", "alpha",
                 "sensitivity", "sensitivity-threshold", "min-valid-reads", "document",
-                "extends")
+                "extends", "aa-band", "series", "series-note")
 _NAME = harness.NAME
 _INTEGER = harness.INTEGER
 _FRACTION = re.compile(r"([0-9]+)/([0-9]+)\Z")
@@ -466,6 +473,25 @@ def _parse_text(text):
             document = value
         else:
             state.bad(number, "document is résumé, cover letter, essay or profile")
+    aa_band = False
+    if "aa-band" in scalars:
+        number, value = scalars["aa-band"]
+        if value == "on":
+            aa_band = True
+        else:
+            state.bad(number, "aa-band is on, or the line is left out: %s" % _short(value))
+    series_path = series_note = series_line = None
+    if "series" in scalars:
+        series_line, series_path = scalars["series"]
+        if len(comparisons) > 1:
+            state.bad(series_line, "a plan with series has exactly one comparison")
+    if "series-note" in scalars:
+        number, series_note = scalars["series-note"]
+        if "series" not in scalars:
+            state.bad(number, "series-note is set but the plan names no series file; add a "
+                              "series line, or remove series-note")
+        if "\t" in series_note:
+            state.bad(number, "series-note holds a tab")
     min_valid_reads = None
     if "min-valid-reads" in scalars:
         number, value = scalars["min-valid-reads"]
@@ -625,6 +651,9 @@ def _parse_text(text):
         state.problems.append("the plan has no comparison")
     if not readers and not [1 for number, _item in lists.get("readers", [])]:
         state.problems.append("the plan has no reader")
+    if series_path is not None and not lists.get("hypotheses"):
+        state.problems.append("the plan names a series file but no hypothesis; add a "
+                              "hypothesis, or remove the series line")
     if state.problems:
         raise PlanError(state.problems)
     return Plan(posting, versions, comparisons, readers, fake_rules=rules,
@@ -636,7 +665,9 @@ def _parse_text(text):
                 sensitivity_scope=sensitivity_scope,
                 sensitivity_threshold=sensitivity_threshold,
                 min_valid_reads=min_valid_reads, replicate_of=replicate_of,
-                document=document, drafted_by=drafted_by, extends=extends, aa_pool=aa_pool)
+                document=document, drafted_by=drafted_by, extends=extends, aa_pool=aa_pool,
+                aa_band=aa_band, series=series_path, series_note=series_note,
+                series_line=series_line)
 
 
 def _drafted_by(text):
@@ -821,7 +852,8 @@ def _inputs(plan, plan_path):
 
 SETTINGS = (("noise-threshold", "noise_threshold"), ("sensitivity-threshold",
                                                      "sensitivity_threshold"),
-            ("alpha", "alpha"), ("min-valid-reads", "min_valid_reads"))
+            ("alpha", "alpha"), ("min-valid-reads", "min_valid_reads"),
+            ("aa-band", "aa_band"))
 AMEND_RULE = ("an amendment may restate a rule's counts at the same share, and change nothing "
               "else: ")
 EXTEND_ONLY = ("an extension may change only reads-per-reader and the number of readers of "
@@ -876,7 +908,7 @@ def amendment_problems(plan_path, plan):
     amends nothing or the amended freeze is not there (the freeze reports it missing). An
     amendment may change the read count, never a threshold: each count rule keeps its share
     over the arm's planned pairs (a mechanism's, over its planned reads), and the four
-    threshold settings are as the amended plan has them."""
+    threshold settings and ``aa-band`` are as the amended plan has them."""
     if plan.amends is None or not plan.amends.endswith(harness.FREEZE_SUFFIX):
         return []
     folder = harness.folder_of(plan_path)
@@ -1100,13 +1132,30 @@ def pool_problems(plan_path, plan):
     return problems
 
 
-def freeze(plan_path):
+def _refused_by_series(plan, plan_path, sub, environ):
+    """A Result for a refusal of the series write by the record folder (series.refusal), or
+    None. The line is the one to print as written, whatever its exit code (1 or 2)."""
+    found = series.refusal(plan, plan_path, sub, environ)
+    if found is None:
+        return None
+    code, line = found
+    return Result(code, False, error=line, refusal=line)
+
+
+def freeze(plan_path, now=None, environ=None):
     """Read the plan, hash it and every input it names, and write the freeze file beside it.
-    Every plan problem is found here, an amendment's, an extension's and a pool's included."""
+    Every plan problem is found here, an amendment's, an extension's, a pool's and a series
+    file's included. ``now`` is the clock the series checks read (a datetime; the real UTC time
+    by default); the command line has no way to set it. ``environ`` is what the record-folder
+    check of the series file reads the config from (None: this process's environment)."""
     plan = _read_plan(plan_path)
     if plan is not None:
+        refused = _refused_by_series(plan, plan_path, "freeze", environ)
+        if refused is not None:
+            return refused
         problems = (amendment_problems(plan_path, plan) + extension_problems(plan_path, plan)
-                    + pool_problems(plan_path, plan))
+                    + pool_problems(plan_path, plan)
+                    + series.plan_problems(plan, plan_path, now))
         if problems:
             return Result(2, False, error="\n".join(problems))
     return harness.freeze(plan_path, parse, _inputs, _plan_prompt_sha256(plan_path))
@@ -1371,10 +1420,11 @@ def fake_reply(read, rules, text_a, text_b):
 
 # ------------------------------------------------------------------ run
 
-def run(plan_path, live=False):
-    """Check, key, read and score. Writes the key, the reads, the run log and a result."""
+def run(plan_path, live=False, now=None, environ=None):
+    """Check, key, read and score. Writes the key, the reads, the run log and a result.
+    ``now`` and ``environ`` are the clock and the environment of ``freeze``."""
     try:
-        return _run(plan_path, live)
+        return _run(plan_path, live, now, environ)
     except RunFolderError as exc:
         return Result(2, False, error=exc.line)
 
@@ -1407,9 +1457,13 @@ def _first_run_problems(plan_path, plan):
     return problems
 
 
-def _run(plan_path, live):
+def _run(plan_path, live, now=None, environ=None):
     folder = harness.folder_of(plan_path)
     plan, problems, recorded, freeze_hash = _verify(plan_path, with_prompt=True)
+    if plan is not None:
+        refused = _refused_by_series(plan, plan_path, "run", environ)
+        if refused is not None:
+            return refused
     if plan is not None:
         problems += _isolation_problems(plan, plan_path)
         posting = os.path.join(folder, plan.posting)
@@ -1421,6 +1475,7 @@ def _run(plan_path, live):
     problems += harness.run_folder_problems(folder)
     if plan is not None:
         problems += _first_run_problems(plan_path, plan)
+        problems += series.plan_problems(plan, plan_path, now, recorded)
     if problems:
         return Result(2, False, error="\n".join(problems))
     planned = _planned_reads(plan)
@@ -1446,16 +1501,20 @@ def _run(plan_path, live):
     stopped = harness.run_reads(folder, planned, plan.readers, plan.spend_ceiling,
                                 plan.read_timeout, key_text, prepare, reply_of)
     return harness.scored_after_run(
-        stopped, lambda: _score_and_write(plan_path, plan, recorded, freeze_hash))
+        stopped, lambda: _score_and_write(plan_path, plan, recorded, freeze_hash, now, environ))
 
 
-def score(plan_path):
+def score(plan_path, now=None, environ=None):
     """Score the replies in the run folder again, against the frozen plan. Writes a new result."""
     def write(plan, recorded, freeze_hash):
-        problems = _first_run_problems(plan_path, plan)
+        refused = _refused_by_series(plan, plan_path, "score", environ)
+        if refused is not None:
+            return refused
+        problems = (_first_run_problems(plan_path, plan)
+                    + series.plan_problems(plan, plan_path, now, recorded))
         if problems:
             return Result(2, False, error="\n".join(problems))
-        return _score_and_write(plan_path, plan, recorded, freeze_hash)
+        return _score_and_write(plan_path, plan, recorded, freeze_hash, now, environ)
 
     return harness.score(plan_path, _parse_frozen, _inputs, _plan_prompt_sha256(plan_path), 4,
                          write)
@@ -1636,6 +1695,30 @@ def aa_gate(plan, aa_valid, aa_planned):
     return "passed", non_tie, len(aa_valid)
 
 
+def aa_side_counts(pairs):
+    """(A/A pairs that pick a side, valid A/A pairs) over the A/A pairs in ``pairs``. A valid
+    pair picks a side when both its reads are non-TIE, at any strength, and name different
+    slots. The slot letters are tested, not ``pair_pick``: on the A/A arm both slots hold one
+    version, so ``pair_pick`` would return it for two reads that name the same slot."""
+    valid = [p for p in pairs if p.arm == AA and p.status == "valid"]
+    picking = [p for p in valid
+               if p.first.reply.choice != "TIE" and p.second.reply.choice != "TIE"
+               and _pick(p.first)[1] != _pick(p.second)[1]]
+    return len(picking), len(valid)
+
+
+def band_of(gate, aa_pairs, planned):
+    """(band, k, n) of a run with ``aa-band: on``, or None when the band is not evaluated:
+    the A/A gate is evaluated, there is a valid A/A pair and ``planned`` blind pairs of the
+    comparison arm. The band is ``ceil(k * planned / n)`` in whole numbers, in pairs."""
+    if gate == "not evaluated":
+        return None
+    k, n = aa_side_counts(aa_pairs)
+    if n < 1 or planned < 1:
+        return None
+    return -(-k * planned // n), k, n
+
+
 def sensitivity_gate(plan, sens_pairs):
     """(state, pairs preferring X, valid pairs, planned pairs) of the sensitivity gate over
     the blind readers' sensitivity pairs; "not tested" without a pair."""
@@ -1666,11 +1749,15 @@ def gate_reasons(gate, sens_gate):
     return reasons
 
 
-def hypothesis_verdict(plan, hyp, pairs, gate_reasons_, position):
+def hypothesis_verdict(plan, hyp, pairs, gate_reasons_, position, band=None):
     """Score one hypothesis on its arm's pairs (blind readers only). ``gate_reasons_`` are the
-    gates' reasons and ``position`` the arm's position state. Returns a dict: ``verdict``,
-    ``decider`` (the deciding clause or None), ``reasons``, ``lifted``, ``valid``, ``picks``,
-    ``ties`` and ``outcomes`` (the completions, or None when no pair is short)."""
+    gates' reasons and ``position`` the arm's position state. ``band`` is the (band, k, n) of
+    ``band_of`` for a plan with ``aa-band: on`` whose band is evaluated, else None. Returns a
+    dict: ``verdict``, ``decider`` (the deciding clause or None), ``reasons``, ``lifted``,
+    ``valid``, ``picks``, ``ties``, ``outcomes`` (the completions, or None when no pair is
+    short) and ``margin`` (None, or what a SUPPORTED verdict was tested with: the margin, the
+    version the deciding clause names, its picks, the other version and its picks). A
+    SUPPORTED verdict whose margin is no bigger than the band becomes TIE."""
     first, second = plan.comparisons[hyp.comparison - 1]
     valid, picks, ties = pair_counts(pairs)
     verdict, decider = rule_verdict(hyp, valid, picks)
@@ -1707,11 +1794,19 @@ def hypothesis_verdict(plan, hyp, pairs, gate_reasons_, position):
         verdict = "INCONCLUSIVE"
         reasons = [family_reason]
         lifted = False
+    # the band, on the verdict as it now stands (a lifted one included)
+    margin = None
+    if band is not None and verdict == "SUPPORTED":
+        other = first if decider.version == second else second
+        margin = (picks.get(decider.version, 0) - picks.get(other, 0), decider.version,
+                  picks.get(decider.version, 0), other, picks.get(other, 0))
+        if margin[0] <= band[0]:
+            verdict = "TIE"
     if verdict == "INCONCLUSIVE":
         decider = None
     return dict(verdict=verdict, decider=decider, reasons=reasons, lifted=lifted,
                 valid=valid, picks=picks, ties=ties, outcomes=outcomes,
-                family_reason=family_reason)
+                family_reason=family_reason, margin=margin)
 
 
 ONE_WAY = "; the verdict holds only when slightly counts as a pick"
@@ -1798,19 +1893,36 @@ def _blind_of(plan, reads, records):
             [x for x in records if x.read.reader not in not_blind])
 
 
-def _pool_of(plan_path, plan):
-    """(valid blind A/A reads, planned blind A/A reads, runs) of the runs this plan's
-    ``aa-pool`` names. Only each pooled run's own A/A reads are pooled."""
+def _pool_runs(plan_path, plan):
+    """(blind planned reads, blind score records) of each run this plan's ``aa-pool`` names,
+    in order, each under its own plan."""
     folder = harness.folder_of(plan_path)
-    valid, planned = [], 0
+    found = []
     for item in plan.aa_pool:
         pooled_path = os.path.join(folder, item)[:-len(harness.FREEZE_SUFFIX)]
         pooled_plan = parse(pooled_path)
         reads, records = _load_run(os.path.dirname(pooled_path))
-        blind_reads, blind_records = _blind_of(pooled_plan, reads, records)
+        found.append(_blind_of(pooled_plan, reads, records))
+    return found
+
+
+def _pool_of(plan_path, plan):
+    """(valid blind A/A reads, planned blind A/A reads, runs) of the runs this plan's
+    ``aa-pool`` names. Only each pooled run's own A/A reads are pooled."""
+    valid, planned = [], 0
+    for blind_reads, blind_records in _pool_runs(plan_path, plan):
         planned += len([r for r in blind_reads if r.arm == AA])
         valid += [x for x in blind_records if x.read.arm == AA and x.status == "valid"]
     return valid, planned, len(plan.aa_pool)
+
+
+def _pool_aa_pairs(plan_path, plan):
+    """The A/A pairs of the runs this plan's ``aa-pool`` names, each formed inside its own
+    run: pairs are never formed across runs."""
+    pairs = []
+    for _blind_reads, blind_records in _pool_runs(plan_path, plan):
+        pairs += pairs_of([x for x in blind_records if x.read.arm == AA])
+    return pairs
 
 
 def arm_position(valid):
@@ -1850,12 +1962,17 @@ class FirstRun(object):
         gate = aa_gate(plan, aa_valid, aa_planned)[0]
         sens = sensitivity_gate(plan, self.pairs_in(SENS))[0]
         gates = gate_reasons(gate, sens)
+        band = None
+        if plan.aa_band:
+            # the first run's own band: its own A/A pairs and its own pool's, over its own pairs
+            band = band_of(gate, self.pairs_in(AA) + _pool_aa_pairs(self.plan_path, plan),
+                           len(self.pairs_in("c1")))
         found = {}
         for hyp in plan.hypotheses:
             arm = "c%d" % hyp.comparison
             position = arm_position(self.valid_in(arm))[0]
             found[hyp.name] = hypothesis_verdict(plan, hyp, self.pairs_in(arm), gates,
-                                                 position)["verdict"]
+                                                 position, band)["verdict"]
         return found
 
 
@@ -1868,12 +1985,27 @@ def _extension_of(plan_path, plan):
                     parse(os.path.join(folder, plan.extends)[:-len(harness.FREEZE_SUFFIX)]))
 
 
-def _score_and_write(plan_path, plan, recorded, freeze_hash):
+def _score_and_write(plan_path, plan, recorded, freeze_hash, now=None, environ=None):
     with harness.unlimited_int_digits():
-        return _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash)
+        return _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash, now, environ)
 
 
-def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
+def _series_after(result, plan, plan_path, recorded, verdicts, now, environ=None):
+    """The series file's write, after the result file exists (series spec section 5). A result
+    with exit status 2 changes nothing. The ``series:`` line is added to the printed text, never
+    to the result file; a failed write raises the exit status to 1 and nothing more."""
+    if result.exit_code not in (0, 1):
+        return result
+    line, warning, failed = series.after_result(plan, plan_path, recorded, verdicts, now,
+                                                environ)
+    result.text += line + "\n"
+    result.warnings += warning
+    if failed:
+        result.exit_code = max(result.exit_code, 1)
+    return result
+
+
+def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash, now=None, environ=None):
     folder = harness.folder_of(plan_path)
     log = harness.load_log(folder)
     cut = log.get("cut") == "yes"
@@ -2080,6 +2212,14 @@ def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
         out.append("A/A gate interval: %s to %s (95%%, Wilson)" % (low, high))
     else:
         out.append("A/A gate interval: not computed")
+    band = None
+    if plan.aa_band:
+        aa_pairs = (pairs_in(AA) + (ext.pairs_in(AA) if ext is not None else [])
+                    + _pool_aa_pairs(plan_path, plan))
+        band = band_of(gate, aa_pairs, len(pooled_pairs_in("c1")))
+        if band is not None:
+            out.append("A/A band: identical drafts picked a side in %d of %d valid A/A pairs; "
+                       "band %d pairs" % (band[1], band[2], band[0]))
     slightly = len([x for x in aa_own if x.reply.choice != "TIE"
                     and x.reply.strength == SLIGHTLY])
     out.append("A/A slightly rate: %d of %d valid A/A reads are slightly"
@@ -2130,13 +2270,16 @@ def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
 
     # hypotheses
     first_verdicts = ext.verdicts() if ext is not None else {}
+    verdict_words = []
     for index, hyp in enumerate(scoring.hypotheses):
         arm = "c%d" % hyp.comparison
         first_version, second = plan.comparisons[hyp.comparison - 1]
         rule = ["%s if %s" % (kind, clause.text()) for kind, clause in plan.hypotheses[index].clauses]
         pooled_rule = ["%s if %s" % (kind, clause.text()) for kind, clause in hyp.clauses]
-        scored = hypothesis_verdict(scoring, hyp, pooled_pairs_in(arm), gates, position[arm])
+        scored = hypothesis_verdict(scoring, hyp, pooled_pairs_in(arm), gates, position[arm],
+                                    band)
         verdict, decider, reasons = scored["verdict"], scored["decider"], scored["reasons"]
+        verdict_words.append((hyp.name, verdict))
         lifted, picks, ties, outcomes = (scored["lifted"], scored["picks"], scored["ties"],
                                          scored["outcomes"])
         out.append("hypothesis %s rule: %s" % (hyp.name, "; ".join(rule) or "none"))
@@ -2152,10 +2295,18 @@ def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
                    else "")
         out.append("hypothesis %s verdict: %s%s [not blind: %d reads left out]"
                    % (hyp.name, verdict, one_way, left_out))
-        for reason in reasons:
-            out.append("hypothesis %s reason: %s" % (hyp.name, reason))
+        if verdict == "TIE":
+            out.append("TIE: %s: the margin of %d pairs is inside this run's A/A band "
+                       "(identical drafts picked a side in %d of %d pairs). The versions are "
+                       "not shown to differ." % (hyp.name, scored["margin"][0], band[1], band[2]))
+        else:
+            for reason in reasons:
+                out.append("hypothesis %s reason: %s" % (hyp.name, reason))
         out.append("hypothesis %s second reading (slightly as TIE): %s"
                    % (hyp.name, second_verdict))
+        if scored["margin"] is not None:
+            out.append("hypothesis %s margin: %d pairs (%s %d picks, %s %d picks) against "
+                       "band %d pairs" % ((hyp.name,) + scored["margin"] + (band[0],)))
         for family, k_family, n_family in family_counts(scoring, pooled_pairs_in(arm), second):
             out.append("hypothesis %s family %s: %s %d of %d paired picks"
                        % (hyp.name, _show(family), _show(second), k_family, n_family))
@@ -2172,7 +2323,7 @@ def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
                        "95%% interval %s to %s" % (
                            hyp.name, _show(second), k, n, ties, stats.p_text(p),
                            SIDE_TEXT[plan.sidedness], low, high))
-            if reasons and not lifted:
+            if verdict == "TIE" or (reasons and not lifted):
                 pass
             elif verdict in ("SUPPORTED", "REFUTED"):
                 tested = second if plan.sidedness == "greater" else first_version
@@ -2323,4 +2474,7 @@ def _score_and_write_unlimited(plan_path, plan, recorded, freeze_hash):
                                   if x.status == "valid" and x.read.reader in names])))
     out.append(VALIDITY_LINE)
 
-    return harness.finish_result(folder, out, records, log, stopped)
+    result = harness.finish_result(folder, out, records, log, stopped)
+    if plan.series is None:
+        return result
+    return _series_after(result, plan, plan_path, recorded, verdict_words, now, environ)

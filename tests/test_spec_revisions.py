@@ -17,9 +17,11 @@ SPEC_REVISIONS = {
     "cli.md": "7",
     "drafts.md": "1",
     "keyword-scan.md": EXEMPT,
+    "reader-ab-aa-band.md": "1",
     "reader-ab.md": "4",
-    "reader-panel.md": "3.1",
+    "reader-panel.md": "4",
     "record-check.md": "1",
+    "series.md": "1",
     "tone-and-tells.md": "6",
 }
 

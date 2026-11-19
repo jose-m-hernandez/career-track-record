@@ -1,12 +1,17 @@
-plan sha256: 2453dccf93b4b423279a6afcd69bc9aae17584115f5a9c8adfbc3fffabea80a8
-freeze sha256: aa2186e738b7672a91514b1fa81470b4ccc63e6724b616634a0e315d0285ae75
+plan sha256: cdfe2317b90b1a3d0db7ede40b5ecd53732e2a6f9281f4f6754d795c3f1650c8
+freeze sha256: f939849ab70a44c18c64c1559062cbff7a04dcf8a93151d04c68ee172c81e965
 prompt sha256: 79657b05dbea178a019140c4f8bba1fddd1eba4c044d2b191f07dd849579ae1c
+calibration: none; scores are uncalibrated
 version: version.txt
 anchor strong: anchor-strong.txt
 anchor weak: anchor-weak.txt
+anchor strong: written by user
+anchor weak: written by user
 anchor thresholds: strong at least 7; weak at most 4
 lens l1: recruiter (recruiter.lens.txt, sha256 ea2d5f2bacea4ef049624533f9c85a3c5add0c8b00e925da98113596ad3bc346)
+l1 author edited the version: no
 lens l2: manager (hiring-manager.lens.txt, sha256 7f3d5f8e1044228c34e74920ad914347b4e962ac7b631cc9254f205526a760c5)
+l2 author edited the version: no
 key l1/1: reader=r1 document=strong
 key l1/2: reader=r2 document=strong
 key l1/3: reader=r1 document=weak
@@ -49,8 +54,8 @@ read l2/9: reader=r2 document=version score=7 flagged=none flags=none
 read l2/10: reader=r2 document=version score=7 flagged=none flags=none
 reads l1 strong: valid=2 of 2 planned
 reads l1 weak: valid=2 of 2 planned
-reads l1 version all readers: valid=6 of 6 planned
-reads l1 version not-blind readers: valid=0
+reads all readers l1 version: valid=6 of 6 planned
+reads not-blind readers l1 version: valid=0
 anchor gate l1: passed (strong scores 9, 9, all at least 7; weak scores 2, 2, all at most 4)
 lens l1: counted
 scores l1 strong: scores=2 total=18 mean=9.00 lowest=9 highest=9
@@ -67,10 +72,11 @@ flagged l1 version FLAG-FIXES: 0 of 6 valid reads
 scores l1 version against strong anchor: lowest version score 7, highest strong-anchor score 9
 scores l1 version spread: 0 (highest 7, lowest 7)
 scores l1: every read gives the version the same score
+headroom l1: not assessed (2 valid strong-anchor reads, at least 3 needed)
 reads l2 strong: valid=2 of 2 planned
 reads l2 weak: valid=2 of 2 planned
-reads l2 version all readers: valid=6 of 6 planned
-reads l2 version not-blind readers: valid=0
+reads all readers l2 version: valid=6 of 6 planned
+reads not-blind readers l2 version: valid=0
 anchor gate l2: passed (strong scores 8, 8, all at least 7; weak scores 3, 3, all at most 4)
 lens l2: counted
 scores l2 strong: scores=2 total=16 mean=8.00 lowest=8 highest=8
@@ -87,13 +93,15 @@ flagged l2 version FLAG-FIXES: 0 of 6 valid reads
 scores l2 version against strong anchor: lowest version score 7, highest strong-anchor score 8
 scores l2 version spread: 0 (highest 7, lowest 7)
 scores l2: every read gives the version the same score
+headroom l2: not assessed (2 valid strong-anchor reads, at least 3 needed)
 counted lenses: l1 l2
 missing l1 version: 0 of 6 planned reads (failed 0, not run 0)
 missing l2 version: 0 of 6 planned reads (failed 0, not run 0)
 rule r1 (l1): PASS if score at least 7 in 6 of 6; FAIL if score at most 4 in 2 or more
 rule r1 (l1) count: score at least 7: 6 of 6 valid reads
 rule r1 (l1) count: score at most 4: 0 of 6 valid reads
-rule r1 (l1) verdict: PASS [not blind: 0 of 6 counted reads]
+rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]
+rule r1 (l1) reason: headroom not assessed (2 valid strong-anchor reads, at least 3 needed)
 rule r1 (l1) evidence: score at least 7: 6 of 6 counted reads; 95% interval 0.609 to 1.000
 rule r1 (l1) evidence: score at most 4: 0 of 6 counted reads; 95% interval 0.000 to 0.391
 validity: the readers are models standing in for human screeners, and that stand-in has not been checked against human ratings. Reads from one model and prompt may not be independent, so each p-value assumes independence and may be too small.

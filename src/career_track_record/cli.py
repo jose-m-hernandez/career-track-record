@@ -900,18 +900,24 @@ def _main_plan_command(command, args, environ):
     refused = _write_refused(write_guard.plan_targets(opts["sub"], opts["plan"]), environ)
     if refused is not None:
         return refused
+    # ab checks its series file against the record folder with the same environment; panel
+    # has no series file and takes none
+    extra = {"environ": environ} if command == "ab" else {}
     try:
         if opts["sub"] == "freeze":
-            result = module.freeze(opts["plan"])
+            result = module.freeze(opts["plan"], **extra)
         elif opts["sub"] == "run":
-            result = module.run(opts["plan"], live=opts["live"])
+            result = module.run(opts["plan"], live=opts["live"], **extra)
         else:
-            result = module.score(opts["plan"])
+            result = module.score(opts["plan"], **extra)
     except KeyboardInterrupt:
         # An interrupt ends any ab or panel command with exit 2 and one line, never a
         # traceback. run has already put "stopped: interrupted" at the end of its run log.
         _err("cannot run: stopped: interrupted\n")
         return 2
+    if result.refusal is not None:
+        _err(result.refusal + "\n")
+        return result.exit_code
     if not result.ran:
         _err("".join("cannot run: %s\n" % line for line in result.error.split("\n")))
         return result.exit_code

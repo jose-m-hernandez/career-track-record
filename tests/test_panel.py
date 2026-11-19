@@ -35,8 +35,10 @@ PANEL_FIXTURES = ("anchor-strong.txt", "anchor-weak.txt", "recruiter.lens.txt",
                   "hiring-manager.lens.txt")
 AB_FIXTURES = (("base.txt", "version.txt"), ("posting.txt", "posting.txt"))
 
-ANCHORS = ["strong | anchor-strong.txt", "weak | anchor-weak.txt"]
-LENSES = ["recruiter | recruiter.lens.txt", "manager | hiring-manager.lens.txt"]
+ANCHORS = ["strong | anchor-strong.txt | written-by user",
+           "weak | anchor-weak.txt | written-by user"]
+LENSES = ["recruiter | recruiter.lens.txt | author-edited-version no",
+          "manager | hiring-manager.lens.txt | author-edited-version no"]
 # The control lenses: each ranks the anchors the right way round and scores the version 7.
 RANK = ["recruiter | strong | score 9", "recruiter | weak | score 2",
         "recruiter | version | score 7",
@@ -52,7 +54,8 @@ VALID_REPLY = ("READ: anything\nPRIOR: nothing\nSCORE: 8\nSTRENGTHS: x\nDOUBTS: 
 
 def default_values():
     """The default plan of the spec (section 10): two lenses, two fake readers with 3 version
-    reads and 1 anchor read each, thresholds 7 and 4."""
+    reads and 2 anchor reads each, thresholds 7 and 4, every anchor written by the user and
+    no lens's version edited by its rubric's author."""
     return dict(
         posting="posting.txt",
         version="version.txt",
@@ -60,7 +63,7 @@ def default_values():
         lenses=list(LENSES),
         readers=["r1 | fake", "r2 | fake"],
         reads_per_reader="3",
-        anchor_reads_per_reader="1",
+        anchor_reads_per_reader="2",
         anchor_strong_at_least="7",
         anchor_weak_at_most="4",
     )
@@ -175,17 +178,17 @@ class GateCase(unittest.TestCase):
     def test_10_1_a_lens_that_ranks_the_anchors_is_counted_and_its_rule_passes(self):
         s, result, lines = self.done(fake_reader=RANK, rules=["recruiter | " + SIX_PASS])
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        self.assertIn("anchor gate l1: passed (strong scores 9, 9, all at least 7; weak "
-                      "scores 2, 2, all at most 4)", lines)
+        self.assertIn("anchor gate l1: passed (strong scores 9, 9, 9, 9, all at least 7; weak "
+                      "scores 2, 2, 2, 2, all at most 4)", lines)
         self.assertIn("lens l1: counted", lines)
         self.assertIn("lens l2: counted", lines)
         self.assertIn("counted lenses: l1 l2", lines)
         self.assertIn("rule r1 (l1): " + SIX_RULE, lines)
         self.assertIn("rule r1 (l1) count: score at least 7: 6 of 6 valid reads", lines)
         self.assertIn("rule r1 (l1) count: score at most 4: 0 of 6 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertEqual([line for line in lines if "reason" in line], [])
-        self.assertIn("read l1/5: reader=r1 document=version score=7 flagged=none flags=none",
+        self.assertIn("read l1/9: reader=r1 document=version score=7 flagged=none flags=none",
                       lines)
         self.assertEqual(result.text, s.read("result-1.txt"))
         self.assertIn("exit status: 0", lines)
@@ -198,17 +201,19 @@ class GateCase(unittest.TestCase):
         _s, result, lines = self.done(fake_reader=RANK_RECRUITER + FLAT_MANAGER, rules=rules)
         self.assertEqual((result.exit_code, result.error), (0, ""))
         self.assertIn("anchor gate l2: failed (strong read l2/1 scored 5, below 7; strong "
-                      "read l2/2 scored 5, below 7; weak read l2/3 scored 5, above 4; weak "
-                      "read l2/4 scored 5, above 4)", lines)
+                      "read l2/2 scored 5, below 7; strong read l2/3 scored 5, below 7; strong "
+                      "read l2/4 scored 5, below 7; weak read l2/5 scored 5, above 4; weak "
+                      "read l2/6 scored 5, above 4; weak read l2/7 scored 5, above 4; weak "
+                      "read l2/8 scored 5, above 4)", lines)
         self.assertIn("lens l2: not counted (the anchor gate failed on l2)", lines)
-        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("rule r2 (l2) reason: the anchor gate failed on l2", lines)
         self.assertIn("rule r2 (l2) count: score at least 7: 0 of 0 valid reads", lines)
         # The version's scores under the voided lens are still shown, not counted.
         self.assertIn("scores l2 version: scores=6 total=30 mean=5.00 lowest=5 highest=5",
                       lines)
         self.assertIn("lens l1: counted", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("counted lenses: l1", lines)
 
     def test_10_3_a_lens_that_ranks_the_anchors_backwards_fails_the_gate(self):
@@ -217,24 +222,31 @@ class GateCase(unittest.TestCase):
         _s, _result, lines = self.done(fake_reader=RANK_RECRUITER + backwards,
                                        rules=["manager | " + SIX_PASS])
         self.assertIn("anchor gate l2: failed (strong read l2/1 scored 2, below 7; strong "
-                      "read l2/2 scored 2, below 7; weak read l2/3 scored 9, above 4; weak "
-                      "read l2/4 scored 9, above 4)", lines)
+                      "read l2/2 scored 2, below 7; strong read l2/3 scored 2, below 7; strong "
+                      "read l2/4 scored 2, below 7; weak read l2/5 scored 9, above 4; weak "
+                      "read l2/6 scored 9, above 4; weak read l2/7 scored 9, above 4; weak "
+                      "read l2/8 scored 9, above 4)", lines)
         self.assertIn("rule r1 (l2) count: score at least 7: 0 of 0 valid reads", lines)
-        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
 
     def test_one_anchor_read_off_its_threshold_fails_the_gate(self):
         # Every anchor read must land on its side: one weak read at 5 fails the gate.
-        rules = RANK + ["manager | weak | score 5 | read 4"]
+        rules = RANK + ["manager | weak | score 5 | read 8"]
         _s, _result, lines = self.done(fake_reader=rules, rules=["manager | " + SIX_PASS])
-        self.assertIn("anchor gate l2: failed (weak read l2/4 scored 5, above 4)", lines)
+        self.assertIn("anchor gate l2: failed (weak read l2/8 scored 5, above 4)", lines)
         self.assertIn("lens l2: not counted (the anchor gate failed on l2)", lines)
         # At the threshold the gate passes: strong 7 and weak 4 are on their sides.
         edge = RANK_RECRUITER + ["manager | strong | score 7", "manager | weak | score 4",
                                  "manager | version | score 7"]
         _s, _result, lines = self.done(fake_reader=edge, rules=["manager | " + SIX_PASS])
-        self.assertIn("anchor gate l2: passed (strong scores 7, 7, all at least 7; weak "
-                      "scores 4, 4, all at most 4)", lines)
-        self.assertIn("rule r1 (l2) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("anchor gate l2: passed (strong scores 7, 7, 7, 7, all at least 7; weak "
+                      "scores 4, 4, 4, 4, all at most 4)", lines)
+        # The strong anchor's median is 7 and so is the version's: the gate passes, and there
+        # is no headroom for a score-at-least PASS.
+        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out] "
+                      "[uncalibrated]", lines)
+        self.assertIn("rule r1 (l2) reason: no headroom (strong anchor median 7, version "
+                      "median 7)", lines)
 
     def test_10_4_a_failed_anchor_read_leaves_the_gate_not_evaluated(self):
         rules = RANK + ["manager | omit SCORE | read 1"]
@@ -243,12 +255,12 @@ class GateCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), ["failed read l2/1: missing SCORE"])
         self.assertIn("read l2/1: reader=r1 document=strong FAILED (missing SCORE)", lines)
-        self.assertIn("anchor gate l2: not evaluated (3 valid anchor reads of 4 planned)",
+        self.assertIn("anchor gate l2: not evaluated (7 valid anchor reads of 8 planned)",
                       lines)
         self.assertIn("lens l2: not counted (the anchor gate was not evaluated on l2)", lines)
-        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("rule r1 (l2) reason: the anchor gate was not evaluated on l2", lines)
-        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("failed reads: 1", lines)
 
     def test_10_5_overall_rules_count_only_counted_lenses(self):
@@ -257,14 +269,14 @@ class GateCase(unittest.TestCase):
         # Both lenses counted: 12 version reads, all at 7.
         _s, _result, lines = self.done(fake_reader=RANK, rules=rules)
         self.assertIn("rule r1 (overall) count: score at least 7: 12 of 12 valid reads", lines)
-        self.assertIn("rule r1 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
-        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (overall) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
+        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         # The manager lens voided: its 6 reads leave the count, so "12 of 12" cannot hold
         # and "6 or more" still does.
         _s, _result, lines = self.done(fake_reader=RANK_RECRUITER + FLAT_MANAGER, rules=rules)
         self.assertIn("rule r1 (overall) count: score at least 7: 6 of 6 valid reads", lines)
-        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
+        self.assertIn("rule r2 (overall) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertEqual([line for line in lines if line.startswith("rule") and "reason" in
                           line], [])
 
@@ -274,7 +286,7 @@ class GateCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn("counted lenses: none", lines)
         self.assertIn("rule r1 (overall) count: score at least 7: 0 of 0 valid reads", lines)
-        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (overall) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("rule r1 (overall) reason: no lens is counted", lines)
 
 
@@ -286,7 +298,7 @@ class RuleCase(unittest.TestCase):
 
     def test_10_7_a_flagged_field_rule_counts_fields_that_say_more_than_none(self):
         rules = RANK + ['recruiter | version | write "too long" in DOUBTS | read %d' % n
-                        for n in (5, 6, 7, 8)]
+                        for n in (9, 10, 11, 12)]
         rules += ['recruiter | version | write "none" in UNDERSOLD']
         plan_rules = ["recruiter | FAIL if DOUBTS flagged in 3 or more; PASS if score at "
                       "least 7 in 6 of 6; otherwise INCONCLUSIVE",
@@ -298,13 +310,13 @@ class RuleCase(unittest.TestCase):
         self.assertIn("flagged l1 version DOUBTS: 4 of 6 valid reads", lines)
         self.assertIn("flagged l1 version UNDERSOLD: 0 of 6 valid reads", lines)
         self.assertIn("flagged l1 version OWNED: 0 of 6 valid reads", lines)
-        self.assertIn("read l1/5: reader=r1 document=version score=7 flagged=DOUBTS "
+        self.assertIn("read l1/9: reader=r1 document=version score=7 flagged=DOUBTS "
                       "flags=none", lines)
         self.assertIn("rule r1 (l1) count: DOUBTS flagged: 4 of 6 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("rule r2 (l1) count: UNDERSOLD not flagged: 6 of 6 valid reads", lines)
-        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
-        self.assertIn("rule r3 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
+        self.assertIn("rule r3 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
 
     def test_10_22_the_first_clause_that_holds_decides(self):
         pass_first = ("PASS if score at least 7 in 3 or more; FAIL if score at least 7 in "
@@ -313,24 +325,24 @@ class RuleCase(unittest.TestCase):
                       "3 or more; otherwise INCONCLUSIVE")
         _s, _result, lines = self.done(fake_reader=RANK, rules=["recruiter | " + pass_first,
                                                                 "recruiter | " + fail_first])
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
-        self.assertIn("rule r2 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
+        self.assertIn("rule r2 (l1) verdict: FAIL [not blind: 0 reads left out] [uncalibrated]", lines)
 
     def test_k_of_m_needs_exactly_m_valid_reads(self):
         five_of_six = "PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE"
-        rules = RANK + ["recruiter | version | omit SCORE | read 5"]
+        rules = RANK + ["recruiter | version | omit SCORE | read 9"]
         _s, result, lines = self.done(fake_reader=rules, rules=["recruiter | " + five_of_six])
         self.assertEqual(result.exit_code, 1)
         self.assertIn("rule r1 (l1) count: score at least 7: 5 of 5 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
         _s, _result, lines = self.done(fake_reader=RANK, rules=["recruiter | " + five_of_six])
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
 
     def test_at_most_and_a_failing_version(self):
         low = RANK_RECRUITER[:2] + ["recruiter | version | score 3"]
         _s, _result, lines = self.done(fake_reader=low, rules=["recruiter | " + SIX_PASS])
         self.assertIn("rule r1 (l1) count: score at most 4: 6 of 6 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: FAIL [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("scores l1 version: scores=6 total=18 mean=3.00 lowest=3 highest=3",
                       lines)
 
@@ -340,8 +352,8 @@ class ReadsCase(unittest.TestCase):
         s = Setup(self, fake_reader=RANK)
         self.assertEqual(s.frozen_run().exit_code, 0)
         for arm, number, document, lens in (("l1", 1, "anchor-strong.txt", "recruiter.lens.txt"),
-                                            ("l1", 3, "anchor-weak.txt", "recruiter.lens.txt"),
-                                            ("l2", 5, "version.txt", "hiring-manager.lens.txt")):
+                                            ("l1", 5, "anchor-weak.txt", "recruiter.lens.txt"),
+                                            ("l2", 9, "version.txt", "hiring-manager.lens.txt")):
             folder = s.read_folder(arm, number)
             self.assertEqual(sorted(os.listdir(folder)),
                              ["DOCUMENT.txt", "LENS.txt", "POSTING.txt", "PROMPT.txt",
@@ -353,13 +365,15 @@ class ReadsCase(unittest.TestCase):
                 with open(os.path.join(folder, name), encoding="utf-8", newline="") as handle:
                     self.assertEqual(handle.read(), expected, (arm, number, name))
         rows = [line.split("\t") for line in s.read(panel.KEY_FILE).splitlines()]
-        self.assertEqual(len(rows), 20)
+        self.assertEqual(len(rows), 28)
         self.assertEqual(rows[0], ["l1/1", "r1", "strong"])
-        self.assertEqual(rows[3], ["l1/4", "r2", "weak"])
-        self.assertEqual(rows[4], ["l1/5", "r1", "version"])
-        self.assertEqual(rows[9], ["l1/10", "r2", "version"])
-        self.assertEqual(rows[10], ["l2/1", "r1", "strong"])
-        self.assertIn("key l2/5: reader=r1 document=version", s.result_lines())
+        self.assertEqual(rows[3], ["l1/4", "r2", "strong"])
+        self.assertEqual(rows[4], ["l1/5", "r1", "weak"])
+        self.assertEqual(rows[7], ["l1/8", "r2", "weak"])
+        self.assertEqual(rows[8], ["l1/9", "r1", "version"])
+        self.assertEqual(rows[13], ["l1/14", "r2", "version"])
+        self.assertEqual(rows[14], ["l2/1", "r1", "strong"])
+        self.assertIn("key l2/9: reader=r1 document=version", s.result_lines())
 
     def test_10_18_read_counts_follow_the_plan(self):
         s = Setup(self, readers=["r1 | fake"], reads_per_reader="2",
@@ -388,30 +402,30 @@ class ReadsCase(unittest.TestCase):
 
         with mock.patch.object(panel, "fake_reply", watching):
             self.assertEqual(s.run().exit_code, 0)
-        self.assertEqual([d for _i, d, _k in seen[:10]],
-                         ["strong", "strong", "weak", "weak"] + ["version"] * 6)
-        self.assertEqual([i for i, _d, _k in seen[10:13]], ["l2/1", "l2/2", "l2/3"])
+        self.assertEqual([d for _i, d, _k in seen[:14]],
+                         ["strong"] * 4 + ["weak"] * 4 + ["version"] * 6)
+        self.assertEqual([i for i, _d, _k in seen[14:17]], ["l2/1", "l2/2", "l2/3"])
         self.assertTrue(all(key for _i, _d, key in seen))
 
     def test_10_12_the_spend_ceiling_cuts_between_reads_after_the_anchors(self):
-        s = Setup(self, fake_reader=RANK, spend_ceiling="6",
+        s = Setup(self, fake_reader=RANK, spend_ceiling="10",
                   rules=["recruiter | " + SIX_PASS, "manager | " + SIX_PASS])
         result = s.frozen_run()
         self.assertEqual(result.exit_code, 1)
-        self.assertEqual((s.reply_count("l1"), s.reply_count("l2")), (6, 0))
+        self.assertEqual((s.reply_count("l1"), s.reply_count("l2")), (10, 0))
         self.assertEqual(s.read(panel.RUN_LOG).splitlines(), [
-            "planned reads: 20", "reads run: 6", "spend: 6", "spend ceiling: 6", "cut: yes",
+            "planned reads: 28", "reads run: 10", "spend: 10", "spend ceiling: 10", "cut: yes",
             "key sha256: " + sha256_of(s.path(panel.KEY_FILE))])
         lines = s.result_lines()
-        self.assertIn("cut: ran 6 of 20 planned reads at spend ceiling 6", lines)
-        self.assertIn("anchor gate l1: passed (strong scores 9, 9, all at least 7; weak "
-                      "scores 2, 2, all at most 4)", lines)
+        self.assertIn("cut: ran 10 of 28 planned reads at spend ceiling 10", lines)
+        self.assertIn("anchor gate l1: passed (strong scores 9, 9, 9, 9, all at least 7; weak "
+                      "scores 2, 2, 2, 2, all at most 4)", lines)
         self.assertIn("rule r1 (l1) count: score at least 7: 2 of 2 valid reads", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
-        self.assertIn("read l1/7: reader=r1 document=version not run", lines)
-        self.assertIn("anchor gate l2: not evaluated (0 valid anchor reads of 4 planned)",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
+        self.assertIn("read l1/11: reader=r1 document=version not run", lines)
+        self.assertIn("anchor gate l2: not evaluated (0 valid anchor reads of 8 planned)",
                       lines)
-        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertIn("exit status: 1", lines)
 
     def test_10_15_the_fake_reader_can_score_by_the_document_text(self):
@@ -422,11 +436,11 @@ class ReadsCase(unittest.TestCase):
         s = Setup(self, fake_reader=blind, rules=["recruiter | " + SIX_PASS])
         self.assertEqual(s.frozen_run().exit_code, 0)
         lines = s.result_lines()
-        self.assertIn("anchor gate l1: passed (strong scores 9, 9, all at least 7; weak "
-                      "scores 1, 1, all at most 4)", lines)
+        self.assertIn("anchor gate l1: passed (strong scores 9, 9, 9, 9, all at least 7; weak "
+                      "scores 1, 1, 1, 1, all at most 4)", lines)
         self.assertIn("scores l1 version: scores=6 total=48 mean=8.00 lowest=8 highest=8",
                       lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         # A rule whose text is in no document leaves the default score of 5.
         t = Setup(self, fake_reader=['score containing "no such text" 9'])
         self.assertEqual(t.frozen_run().exit_code, 0)
@@ -437,9 +451,9 @@ class ReadsCase(unittest.TestCase):
         s = Setup(self, readers=["r1 | fake | not-blind", "r2 | fake"], fake_reader=RANK)
         self.assertEqual(s.frozen_run().exit_code, 0)
         lines = s.result_lines()
-        self.assertIn("read l1/5: reader=r1 document=version score=7 flagged=none "
+        self.assertIn("read l1/9: reader=r1 document=version score=7 flagged=none "
                       "flags=not-blind reader", lines)
-        self.assertIn("read l1/8: reader=r2 document=version score=7 flagged=none flags=none",
+        self.assertIn("read l1/12: reader=r2 document=version score=7 flagged=none flags=none",
                       lines)
         self.assertIn("reads blind readers l1 version: valid=3 of 3 planned", lines)
         self.assertIn("reads not-blind readers l1 version: valid=3", lines)
@@ -464,15 +478,15 @@ class ReadsCase(unittest.TestCase):
     def test_scoring_reads_the_replies_not_the_fake_rules(self):
         s = Setup(self, fake_reader=RANK, rules=["recruiter | " + SIX_PASS])
         self.assertEqual(s.frozen_run().exit_code, 0)
-        with open(os.path.join(s.read_folder("l1", 5), panel.READ_REPLY), "w",
+        with open(os.path.join(s.read_folder("l1", 9), panel.READ_REPLY), "w",
                   encoding="utf-8") as handle:
-            handle.write("READ: l1/5\nSCORE: 2\nDOUBTS: thin\n")
+            handle.write("READ: l1/9\nSCORE: 2\nDOUBTS: thin\n")
         self.assertEqual(s.score().exit_code, 0)
         later = s.result_lines(2)
-        self.assertIn("read l1/5: reader=r1 document=version score=2 flagged=DOUBTS "
+        self.assertIn("read l1/9: reader=r1 document=version score=2 flagged=DOUBTS "
                       "flags=PRIOR missing", later)
         self.assertIn("rule r1 (l1) count: score at least 7: 5 of 6 valid reads", later)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", later)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", later)
 
     def test_10_24_a_second_run_is_refused_and_a_run_needs_a_freeze(self):
         s = Setup(self, fake_reader=RANK)
@@ -499,6 +513,7 @@ class FreezeCase(unittest.TestCase):
             "plan.txt", "posting.txt", "version.txt", "anchor-strong.txt", "anchor-weak.txt",
             "recruiter.lens.txt", "hiring-manager.lens.txt")]
         expected.append("%s  %s" % (panel.prompt_sha256(), panel.PROMPT_LABEL))
+        expected.append("revision: 4")
         self.assertEqual(s.read("plan.txt.freeze").splitlines(), expected)
         self.assertNotEqual(panel.prompt_sha256(), ab.prompt_sha256())
         s.edit("recruiter.lens.txt", lambda text: text + "Be kind.\n")
@@ -561,7 +576,7 @@ class FreezeCase(unittest.TestCase):
         self.assertEqual(first.tree_hashes(), first_hashes)
 
     def test_10_10_documents_that_do_not_differ_stop_the_run_before_reading(self):
-        s = Setup(self, anchors=["strong | anchor-strong.txt", "weak | anchor-strong.txt"])
+        s = Setup(self, anchors=[ANCHORS[0], "weak | anchor-strong.txt | written-by user"])
         self.assertEqual(s.freeze().exit_code, 0)
         result = s.run()
         self.assertEqual(result.exit_code, 2)
@@ -603,28 +618,28 @@ EXAMPLE_PLAN = """\
 posting: posting.txt
 version: resume.txt
 anchors:
-  strong | anchor-strong.txt
-  weak | anchor-weak.txt
+  strong | anchor-strong.txt | written-by user
+  weak | anchor-weak.txt | written-by user
 lenses:
-  recruiter | recruiter.lens.txt
-  hiring-manager | hiring-manager.lens.txt
+  recruiter | recruiter.lens.txt | author-edited-version no
+  hiring-manager | hiring-manager.lens.txt | author-edited-version no
 readers:
   reader-1 | fake
-  reader-2 | /path/to/my-reader.sh --model small | not-blind | cost 3
+  reader-2 | /path/to/my-reader.sh --model small | cost 3
 reads-per-reader: 3
-anchor-reads-per-reader: 1
+anchor-reads-per-reader: 2
 anchor-strong-at-least: 7
 anchor-weak-at-most: 4
 rules:
   recruiter | PASS if score at least 7 in 5 of 6; FAIL if score at most 4 in 2 or more; otherwise INCONCLUSIVE
   hiring-manager | FAIL if DOUBTS flagged in 3 or more; PASS if score at least 7 in 5 of 6; otherwise INCONCLUSIVE
   overall | PASS if score at least 7 in 10 or more; otherwise INCONCLUSIVE
-spend-ceiling: 40
+spend-ceiling: 56
 fake-reader:
   strong | score 9
   weak | score 2
   version | score 7
-  hiring-manager | version | write "no numbers" in DOUBTS | read 5
+  hiring-manager | version | write "no numbers" in DOUBTS | read 9
 """
 
 
@@ -648,11 +663,15 @@ class PlanFileCase(unittest.TestCase):
         self.assertEqual([(r.name, r.command, r.not_blind, r.cost, r.kind)
                           for r in plan.readers],
                          [("reader-1", "fake", False, 1, "fake"),
-                          ("reader-2", "/path/to/my-reader.sh --model small", True, 3, "live")])
+                          ("reader-2", "/path/to/my-reader.sh --model small", False, 3, "live")])
         self.assertEqual((plan.reads_per_reader, plan.anchor_reads_per_reader,
                           plan.strong_at_least, plan.weak_at_most, plan.spend_ceiling,
-                          plan.read_timeout, plan.amends), (3, 1, 7, 4, 40, 600, None))
-        self.assertEqual(plan.reads_per_lens(), 10)
+                          plan.read_timeout, plan.amends), (3, 2, 7, 4, 56, 600, None))
+        self.assertEqual(plan.reads_per_lens(), 14)
+        self.assertEqual(plan.written_by, {"strong": "user", "weak": "user"})
+        self.assertEqual(plan.notes, {})
+        self.assertEqual([(lens.author_edited, lens.criteria) for lens in plan.lenses],
+                         [("no", ()), ("no", ())])
         rules = plan.rules
         self.assertEqual([(r.name, r.lens) for r in rules],
                          [("r1", "l1"), ("r2", "l2"), ("r3", None)])
@@ -672,17 +691,18 @@ class PlanFileCase(unittest.TestCase):
         self.assertEqual((last.kind, last.field, last.text, last.lenses, last.documents,
                           last.on_reads),
                          ("write", "DOUBTS", "no numbers", frozenset(["l2"]),
-                          frozenset(["version"]), frozenset([5])))
+                          frozenset(["version"]), frozenset([9])))
 
     def test_defaults(self):
         plan = panel.parse_text(
-            "posting: p.txt\nversion: v.txt\nanchors:\n  strong | s.txt\n  weak | w.txt\n"
-            "lenses:\n  one | one.txt\nreaders:\n  r | fake\nanchor-strong-at-least: 8\n"
-            "anchor-weak-at-most: 3\n")
+            "posting: p.txt\nversion: v.txt\nanchors:\n  strong | s.txt | written-by user\n"
+            "  weak | w.txt | written-by user\n"
+            "lenses:\n  one | one.txt | author-edited-version no\nreaders:\n  r | fake\n"
+            "anchor-strong-at-least: 8\nanchor-weak-at-most: 3\n")
         self.assertEqual((plan.reads_per_reader, plan.anchor_reads_per_reader,
                           plan.spend_ceiling, plan.read_timeout, plan.amends,
-                          plan.rules, plan.fake_rules), (3, 1, None, 600, None, [], []))
-        self.assertEqual(plan.reads_per_lens(), 5)
+                          plan.rules, plan.fake_rules), (3, 2, None, 600, None, [], []))
+        self.assertEqual(plan.reads_per_lens(), 7)
 
     def test_a_plan_that_names_nothing_lists_every_gap(self):
         tmp = tempfile.TemporaryDirectory()
@@ -704,7 +724,7 @@ class PlanFileCase(unittest.TestCase):
              "anchor-strong-at-least must be a whole number"),
             (dict(anchor_weak_at_most="4.5"), "anchor-weak-at-most",
              "anchor-weak-at-most must be a whole number"),
-            (dict(anchors=["strong | a.txt", "middling | b.txt"]), "middling",
+            (dict(anchors=[ANCHORS[0], "middling | b.txt"]), "middling",
              "an anchor is written: strong | file, or weak | file"),
             (dict(anchors=ANCHORS + ["weak | other.txt"]), "weak | other.txt",
              "the anchor weak is named twice"),
@@ -716,7 +736,10 @@ class PlanFileCase(unittest.TestCase):
              "the lens recruiter is named twice"),
             (dict(lenses=["bad name | x.txt"]), "bad name",
              "a name holds letters, digits and - only: bad name"),
-            (dict(lenses=["one | two | three"]), "one | two", "a lens is written: name | file"),
+            (dict(lenses=["one"]), "one", "a lens is written: name | file"),
+            (dict(lenses=["one | two | three"]), "one | two",
+             "a lens's extra fields may be max <n>, author-edited-version yes or no, and "
+             "criteria <names>, each at most once: three"),
             (dict(rules=["nobody | " + SIX_PASS]), "nobody",
              "a rule is written: <lens> | <rule>, or overall | <rule>, with the lens "
              "written as in lenses"),
@@ -741,8 +764,8 @@ class PlanFileCase(unittest.TestCase):
              "score nine"),
             (dict(fake_reader=["score 9 | strongly"]), "strongly",
              "after the rule comes [| read <k>]: strongly"),
-            (dict(fake_reader=["score 9 | read 11"]), "read 11",
-             "read 11 is outside the arm's reads (1 to 10)"),
+            (dict(fake_reader=["score 9 | read 15"]), "read 15",
+             "read 15 is outside the arm's reads (1 to 14)"),
             (dict(fake_reader=["recruiter | middling | score 9"]), "middling",
              "after the rule comes [| read <k>]: score 9"),
             (dict(fake_reader=['write "x" in NOPE']), "NOPE", "not a reply field: NOPE"),
@@ -794,9 +817,9 @@ class PlanFileCase(unittest.TestCase):
                 "to 2 each and reply with their sum, 0 to 10.\n")
         self.assertEqual(s.frozen_run().exit_code, 0)
         lines = s.result_lines()
-        self.assertIn("anchor gate l1: passed (strong scores 10, 10, all at least 8; weak "
-                      "scores 0, 0, all at most 1)", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("anchor gate l1: passed (strong scores 10, 10, 10, 10, all at least 8; "
+                      "weak scores 0, 0, 0, 0, all at most 1)", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertEqual(panel.parse_reply(reply_text(SCORE="0")).score, 0)
         self.assertIsNone(panel.parse_reply(reply_text(SCORE="0")).failure)
 
@@ -824,9 +847,9 @@ class PlanFileCase(unittest.TestCase):
                   rules=["recruiter | PASS if score at least -1 in 6 of 6; otherwise "
                          "INCONCLUSIVE"])
         self.assertEqual(s.frozen_run().exit_code, 0)
-        self.assertIn("anchor gate l1: passed (strong scores 0, 0, all at least 0; weak "
-                      "scores -5, -5, all at most -5)", s.result_lines())
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", s.result_lines())
+        self.assertIn("anchor gate l1: passed (strong scores 0, 0, 0, 0, all at least 0; weak "
+                      "scores -5, -5, -5, -5, all at most -5)", s.result_lines())
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", s.result_lines())
 
 
 def reply_text(**changes):
@@ -852,7 +875,7 @@ class PlanIntegerCase(unittest.TestCase):
                   else None)
         big = "9" * 5000
         end = "; otherwise INCONCLUSIVE"
-        maximum = "recruiter | recruiter.lens.txt | max %s"
+        maximum = "recruiter | recruiter.lens.txt | author-edited-version no | max %s"
         cases = (
             ("anchor-strong-at-least", dict(anchor_strong_at_least=big), 0, None),
             ("anchor-weak-at-most", dict(anchor_weak_at_most="-" + big), 0, None),
@@ -984,9 +1007,9 @@ class ReplyParserCase(unittest.TestCase):
 
     def test_a_prior_other_than_nothing_is_flagged_in_the_result(self):
         s = Setup(self, fake_reader=RANK + ['recruiter | version | write "a former colleague" '
-                                            'in PRIOR | read 6'])
+                                            'in PRIOR | read 10'])
         self.assertEqual(s.frozen_run().exit_code, 0)
-        self.assertIn("read l1/6: reader=r1 document=version score=7 flagged=none "
+        self.assertIn("read l1/10: reader=r1 document=version score=7 flagged=none "
                       "flags=PRIOR is not nothing: a former colleague", s.result_lines())
 
     def test_a_label_inside_a_line_does_not_start_a_field(self):
@@ -1065,7 +1088,7 @@ class FakeReaderCase(unittest.TestCase):
 class LiveReaderCase(unittest.TestCase):
     def live(self, source, cost=None, **overrides):
         """A setup with a fake reader first and the stub second, one lens, one version read
-        and one anchor read each per document."""
+        each and the default of two anchor reads each per document."""
         reader = "r2 | " + stub_command(self, source)
         if cost is not None:
             reader += " | cost %d" % cost
@@ -1085,8 +1108,8 @@ class LiveReaderCase(unittest.TestCase):
         self.assertFalse(os.path.exists(marker))
         self.assertIn("reader r2: ", result.text)
         self.assertIn("(cost 3 per read)", result.text)
-        self.assertIn("planned reads: 6\n", result.text)
-        self.assertIn("estimated spend: 12 (the sum of the planned reads' declared costs; "
+        self.assertIn("planned reads: 10\n", result.text)
+        self.assertIn("estimated spend: 20 (the sum of the planned reads' declared costs; "
                       "the tool cannot see real spend)\n", result.text)
         self.assertIn("nothing was started and no reply was written", result.text)
         self.assertEqual(sorted(os.listdir(s.folder)), sorted(
@@ -1136,8 +1159,9 @@ class LiveReaderCase(unittest.TestCase):
         self.assertEqual(s.freeze().exit_code, 0)
         result = s.run(live=True)
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        # Read 2 of l1 is the stub's read of the strong anchor; read 6 its read of the version.
-        for number, document in ((2, "anchor-strong.txt"), (6, "version.txt")):
+        # Read 3 of l1 is the stub's first read of the strong anchor; read 10 its read of the
+        # version.
+        for number, document in ((3, "anchor-strong.txt"), (10, "version.txt")):
             reply = panel.parse_reply(s.read(panel.READS_DIR, "l1", str(number),
                                              panel.READ_REPLY))
             self.assertIsNone(reply.failure)
@@ -1153,7 +1177,7 @@ class LiveReaderCase(unittest.TestCase):
             prompt = [line.split("  ", 1)[0] for line in s.read("plan.txt.freeze").splitlines()
                       if line.endswith("  " + panel.PROMPT_LABEL)]
             self.assertEqual(prompt, [doubts["prompt"]])
-        self.assertEqual(sorted(os.listdir(s.read_folder("l1", 6))),
+        self.assertEqual(sorted(os.listdir(s.read_folder("l1", 10))),
                          ["DOCUMENT.txt", "LENS.txt", "POSTING.txt", "PROMPT.txt",
                           "REPLY.txt", "STDERR.txt"])
 
@@ -1165,14 +1189,16 @@ class LiveReaderCase(unittest.TestCase):
         result = s.frozen_run(live=True)
         self.assertEqual(result.exit_code, 1)
         self.assertEqual(result.error.splitlines(), [
-            "failed read l1/2: exit status 3", "failed read l1/4: exit status 3",
-            "failed read l1/6: exit status 3"])
+            "failed read l1/3: exit status 3", "failed read l1/4: exit status 3",
+            "failed read l1/7: exit status 3", "failed read l1/8: exit status 3",
+            "failed read l1/10: exit status 3"])
         lines = s.result_lines()
-        self.assertIn("read l1/6: reader=r2 document=version FAILED (exit status 3)", lines)
-        self.assertIn("anchor gate l1: not evaluated (2 valid anchor reads of 4 planned)",
+        self.assertIn("read l1/10: reader=r2 document=version FAILED (exit status 3)", lines)
+        self.assertIn("anchor gate l1: not evaluated (4 valid anchor reads of 8 planned)",
                       lines)
-        self.assertEqual(s.read(panel.READS_DIR, "l1", "6", panel.READ_STDERR), "stub failed\n")
-        self.assertFalse(s.exists(panel.READS_DIR, "l1", "6", panel.READ_REPLY))
+        self.assertEqual(s.read(panel.READS_DIR, "l1", "10", panel.READ_STDERR),
+                         "stub failed\n")
+        self.assertFalse(s.exists(panel.READS_DIR, "l1", "10", panel.READ_REPLY))
         self.assertIn("exit status: 1", lines)
 
     def test_a_live_reply_is_scored_like_any_other(self):
@@ -1184,10 +1210,11 @@ class LiveReaderCase(unittest.TestCase):
         self.assertEqual((result.exit_code, result.error), (0, ""))
         lines = s.result_lines()
         # The stub scores every document 9, so the gate fails on its weak read.
-        self.assertIn("read l1/6: reader=r2 document=version score=9 flagged=STRENGTHS,OWNED "
+        self.assertIn("read l1/10: reader=r2 document=version score=9 flagged=STRENGTHS,OWNED "
                       "flags=none", lines)
-        self.assertIn("anchor gate l1: failed (weak read l1/4 scored 9, above 4)", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]", lines)
+        self.assertIn("anchor gate l1: failed (weak read l1/7 scored 9, above 4; weak read "
+                      "l1/8 scored 9, above 4)", lines)
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]", lines)
 
 
 class CliCase(unittest.TestCase):
@@ -1233,7 +1260,7 @@ class CliCase(unittest.TestCase):
         self.assertEqual((code, out, err), (0, "freeze written: plan.txt.freeze\n", ""))
         code, out, err = track("panel", "run", s.plan_path)
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]\n", out)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]\n", out)
         self.assertIn("lens l1: counted\n", out)
         self.assertEqual(out, s.read("result-1.txt"))
         code, out, err = track("panel", "score", s.plan_path)
@@ -1246,7 +1273,8 @@ class CliCase(unittest.TestCase):
         code, out, err = track("panel", "run", s.plan_path)
         self.assertEqual((code, err), (1, ""))
         self.assertIn("failed read l2/1: missing SCORE\n", out)
-        t = Setup(self, anchors=["strong | anchor-weak.txt", "weak | anchor-weak.txt"])
+        t = Setup(self, anchors=["strong | anchor-weak.txt | written-by user",
+                                 "weak | anchor-weak.txt | written-by user"])
         self.assertEqual(track("panel", "freeze", t.plan_path)[0], 0)
         code, out, err = track("panel", "run", t.plan_path)
         self.assertEqual((code, out), (2, ""))
@@ -1255,11 +1283,11 @@ class CliCase(unittest.TestCase):
         self.assertFalse(t.exists("reads"))
 
     def test_a_plan_error_is_one_line_per_problem_and_writes_no_freeze(self):
-        s = Setup(self, fake_reader=["score 9 | read 11"])
+        s = Setup(self, fake_reader=["score 9 | read 15"])
         code, out, err = track("panel", "freeze", s.plan_path)
         self.assertEqual((code, out), (2, ""))
-        self.assertEqual(err, "cannot run: plan line %d: read 11 is outside the arm's reads "
-                              "(1 to 10)\n" % s.line_of("read 11"))
+        self.assertEqual(err, "cannot run: plan line %d: read 15 is outside the arm's reads "
+                              "(1 to 14)\n" % s.line_of("read 15"))
         self.assertFalse(s.exists("plan.txt.freeze"))
 
 

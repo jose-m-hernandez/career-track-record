@@ -8,14 +8,15 @@ Every lens also reads two anchors you supply: a document you wrote to be plainly
 posting: posting.txt
 version: resume.txt
 anchors:
-  strong | anchor-strong.txt
-  weak | anchor-weak.txt
+  strong | anchor-strong.txt | written-by user
+  weak | anchor-weak.txt | written-by user
 lenses:
-  recruiter | recruiter.lens.txt
-  hiring-manager | hiring-manager.lens.txt
+  recruiter | recruiter.lens.txt | author-edited-version no
+  hiring-manager | hiring-manager.lens.txt | author-edited-version no
 readers:
   reader-1 | fake
   reader-2 | /path/to/my-reader.sh | cost 3
+anchor-reads-per-reader: 2
 anchor-strong-at-least: 7
 anchor-weak-at-most: 4
 rules:
@@ -28,7 +29,7 @@ fake-reader:
   version | score 7
 ```
 
-Each reader reads the version three times per lens and each anchor once, unless the plan says otherwise. A rule names its lens, or `overall` for every counted lens, and tests scores or flagged fields: a field such as `DOUBTS` is flagged when the reader wrote anything there but `none`. The reader sees the posting, the lens and one document, and nothing says whether that document is an anchor or your version.
+Each reader reads the version three times per lens and each anchor twice, unless the plan says otherwise. A rule names its lens, or `overall` for every counted lens, and tests scores or flagged fields: a field such as `DOUBTS` is flagged when the reader wrote anything there but `none`. The reader sees the posting, the lens and one document, and nothing says whether that document is an anchor or your version.
 
 The tool has the same three subcommands as `ab`:
 
@@ -36,7 +37,7 @@ The tool has the same three subcommands as `ab`:
     track-record panel run plan.txt [--live]
     track-record panel score plan.txt
 
-The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 3). How far to trust a score: [scoring](scoring.md). Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md).
+The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`, and `run` and `score` also exit 2 for a plan frozen under an earlier revision. The spec is signed (revision 4). How far to trust a score: [scoring](scoring.md). Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md).
 
 ## Five lenses and a confirming pass
 
@@ -51,3 +52,14 @@ The anchors still apply. Every lens reads your strong and weak anchors, and a le
 Keep each dropped flag in your notes, with the reason. If the same flag comes up next round, you can see it was looked at and found unsupported, and you don't spend another pass on it.
 
 What a command does here: `panel` runs the five lenses, applies the anchor gate and reports flagged fields. The confirming pass isn't a `panel` feature. Run it by hand, or as a second `panel` plan, which is frozen by hash like any other. Either way it is a choice you make; no command asks for it.
+
+## Plan keys added in revision 4
+
+- `written-by <who>`, a field on each anchor's line: `user`, `third-party`, `unknown`, or `model <family>` (more than one as a comma list, `model fam-a, model fam-b`), required, and it may be followed by `| note <text>`, free text that runs to the end of the line. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1.
+- `author-edited-version yes` or `no`, a field on each lens's line: whether whoever wrote the lens's rubric also wrote or edited the version, required, printed in the result and changing no verdict. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1.
+- `criteria <A>,<B>,...`, a field on a lens's line: the criteria its rubric scores, each read as `CRITERION-<name>` and summed by the tool, which ignores any `SCORE` field in such a reply. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1 and § 5.4.
+- `calibration-only: yes`: reads only the anchors through every lens and no version, so a lens can be fixed before any version is read. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1 and § 6.
+- `calibration: <freeze file>`: names a calibration run of the same lenses, and a lens that failed it is not counted; a run that reads the version and names none reports its scores as uncalibrated. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1 and § 6.
+- `extends: <freeze file>`: a new run of a first run's plan that may change only the sample size, pools the first run's reads with its own and prints the first run's verdict beside the pooled one. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.2.
+- The headroom check: a rule's PASS through a `score at least` clause is INCONCLUSIVE when the strong anchor's median score is not above the version's, or when the lens has fewer than 3 valid strong-anchor reads to tell. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 6.
+- `anchor-reads-per-reader` now defaults to 2, where it was 1, so that two readers give the 4 reads of each anchor that the headroom check can use. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1.
