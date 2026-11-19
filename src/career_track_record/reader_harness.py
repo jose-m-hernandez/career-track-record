@@ -339,15 +339,34 @@ def relative(folder, path):
     return os.path.relpath(path, folder)
 
 
+# A file a command creates anew is opened so that a link standing at its path is never
+# followed: exclusive create, and no following of a link at the last component.
+NEW_FILE_FLAGS = (os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_NOFOLLOW", 0))
+
+
+def open_new(path, binary, **text_options):
+    """Open ``path``, which must not exist, for writing, never following a link at its last
+    component. Text is UTF-8 with the line ends left as written. Raises OSError (a name in
+    use is a FileExistsError, as ``open(path, "x")`` raised it)."""
+    descriptor = os.open(path, NEW_FILE_FLAGS, 0o666)
+    try:
+        if binary:
+            return os.fdopen(descriptor, "wb")
+        return os.fdopen(descriptor, "w", **text_options)
+    except BaseException:
+        os.close(descriptor)
+        raise
+
+
 def write_new(folder, path, data, taken=False):
     """Create ``path`` (which must not exist) holding ``data``, text or bytes. Any OSError is a
     RunFolderError, except that with ``taken`` a name already in use is raised as it is."""
     try:
         if isinstance(data, bytes):
-            with open(path, "xb") as handle:
+            with open_new(path, True) as handle:
                 handle.write(data)
         else:
-            with open(path, "x", encoding="utf-8", newline="") as handle:
+            with open_new(path, False, encoding="utf-8", newline="") as handle:
                 handle.write(data)
     except FileExistsError:
         if taken:

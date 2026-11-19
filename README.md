@@ -1,6 +1,6 @@
 # career-track-record
 
-Eight checks for the career copy you send. Open the repository in your own AI agent and ask in plain words. To try one now, go to [First run](#first-run).
+Eight checks for the career copy you send, and a setup command. Open the repository in your own AI agent and ask in plain words. To try one now, go to [First run](#first-run).
 
 ## The tools
 
@@ -14,6 +14,7 @@ Eight checks for the career copy you send. Open the repository in your own AI ag
 | `track-record record` | Do the tables of my record still point at each other? | [record](docs/guides/record.md) |
 | `track-record drafts` | Which version of this letter is the current one, and is the file that keeps them still in order? | [drafts](docs/guides/drafts.md) |
 | `track-record panel` | How does this one draft read to a recruiter, and to the hiring manager? | [panel](docs/guides/panel.md) |
+| `track-record setup` | Where do my files live, so `keywords`, `barred`, `tone` and `claims` find them without a path? It asks in a terminal; without one, give `--folder PATH`. | run `track-record setup --help` |
 
 Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking.
 
@@ -64,6 +65,8 @@ Then point it at your own files: `track-record barred --list your-list.txt --con
 
 New to the reader tests or the keyword scan? Try [Your first A/B test](docs/guides/ab.md#your-first-ab-test) and the [keywords worked example](docs/guides/keywords.md#a-worked-example), which come with invented files under `examples/`.
 
+To set up your record folder, run track-record setup.
+
 ## Exit codes
 
 Every tool exits 0, 1 or 2; what each means per tool:
@@ -83,7 +86,7 @@ Every tool exits 0, 1 or 2; what each means per tool:
 - **No network library in the package.** No tool under `src/` imports a network or mail library, and a [test](tests/test_no_network.py), which scans `src/` only, fails if one does. The example reader under `examples/` is outside the package and outside that test.
 - **The rules are fixed before the answer.** A Reader A/B or reader panel plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
-The tools start only two kinds of outside program: `pdftotext`, to read a PDF, and, in `track-record ab` and `track-record panel` only, a reader command you name yourself. That command runs only when you add `--live`, and the package ships no live reader (the built-in `fake` reader only tests a plan). The example reader under `examples/readers/` is not part of the package: it starts `codex`, or `claude` only when you name it (as the first argument or in `MODEL_READER_CLI`), and either reaches the network and spends your own plan. A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
+The tools start only three kinds of outside program: `pdftotext`, to read a PDF; `git`, which `track-record setup` and the check that runs before a command writes into your record folder use to ask whether git tracks or ignores that folder; and, in `track-record ab` and `track-record panel` only, a reader command you name yourself. That command runs only when you add `--live`, and the package ships no live reader (the built-in `fake` reader only tests a plan). The example reader under `examples/readers/` is not part of the package: it starts `codex`, or `claude` only when you name it (as the first argument or in `MODEL_READER_CLI`), and either reaches the network and spends your own plan. A reader command can do whatever its program does, including reaching the network, so choose it with care. Apart from that command, the tools can't submit an application, publish a post or send a message for you. None of this covers what your AI agent does on its own or what you share with your AI provider.
 
 Notice for 0.10.2 through 0.10.4: If you use the example reader from 0.10.2 through 0.10.4 with the `claude` option and your Claude Code has claude.ai connectors, don't run it on text you don't trust; upgrade to 0.10.5, or don't use that option. If you already ran it on untrusted text with connectors on, review your connectors' recent activity.
 

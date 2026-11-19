@@ -1336,7 +1336,7 @@ usage: track-record barred [--list FILE] [--control TEXT]... [--strip-comments]
 
 Report wording from your own barred list, by entry number only.
 
-  --list FILE       the list file (default: $BARRED_STRINGS_PATH)
+  --list FILE       the list file (default: $BARRED_STRINGS_PATH, else your record folder)
   --control TEXT    a string each file must hold (repeatable, any one counts)
   --strip-comments  strip comments and note values before matching
   --min-chars N     the minimum length of each file (default 500)

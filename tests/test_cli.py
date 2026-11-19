@@ -347,7 +347,8 @@ class TopLevelHelpListsToolsCli(CliBase):
                 "    barred    report wording from your own barred list",
                 "    tone      flag hype, hedges and filler in your copy",
                 "    ab        compare two versions of your copy with test readers",
-                "    claims    fail on sentences your claims list hasn't approved"):
+                "    claims    fail on sentences your claims list hasn't approved",
+                "    setup     choose your record folder"):
             with self.subTest(line=line):
                 self.assertIn(line, lines)
 
