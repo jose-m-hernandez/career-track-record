@@ -6,6 +6,12 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-19
+
+### Added
+
+- `track-record parse --name TEXT [--contact TEXT]... [--sections LIST] [--min-page-chars N] FILE...` shows what a program that reads a PDF's text gets from your résumé PDF: whether there is text on every page, whether your name and contact details are on page 1, which common English section headings it can see, how many date formats your date ranges use, and whether a hyphenated word is split across two lines. A file with no selectable text, or in which `--name` is not found, is DEAD, never OK; exit 2 is not a pass. It reads each PDF twice with `pdftotext`, in its default mode and its layout mode, reads no configuration and writes nothing. It ships `data/section-names.txt`, the list of section headings, and `examples/good.pdf`, an invented résumé the guide runs on. Guide: [parse](docs/guides/parse.md). Spec: [docs/specs/parse.md](docs/specs/parse.md).
+
 ## [0.13.0] - 2026-11-19
 
 ### Added

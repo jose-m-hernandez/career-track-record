@@ -85,10 +85,16 @@ class PackagingCase(unittest.TestCase):
                 data_name = "career_track_record/data/tone-default.json"
                 self.assertIn(data_name, held, held)
                 shipped = wheel.read(data_name)
+                sections_name = "career_track_record/data/section-names.txt"
+                self.assertIn(sections_name, held, held)
+                shipped_sections = wheel.read(sections_name)
             source_path = os.path.join(REPO_ROOT, "src", "career_track_record", "data",
                                        "tone-default.json")
             with open(source_path, "rb") as handle:
                 self.assertEqual(shipped, handle.read())
+            with open(os.path.join(REPO_ROOT, "src", "career_track_record", "data",
+                                   "section-names.txt"), "rb") as handle:
+                self.assertEqual(shipped_sections, handle.read())
             self.assertIn("career_track_record/__init__.py", held, held)
             for module in ("keywords", "posting_file", "cli", "barred", "pdf_text"):
                 self.assertIn("career_track_record/%s.py" % module, held, held)

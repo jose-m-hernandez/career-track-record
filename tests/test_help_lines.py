@@ -41,6 +41,7 @@ _TOP_ROWS = (
     ("drafts", "check a file of a document's versions, or extract one"),
 )
 _WRAPPED = "find hyphenated words split across two lines in a PDF"
+_PARSE = "check what a text extractor gets from your résumé PDF"
 
 
 def _top_help(column, wrap, options):
@@ -49,6 +50,7 @@ def _top_help(column, wrap, options):
         rows += "    wrapped-compounds\n" + " " * column + _WRAPPED + "\n"
     else:
         rows += ("    wrapped-compounds").ljust(column) + _WRAPPED + "\n"
+    rows += "    parse".ljust(column) + _PARSE + "\n"
     rows += "    setup".ljust(column) + "choose your record folder\n"
     return (_TOP_HEAD + rows + "\n" + options + ":\n" + "  -h, --help".ljust(column) +
             "show this help message and exit\n")
@@ -109,17 +111,18 @@ class HelpLines(unittest.TestCase):
                 self.assertEqual(help_of(command),
                                  self.base[command].replace(OLD[command], NEW[command]))
 
-    def test_s39_the_top_level_help_adds_setup_and_wrapped_compounds_and_nothing_else(self):
-        """Two lines are added to the eight of the base: setup, then (above it)
-        wrapped-compounds. The name is longer than any other, so argparse widens the
-        description column of every line and, on 3.9, wraps its own line: the spaces change,
-        the words do not. The exact text is pinned per interpreter in TOP_HELP, and the
-        words alone (spaces collapsed) must be the base's words with the two new entries."""
+    def test_s39_the_top_level_help_adds_setup_parse_and_wrapped_compounds_and_nothing_else(self):
+        """Three lines are added to the eight of the base: setup, then (above it) parse, then
+        (above that) wrapped-compounds. The name wrapped-compounds is longer than any other,
+        so argparse widens the description column of every line and, on 3.9, wraps its own
+        line: the spaces change, the words do not. The exact text is pinned per interpreter in TOP_HELP, and the
+        words alone (spaces collapsed) must be the base's words with the three new entries."""
         text = help_of("")
         before = self.base["(top)"]
         eight = [line for line in before.splitlines() if line.startswith("    ")]
         self.assertEqual(len(eight), 8)
         added = ("    wrapped-compounds  find hyphenated words split across two lines in a PDF\n"
+                 "    parse     " + _PARSE + "\n"
                  "    setup     choose your record folder\n")
         expected_words = before.replace(eight[-1] + "\n", eight[-1] + "\n" + added)
         self.assertEqual(text.split(), expected_words.split())
@@ -130,6 +133,12 @@ class HelpLines(unittest.TestCase):
         self.assertEqual(words.count("wrapped-compounds"), 1)
         self.assertLess(words.index("drafts"), words.index("wrapped-compounds"))
         self.assertLess(words.index("wrapped-compounds"), words.index("setup"))
+
+    def test_the_top_level_help_names_parse_once_between_wrapped_compounds_and_setup(self):
+        words = help_of("").split()
+        self.assertEqual(words.count("parse"), 1)
+        self.assertLess(words.index("wrapped-compounds"), words.index("parse"))
+        self.assertLess(words.index("parse"), words.index("setup"))
 
     def test_the_new_lines_are_the_ones_the_code_pins(self):
         from career_track_record import cli

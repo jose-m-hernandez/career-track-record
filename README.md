@@ -1,6 +1,6 @@
 # career-track-record
 
-Nine checks for the career copy you send, and a setup command. Open the repository in your own AI agent and ask in plain words. To try one now, go to [First run](#first-run).
+Ten checks for the career copy you send, and a setup command. Open the repository in your own AI agent and ask in plain words. To try one now, go to [First run](#first-run).
 
 ## The tools
 
@@ -15,6 +15,7 @@ Nine checks for the career copy you send, and a setup command. Open the reposito
 | `track-record drafts` | Which version of this letter is the current one, and is the file that keeps them still in order? | [drafts](docs/guides/drafts.md) |
 | `track-record panel` | How does this one draft read to a recruiter, and to the hiring manager? | [panel](docs/guides/panel.md) |
 | `track-record wrapped-compounds` | Does my PDF split a hyphenated word across two lines, so a text search misses it? | [wrapped-compounds](docs/guides/wrapped-compounds.md) |
+| `track-record parse` | What text comes out of my résumé PDF when a program reads it? | [parse](docs/guides/parse.md) |
 | `track-record setup` | Where do my files live, so `keywords`, `barred`, `tone` and `claims` find them without a path? It asks in a terminal; without one, give `--folder PATH`. | run `track-record setup --help` |
 
 Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking.
@@ -62,7 +63,7 @@ You should see this:
 
 `clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
 
-Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other eight tools are under [The tools](#the-tools).
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other nine tools are under [The tools](#the-tools).
 
 New to the reader tests or the keyword scan? Try [Your first A/B test](docs/guides/ab.md#your-first-ab-test) and the [keywords worked example](docs/guides/keywords.md#a-worked-example), which come with invented files under `examples/`.
 
@@ -81,6 +82,7 @@ Every tool exits 0, 1 or 2; what each means per tool:
 - `track-record drafts`: Exit 0 means every rule holds, 1 means a fault that `check` reports or `extract` refuses, and 2 means a DEAD check or that the command could not run.
 - `track-record panel`: The exit codes are those of `ab`.
 - `track-record wrapped-compounds`: Exit 0 means no split hyphenated word needs a fix, 1 means at least one finding, and 2 means a file is DEAD or the command could not run. 2 is not a pass.
+- `track-record parse`: Exit 0 means every file is OK, 1 means at least one finding and no file is DEAD, and 2 means a file is DEAD or the command could not run. 2 is not a pass.
 
 ## Why you can trust a result
 

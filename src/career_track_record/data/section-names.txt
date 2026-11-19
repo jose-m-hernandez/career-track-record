@@ -1,0 +1,31 @@
+# Common English section headings, one per line: <family><TAB><heading>.
+# Read by `track-record parse`. Blank lines and lines starting with # are ignored.
+experience	experience
+experience	work experience
+experience	professional experience
+experience	relevant experience
+experience	employment
+experience	employment history
+experience	work history
+experience	career history
+education	education
+education	education and training
+education	academic background
+skills	skills
+skills	technical skills
+skills	core skills
+skills	key skills
+skills	skills and tools
+summary	summary
+summary	professional summary
+summary	profile
+summary	about
+summary	about me
+summary	objective
+projects	projects
+projects	selected projects
+projects	personal projects
+certifications	certifications
+certifications	certificates
+certifications	licenses and certifications
+certifications	licences and certifications

@@ -246,6 +246,48 @@ def page3wrap_pdf():
                       [["a zebra-", "word here"] + [PAD_LINE] * 12]])
 
 
+PARSE_GOOD_PAGE1 = [
+    "Ada Example",
+    "ada@example.com",
+    "Experience",
+    "Built reporting tools for small teams.",
+    "Wrote guides for new staff.",
+    "Jan 2020 - Present",
+    "Mar 2017 - Dec 2019",
+    "Jun 2014 - Feb 2017",
+    "Education",
+    "Studied data analysis at Example College.",
+    "Finished a short course in writing.",
+    "Skills",
+    "Reporting and charts.",
+    "Clear writing and teaching.",
+]
+
+
+def parse_good_pdf():
+    """The base fixture of docs/specs/parse.md (spec 1, section 7), also examples/good.pdf:
+    page 1 holds the name, an email, three headings and three date ranges; page 2 holds
+    the padding line six times. ASCII only."""
+    return pages_pdf([[PARSE_GOOD_PAGE1], [[PAD_LINE] * 6]])
+
+
+def parse_name_page2_pdf():
+    """The name and the email are on page 2 only; page 1 holds two headings and one range."""
+    page1 = ["Experience", "Built reporting tools for small teams.", "Jan 2020 - Present",
+             "Skills", "Reporting and charts."]
+    return pages_pdf([[page1], [["Ada Example", "ada@example.com"] + [PAD_LINE] * 3]])
+
+
+def parse_empty_page2_pdf():
+    """The base fixture's page 1, then a page 2 with no text (an image-only page)."""
+    return pages_pdf([[PARSE_GOOD_PAGE1], [[""]]])
+
+
+def parse_empty_pdf():
+    """One page with no text."""
+    return pages_pdf([[[""]]])
+
+
 def main(argv):
     if len(argv) != 2:
         sys.stderr.write("usage: make_fixtures.py OUTDIR\n")

@@ -1133,11 +1133,12 @@ class HelpCases(SetupCase):
                               stdin=subprocess.DEVNULL)
         text = done.stdout.decode("utf-8")
         self.assertEqual((done.returncode, done.stderr), (0, b""))
-        # wrapped-compounds sits between the eight and setup (tests/test_help_lines.py pins
-        # the exact spacing); its long name widens every column, so compare by words.
+        # wrapped-compounds and parse sit between the eight and setup (tests/test_help_lines.py
+        # pins the exact spacing); the long name widens every column, so compare by words.
         words = " ".join(text.split())
         self.assertIn(" ".join(EIGHT.split()) + " wrapped-compounds find hyphenated words "
-                      "split across two lines in a PDF setup choose your record folder ", words)
+                      "split across two lines in a PDF parse check what a text extractor gets from your résumé PDF "
+                      "setup choose your record folder ", words)
         self.assertEqual(text.count("\n    setup "), 1)
 
     def test_a_name_that_only_starts_like_setup_is_not_setup(self):
