@@ -6,8 +6,8 @@ import re
 import sys
 
 from career_track_record import (ab, barred, claims, config, drafts, keywords, panel,
-                                 reader_harness, record_check, setup_cmd, tone, write_guard,
-                                 wrapped_compounds)
+                                 parse, reader_harness, record_check, setup_cmd, tone,
+                                 write_guard, wrapped_compounds)
 
 
 class _MissingRequired(Exception):
@@ -97,6 +97,9 @@ def _build_parser():
     # (_parse_wrapped).
     top.add_parser("wrapped-compounds",
                    help="find hyphenated words split across two lines in a PDF",
+                   add_help=False)
+    # Listed for --help only: main() hands "parse" to its own parser (_parse_options).
+    top.add_parser("parse", help="check what a text extractor gets from your r\u00e9sum\u00e9 PDF",
                    add_help=False)
     # Listed for --help only: main() hands "setup" to its own parser (_parse_setup).
     top.add_parser("setup", help="choose your record folder", add_help=False)
@@ -225,6 +228,35 @@ word needs a fix. It checks nothing else about the file.
                   repeatable; if none appears the file is reported DEAD
                   (it could not be checked), never OK
   -h, --help      show this summary and exit
+
+exit: 0 no finding, 1 a finding, 2 no verdict (a file is DEAD, or the command
+      could not run); 2 is not a pass
+"""
+
+_PARSE_HELP = """\
+usage: track-record parse --name TEXT [--contact TEXT]... [--sections LIST]
+                          [--min-page-chars N] FILE...
+
+Shows what a program that reads a PDF's text gets from your résumé: whether
+there is text on every page, whether your name and contact details are on
+page 1, which common English section headings (such as Experience or Skills)
+it can see, how many date formats your date ranges use, and whether a
+hyphenated word is split across two lines.
+
+It cannot tell what any particular hiring system will accept. A file can
+pass here and still be misread by one.
+
+  --name TEXT          your name as it appears in the PDF (required); if it is
+                       not found the file is reported DEAD (it could not be
+                       checked)
+  --contact TEXT       an email, phone number or link, written as it appears
+                       in the PDF, that should be on page 1; repeatable
+  --sections LIST      section families that must appear, separated by commas
+                       (default: experience,skills); families: experience,
+                       education, skills, summary, projects, certifications
+  --min-page-chars N   a page with fewer letters or digits than this is
+                       reported as having little or no text (default 20)
+  -h, --help           show this summary and exit
 
 exit: 0 no finding, 1 a finding, 2 no verdict (a file is DEAD, or the command
       could not run); 2 is not a pass
@@ -622,6 +654,64 @@ def _main_wrapped(args):
         _out(_WRAPPED_HELP)
         return 0
     result = wrapped_compounds.run(files=opts["files"], controls=opts["controls"])
+    if not result.ran:
+        _err(result.error + "\n")
+        return result.exit_code
+    _out(result.text)
+    return result.exit_code
+
+
+_PARSE_VALUE_OPTIONS = ("--name", "--contact", "--sections", "--min-page-chars")
+
+
+def _parse_options(args):
+    """Parse the options of ``parse`` (usage errors 1 to 3 of its spec, left to right). The
+    checks of the values are the run's. Raises _OptionError on any problem."""
+    if _asks_for_help(args, _PARSE_VALUE_OPTIONS, _PARSE_VALUE_OPTIONS):
+        return {"help": True}
+    found = {"name": None, "contacts": [], "sections": None, "min_page_chars": None,
+             "files": []}
+    seen = set()
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            found["files"].extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            found["files"].append(arg)
+            continue
+        name, equals, value = arg.partition("=")
+        if name not in _PARSE_VALUE_OPTIONS:
+            raise _OptionError("unknown option %s" % barred.printed_path(arg))
+        if not equals:
+            if i >= len(args) or args[i] in _PARSE_VALUE_OPTIONS:
+                raise _OptionError("%s needs a value" % name)
+            value = args[i]
+            i += 1
+        if name == "--contact":
+            found["contacts"].append(value)
+            continue
+        if name in seen:
+            raise _OptionError("%s given twice" % name)
+        seen.add(name)
+        found[name[2:].replace("-", "_")] = value
+    return found
+
+
+def _main_parse(args):
+    """No configuration is read: the only inputs are the arguments and the files."""
+    try:
+        opts = _parse_options(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_PARSE_HELP)
+        return 0
+    result = parse.run(files=opts["files"], name=opts["name"], contacts=opts["contacts"],
+                       sections=opts["sections"], min_page_chars=opts["min_page_chars"])
     if not result.ran:
         _err(result.error + "\n")
         return result.exit_code
@@ -1031,6 +1121,8 @@ def _main(argv, environ):
         return _main_drafts(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "wrapped-compounds":
         return _main_wrapped(argv[1:])
+    if argv and argv[0] == "parse":
+        return _main_parse(argv[1:])
     if argv and argv[0] == "setup":
         return _main_setup(argv[1:], os.environ if environ is None else environ)
     return _main_keywords(argv, os.environ if environ is None else environ)

@@ -14,9 +14,10 @@ EXEMPT = "EXEMPT"
 SPEC_REVISIONS = {
     "barred.md": "8",
     "claims.md": "2.1",
-    "cli.md": "9",
+    "cli.md": "10",
     "drafts.md": "1",
     "keyword-scan.md": EXEMPT,
+    "parse.md": "5",
     "reader-ab-aa-band.md": "1",
     "reader-ab.md": "4",
     "reader-panel.md": "4",

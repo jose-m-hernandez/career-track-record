@@ -100,7 +100,7 @@ ARGPARSE_ERRORS = [
     ("UNKNOWN_COMMAND", ["nonsense"],
      "usage: track-record [-h] command ...\n"
      "track-record: error: argument command: invalid choice: 'nonsense' (choose from "
-     "'keywords', 'barred', 'tone', 'ab', 'claims', 'panel', 'record', 'drafts', 'wrapped-compounds', 'setup')\n"),
+     "'keywords', 'barred', 'tone', 'ab', 'claims', 'panel', 'record', 'drafts', 'wrapped-compounds', 'parse', 'setup')\n"),
     ("MISSING_OPTION_AND_FILE", ["keywords", "coverage"],
      "usage: track-record keywords coverage [-h] --terms FILE [--keep-notes]\n"
      "                                      FILE [FILE ...]\n"
