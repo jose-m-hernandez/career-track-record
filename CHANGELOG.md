@@ -6,6 +6,17 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-19
+
+### Added
+
+- `track-record wrapped-compounds --control TEXT FILE...` finds hyphenated words that are split across two lines in a PDF, such as `well-` and `known`, which some programs that read a PDF's text join into `wellknown`. It reads each PDF twice with `pdftotext`, in its layout mode and its default mode, and prints one line per split word with one of three markers: `(finding)`, `(note: ...)` for a long word your word processor broke that also appears unbroken elsewhere, and `(no join found, not a finding)`. A file with no selectable text, or in which no `--control` text is found, is DEAD, never OK; exit 2 is not a pass. It reads no configuration and writes nothing. Guide: [wrapped-compounds](docs/guides/wrapped-compounds.md). Spec: [docs/specs/wrapped-compounds.md](docs/specs/wrapped-compounds.md).
+- `pdftotext` joins the two halves at a wrapped hyphen, as measured on poppler 26.07.0; the check is built on that.
+
+### Changed
+
+- The top-level help (`track-record --help`) now lists `wrapped-compounds`. Its name, 17 characters, is longer than the others, so the description column of every line in that list is wider than before. On Python 3.9 the name stands on its own line with its description below it; on Python 3.14, in a terminal 50 columns wide or more, the name and its description stay on one line. No other command's own help or output changes; the error that `track-record` prints for an unknown command now names `wrapped-compounds` among the choices.
+
 ## [0.12.0] - 2026-11-19
 
 ### Added

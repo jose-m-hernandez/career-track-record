@@ -6,7 +6,8 @@ import re
 import sys
 
 from career_track_record import (ab, barred, claims, config, drafts, keywords, panel,
-                                 reader_harness, record_check, setup_cmd, tone, write_guard)
+                                 reader_harness, record_check, setup_cmd, tone, write_guard,
+                                 wrapped_compounds)
 
 
 class _MissingRequired(Exception):
@@ -91,6 +92,11 @@ def _build_parser():
                    add_help=False)
     # Listed for --help only: main() hands "drafts" to its own parser (_parse_drafts).
     top.add_parser("drafts", help="check a file of a document's versions, or extract one",
+                   add_help=False)
+    # Listed for --help only: main() hands "wrapped-compounds" to its own parser
+    # (_parse_wrapped).
+    top.add_parser("wrapped-compounds",
+                   help="find hyphenated words split across two lines in a PDF",
                    add_help=False)
     # Listed for --help only: main() hands "setup" to its own parser (_parse_setup).
     top.add_parser("setup", help="choose your record folder", add_help=False)
@@ -203,6 +209,25 @@ Report wording from your own barred list, by entry number only.
   -h, --help        show this summary and exit
 
 exit: 0 all clean, 1 barred wording found, 2 a DEAD file or cannot run
+"""
+
+_WRAPPED_HELP = """\
+usage: track-record wrapped-compounds --control TEXT [--control TEXT]... FILE...
+
+Checks a PDF for hyphenated words (such as well-known) that are split across
+two lines. Some programs that read a PDF's text join the two halves into one
+word ("wellknown"), so a text search misses it even though the page looks right.
+
+Run it on the final PDF, after your last edit. Exit 0 means no split hyphenated
+word needs a fix. It checks nothing else about the file.
+
+  --control TEXT  text that must appear in the file, such as your name;
+                  repeatable; if none appears the file is reported DEAD
+                  (it could not be checked), never OK
+  -h, --help      show this summary and exit
+
+exit: 0 no finding, 1 a finding, 2 no verdict (a file is DEAD, or the command
+      could not run); 2 is not a pass
 """
 
 _TONE_HELP = """\
@@ -546,6 +571,57 @@ def _main_barred(args, environ):
     result = barred.run(list_path=list_path, files=opts["files"],
                         controls=opts["controls"], strip_comments=opts["strip"],
                         min_chars=opts["min_chars"])
+    if not result.ran:
+        _err(result.error + "\n")
+        return result.exit_code
+    _out(result.text)
+    return result.exit_code
+
+
+def _parse_wrapped(args):
+    """Parse the options of ``wrapped-compounds`` as ``barred``'s are parsed. Raises
+    _OptionError on any problem; an unknown option outranks a missing value."""
+    if _asks_for_help(args, ("--control",), ("--control",)):
+        return {"help": True}
+    controls = []
+    files = []
+    missing = None
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            files.extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            files.append(arg)
+            continue
+        name, equals, value = arg.partition("=")
+        if name != "--control":
+            raise _OptionError("unknown option")
+        if not equals:
+            if i >= len(args) or args[i] == "--control":
+                missing = missing or _OptionError("--control needs a value")
+                continue
+            value = args[i]
+            i += 1
+        controls.append(value)
+    if missing is not None:
+        raise missing
+    return {"controls": controls, "files": files}
+
+
+def _main_wrapped(args):
+    """No configuration is read: the only inputs are the arguments and the files."""
+    try:
+        opts = _parse_wrapped(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_WRAPPED_HELP)
+        return 0
+    result = wrapped_compounds.run(files=opts["files"], controls=opts["controls"])
     if not result.ran:
         _err(result.error + "\n")
         return result.exit_code
@@ -953,6 +1029,8 @@ def _main(argv, environ):
         return _main_record(argv[1:])
     if argv and argv[0] == "drafts":
         return _main_drafts(argv[1:], os.environ if environ is None else environ)
+    if argv and argv[0] == "wrapped-compounds":
+        return _main_wrapped(argv[1:])
     if argv and argv[0] == "setup":
         return _main_setup(argv[1:], os.environ if environ is None else environ)
     return _main_keywords(argv, os.environ if environ is None else environ)

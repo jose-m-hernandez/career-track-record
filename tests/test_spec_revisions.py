@@ -14,7 +14,7 @@ EXEMPT = "EXEMPT"
 SPEC_REVISIONS = {
     "barred.md": "8",
     "claims.md": "2.1",
-    "cli.md": "7",
+    "cli.md": "9",
     "drafts.md": "1",
     "keyword-scan.md": EXEMPT,
     "reader-ab-aa-band.md": "1",
@@ -23,6 +23,7 @@ SPEC_REVISIONS = {
     "record-check.md": "1",
     "series.md": "1",
     "tone-and-tells.md": "6",
+    "wrapped-compounds.md": "6",
 }
 
 REVISION_LINE = re.compile(r"^Revision: (\d+(?:\.\d+)*)\.( |$)")
