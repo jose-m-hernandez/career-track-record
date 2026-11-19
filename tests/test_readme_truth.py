@@ -105,6 +105,21 @@ class ReadmeTruthTest(unittest.TestCase):
                       "- `min-valid-reads`", "- `replicate-of`", "- `reader-group <name>`"):
             self.assertEqual(len([s for s in section if s.startswith(start)]), 1, start)
 
+    def test_the_panel_guide_lists_the_revision_4_plan_keys(self):
+        lines = read(PANEL_GUIDE).split("\n")
+        heading = "## Plan keys added in revision 4"
+        self.assertEqual(lines.count(heading), 1)
+        section = []
+        for line in lines[lines.index(heading) + 1:]:
+            if line.startswith("## "):
+                break
+            section.append(line)
+        for start in ("- `written-by <who>`", "- `author-edited-version yes`", "- `criteria <A>",
+                      "- `calibration-only: yes`", "- `calibration: <freeze file>`",
+                      "- `extends: <freeze file>`", "- The headroom check",
+                      "- `anchor-reads-per-reader` now defaults to 2"):
+            self.assertEqual(len([s for s in section if s.startswith(start)]), 1, start)
+
     def test_the_sensitivity_line_quotes_the_signed_limit(self):
         bullets = [l for l in read(AB_GUIDE).split("\n") if l.startswith("- `sensitivity: X vs W`")]
         self.assertEqual(len(bullets), 1)

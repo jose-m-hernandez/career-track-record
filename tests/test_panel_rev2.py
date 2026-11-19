@@ -31,8 +31,8 @@ class PlanKeysCase(unittest.TestCase):
                 self.assertRefused(s, "null-share", share)
         for value in ("x", "7.5"):
             with self.subTest(max=value):
-                s = Setup(self, lenses=["recruiter | recruiter.lens.txt | max " + value,
-                                        LENSES[1]])
+                s = Setup(self, lenses=["recruiter | recruiter.lens.txt | author-edited-version "
+                                        "no | max " + value, LENSES[1]])
                 self.assertRefused(s, "max " + value,
                                    "a lens's max is a whole number: " + value)
         with self.subTest(sidedness="both"):
@@ -40,15 +40,18 @@ class PlanKeysCase(unittest.TestCase):
             self.assertRefused(s, "sidedness:", "sidedness is two, greater or less")
 
     def test_10_32_a_max_below_the_strong_threshold_is_refused(self):
-        s = Setup(self, lenses=["recruiter | recruiter.lens.txt | max 6", LENSES[1]])
+        s = Setup(self, lenses=["recruiter | recruiter.lens.txt | author-edited-version no | "
+                                "max 6", LENSES[1]])
         self.assertRefused(s, "max 6", "max 6 is below anchor-strong-at-least (7)")
 
     def test_good_values_are_kept(self):
-        s = Setup(self, lenses=["recruiter | recruiter.lens.txt | max 10", LENSES[1]])
+        s = Setup(self, lenses=["recruiter | recruiter.lens.txt | author-edited-version no | "
+                                "max 10", LENSES[1]])
         self.assertEqual(s.freeze().exit_code, 0)
         self.assertEqual(s.plan.lenses[0].max, 10)
         self.assertIsNone(s.plan.lenses[1].max)
-        s = Setup(self, lenses=["recruiter | recruiter.lens.txt | max 7", LENSES[1]])
+        s = Setup(self, lenses=["recruiter | recruiter.lens.txt | author-edited-version no | "
+                                "max 7", LENSES[1]])
         self.assertEqual(s.freeze().exit_code, 0)
         self.assertEqual(s.plan.lenses[0].max, 7)
         s = Setup(self, rules=["recruiter | " + SIX_PASS + " | null-share 2/4"])
@@ -64,8 +67,8 @@ class PlanKeysCase(unittest.TestCase):
         self.assertEqual(Setup(self).plan.sidedness, "two")
 
     def test_the_old_three_field_messages_still_hold(self):
-        s = Setup(self, lenses=["one | two | three"])
-        self.assertRefused(s, "one | two | three", "a lens is written: name | file")
+        s = Setup(self, lenses=["one"])
+        self.assertRefused(s, "one", "a lens is written: name | file")
         s = Setup(self, rules=["recruiter | " + SIX_PASS + " | extra"])
         self.assertRefused(s, "| extra", "a rule is written: <lens> | <rule>, or overall | "
                            "<rule>, with the lens written as in lenses")
@@ -91,7 +94,7 @@ class EvidenceCase(unittest.TestCase):
                       "95% interval 0.609 to 1.000", lines)
         self.assertIn("rule r1 (l1) evidence: score at most 4: 0 of 6 counted reads; "
                       "95% interval 0.000 to 0.391", lines)
-        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]", lines)
+        self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]", lines)
         self.assertEqual([x for x in lines if "p = " in x], [])
 
     def test_10_30_p_against_a_declared_share(self):
@@ -112,7 +115,7 @@ class EvidenceCase(unittest.TestCase):
                 if second is not None:
                     self.assertIn("rule r1 (l1) evidence: score at most 4: 0 of 6 counted "
                                   "reads; " + second + tail % "0.000 to 0.391", lines)
-                self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out]",
+                self.assertIn("rule r1 (l1) verdict: PASS [not blind: 0 reads left out] [uncalibrated]",
                               lines)
 
     def test_10_35_not_blind_counts(self):
@@ -121,8 +124,8 @@ class EvidenceCase(unittest.TestCase):
             rules=["recruiter | " + SIX_PASS,
                    "overall | PASS if score at least 7 in 12 of 12; otherwise INCONCLUSIVE"])
         self.assertEqual((result.exit_code, result.error), (0, ""))
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 3 reads left out]", lines)
-        self.assertIn("rule r2 (overall) verdict: INCONCLUSIVE [not blind: 6 reads left out]",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 3 reads left out] [uncalibrated]", lines)
+        self.assertIn("rule r2 (overall) verdict: INCONCLUSIVE [not blind: 6 reads left out] [uncalibrated]",
                       lines)
 
     def test_10_36_exactly_one_validity_line(self):
@@ -148,7 +151,7 @@ class EvidenceCase(unittest.TestCase):
             rules=["recruiter | " + SIX_PASS, "manager | " + SIX_PASS + " | null-share 1/2"])
         self.assertIn("rule r2 (l2) evidence: score at least 7: 0 of 0 counted reads; "
                       "interval not computed", lines)
-        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out]",
+        self.assertIn("rule r2 (l2) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]",
                       lines)
         self.assertEqual([x for x in lines if x.startswith("rule r2") and "p = " in x], [])
 
@@ -162,7 +165,7 @@ class EvidenceCase(unittest.TestCase):
 class MissingReadsCase(unittest.TestCase):
     """Revision 2 section 6.1: missing reads, completions and the DEAD line."""
 
-    ONE_MISSING = RANK + ["recruiter | version | omit SCORE | read 5"]
+    ONE_MISSING = RANK + ["recruiter | version | omit SCORE | read 9"]
 
     def done(self, **overrides):
         s = Setup(self, **overrides)
@@ -180,7 +183,7 @@ class MissingReadsCase(unittest.TestCase):
         self.assertIn("missing l2 version: 0 of 6 planned reads (failed 0, not run 0)", lines)
         self.assertIn("rule r1 (l1) completions (missing reads: 1): unsettled: PASS, "
                       "INCONCLUSIVE possible", lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]",
                       lines)
         self.assertEqual([x for x in lines if x.startswith("DEAD:")], [])
 
@@ -188,11 +191,11 @@ class MissingReadsCase(unittest.TestCase):
         s, result, lines = self.done(fake_reader=["omit SCORE"],
                                      rules=["recruiter | " + SIX_PASS])
         self.assertEqual(result.exit_code, 1)
-        self.assertIn("DEAD: 0 of 20 planned reads are valid", lines)
+        self.assertIn("DEAD: 0 of 28 planned reads are valid", lines)
         for arm in ("l1", "l2"):
-            self.assertIn("anchor gate %s: not evaluated (0 valid anchor reads of 4 planned)"
+            self.assertIn("anchor gate %s: not evaluated (0 valid anchor reads of 8 planned)"
                           % arm, lines)
-        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out]",
+        self.assertIn("rule r1 (l1) verdict: INCONCLUSIVE [not blind: 0 reads left out] [uncalibrated]",
                       lines)
         self.assertEqual([x for x in lines if " completions (" in x], [])
 
@@ -271,7 +274,8 @@ class ScaleCase(unittest.TestCase):
     def test_10_32_room_above_the_strong_anchor(self):
         s, result, lines = self.done(
             fake_reader=RANK_9, rules=[RULE_6],
-            lenses=["recruiter | recruiter.lens.txt | max 10", "manager | hiring-manager.lens.txt"])
+            lenses=["recruiter | recruiter.lens.txt | author-edited-version no | max 10",
+                    LENSES[1]])
         self.assertIn("scores l1 room above the strong anchor: 1 (scale maximum 10)", lines)
         self.assertEqual([x for x in lines if x.startswith("scores l2 room above")], [])
 
@@ -279,7 +283,8 @@ class ScaleCase(unittest.TestCase):
         s, result, lines = self.done(
             fake_reader=RANK_9 + ["recruiter | strong | score 8 | read 1"],
             rules=["recruiter | " + SIX_PASS],
-            lenses=["recruiter | recruiter.lens.txt | max 10", "manager | hiring-manager.lens.txt"])
+            lenses=["recruiter | recruiter.lens.txt | author-edited-version no | max 10",
+                    LENSES[1]])
         self.assertIn("scores l1 version against strong anchor: lowest version score 7, "
                       "highest strong-anchor score 9", lines)
         self.assertIn("scores l1 room above the strong anchor: 1 (scale maximum 10)", lines)
@@ -287,14 +292,15 @@ class ScaleCase(unittest.TestCase):
     def test_room_not_assessable_without_a_strong_read(self):
         s, result, lines = self.done(
             fake_reader=RANK_9 + ["recruiter | strong | omit SCORE"], rules=[RULE_6],
-            lenses=["recruiter | recruiter.lens.txt | max 10", "manager | hiring-manager.lens.txt"])
+            lenses=["recruiter | recruiter.lens.txt | author-edited-version no | max 10",
+                    LENSES[1]])
         self.assertIn("scores l1 room above the strong anchor: not assessable "
                       "(scale maximum 10)", lines)
         self.assertIn("scores l1 version against strong anchor: not assessable", lines)
 
     def test_a_spread(self):
         s, result, lines = self.done(
-            fake_reader=RANK_9 + ["recruiter | version | score 8 | read 5"], rules=[RULE_6])
+            fake_reader=RANK_9 + ["recruiter | version | score 8 | read 9"], rules=[RULE_6])
         self.assertIn("scores l1 version spread: 1 (highest 8, lowest 7)", lines)
         self.assertNotIn(SAME % "l1", lines)
 

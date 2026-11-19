@@ -61,7 +61,8 @@ class Result(object):
     """What a call produced. ``text`` is what the command prints; ``error`` holds the
     problem lines joined with a line feed, without a final one."""
 
-    def __init__(self, exit_code, ran, text="", error="", stopped=None, warnings=""):
+    def __init__(self, exit_code, ran, text="", error="", stopped=None, warnings="",
+                 refusal=None):
         self.exit_code = exit_code
         self.ran = ran
         self.text = text
@@ -72,6 +73,10 @@ class Result(object):
         # The escaped reason when the run stopped early (the command writes it to standard
         # error as one ``cannot run: stopped: <reason>`` line), else None.
         self.stopped = stopped
+        # One line, without a line feed, that the command prints as it is (it already carries
+        # its own ``refused: `` or ``cannot run: ``) instead of the ``cannot run: `` form of
+        # ``error``: the record-folder check of the series file. None for every other result.
+        self.refusal = refusal
 
     def __repr__(self):
         return "Result(exit_code=%r, ran=%r, error=%r)" % (
@@ -437,17 +442,19 @@ def reply_files(folder):
     return found
 
 
-def freeze(plan_path, parse, inputs, prompt_digest):
+def freeze(plan_path, parse, inputs, prompt_digest, prompt_forms=(), record_lines=()):
     """Read the plan with ``parse``, hash it and every input ``inputs(plan, plan_path)`` names
     (ordered (label, path) pairs), and write the freeze file beside it. Every plan problem is
-    found here. ``prompt_digest`` is the sha256 of the command's built-in prompt."""
+    found here. ``prompt_digest`` is the sha256 of the command's built-in prompt.
+    ``prompt_forms`` are further (label, digest) pairs written after the prompt's own line,
+    and ``record_lines`` are lines written after them; both default to nothing."""
     try:
-        return _freeze(plan_path, parse, inputs, prompt_digest)
+        return _freeze(plan_path, parse, inputs, prompt_digest, prompt_forms, record_lines)
     except RunFolderError as exc:
         return Result(2, False, error=exc.line)
 
 
-def _freeze(plan_path, parse, inputs, prompt_digest):
+def _freeze(plan_path, parse, inputs, prompt_digest, prompt_forms=(), record_lines=()):
     try:
         plan = parse(plan_path)
     except PlanError as exc:
@@ -461,6 +468,7 @@ def _freeze(plan_path, parse, inputs, prompt_digest):
             problems.append("missing input: %s" % show(label))
         hashes.append((label, digest))
     hashes.append((PROMPT_LABEL, prompt_digest))
+    hashes.extend(prompt_forms)
     if getattr(plan, "replicate_of", None) is not None:
         problems += replicate_problems(plan_path, plan, inputs, parse)
     for name in freeze_files(folder):
@@ -472,7 +480,8 @@ def _freeze(plan_path, parse, inputs, prompt_digest):
         return Result(2, False, error="\n".join(problems))
     name = os.path.basename(plan_path) + FREEZE_SUFFIX
     write_new(folder, os.path.join(folder, name),
-              "".join("%s  %s\n" % (digest, label) for label, digest in hashes))
+              "".join("%s  %s\n" % (digest, label) for label, digest in hashes)
+              + "".join("%s\n" % line for line in record_lines))
     return Result(0, True, text="freeze written: %s\n" % show(name),
                   warnings=reader_warnings(getattr(plan, "readers", ())))
 
@@ -589,11 +598,13 @@ def read_freeze(path):
     return entries
 
 
-def verify(plan_path, parse, inputs, prompt_digest, with_prompt):
+def verify(plan_path, parse, inputs, prompt_digest, with_prompt, prompt_forms=()):
     """Check the freeze against the files. Returns (plan or None, problems, recorded hashes
     by label, hash of the freeze file). The plan is parsed only when its own hash matches
-    the freeze, so a plan edited after the freeze is named and never read."""
+    the freeze, so a plan edited after the freeze is named and never read. Each of
+    ``prompt_forms`` (label, digest) is compared as the prompt is."""
     folder = folder_of(plan_path)
+    forms = dict(prompt_forms)
     freeze_path = plan_path + FREEZE_SUFFIX
     freeze_name = os.path.basename(freeze_path)
     if not os.path.isfile(freeze_path):
@@ -610,6 +621,10 @@ def verify(plan_path, parse, inputs, prompt_digest, with_prompt):
     def compare(label, digest):
         if label == PROMPT_LABEL:
             if with_prompt and digest != prompt_digest:
+                problems.append("changed since the freeze: %s" % show(label))
+            return
+        if label in forms:
+            if with_prompt and digest != forms[label]:
                 problems.append("changed since the freeze: %s" % show(label))
             return
         path = os.path.join(folder, label)
@@ -641,7 +656,13 @@ def verify(plan_path, parse, inputs, prompt_digest, with_prompt):
             problems.append("not covered by the freeze: %s" % PROMPT_LABEL)
     else:
         compare(PROMPT_LABEL, recorded[PROMPT_LABEL])
-    labels = set(label for label, _path in expected) | set([PROMPT_LABEL])
+    for label, _digest in prompt_forms:
+        if label not in recorded:
+            if with_prompt:
+                problems.append("not covered by the freeze: %s" % label)
+        else:
+            compare(label, recorded[label])
+    labels = set(label for label, _path in expected) | set([PROMPT_LABEL]) | set(forms)
     for label in sorted(recorded):
         if label not in labels:
             problems.append("the freeze names a file the plan does not: %s" % show(label))
@@ -943,12 +964,14 @@ def key_problems(folder, width):
     return []
 
 
-def score(plan_path, parse, inputs, prompt_digest, key_width, score_and_write):
+def score(plan_path, parse, inputs, prompt_digest, key_width, score_and_write,
+          prompt_forms=()):
     """Score the replies in the run folder again, against the frozen plan: the checks every
     ``score`` subcommand makes, then ``score_and_write(plan, recorded, freeze_hash)``."""
     try:
         plan, problems, recorded, freeze_hash = verify(plan_path, parse, inputs,
-                                                       prompt_digest, with_prompt=False)
+                                                       prompt_digest, with_prompt=False,
+                                                       prompt_forms=prompt_forms)
         folder = folder_of(plan_path)
         if plan is not None and not problems:
             for name in (KEY_FILE, RUN_LOG):

@@ -1,4 +1,4 @@
-"""Pin test: the build interpretations after the signed text of docs/specs/reader-ab.md (revision 4) and docs/specs/reader-panel.md (revision 3.1)."""
+"""Pin test: the build interpretations after the signed text of docs/specs/reader-ab.md (revision 4) and docs/specs/reader-panel.md (revision 4)."""
 
 import hashlib
 import os
@@ -11,12 +11,16 @@ BEGIN = "<!-- signed spec begins"
 END = "<!-- signed spec ends -->"
 HEADINGS = {
     "reader-ab.md": "## Build interpretations of revision 4 (maintainer, 2026-11-15)",
-    "reader-panel.md": "## Build interpretations of revision 3 (maintainer, 2026-11-10)",
+    "reader-panel.md": "## Build interpretations of revision 4 (maintainer, 2026-11-18)",
+    "reader-ab-aa-band.md": "## Build interpretations of revision 1 (maintainer, 2026-11-18)",
+    "series.md": "## Build interpretations of revision 1 (maintainer, 2026-11-18)",
 }
 
 BLOCK_SHA = {
     "reader-ab.md": "ef5492839202bdaf53a9dbd523c4f9c080f5da9088cc50334b4025b14a306589",
-    "reader-panel.md": "81e6106c69e18c4fc96edf59bea0f758d654e085a7a7cabbb9099795683f21cf",
+    "reader-panel.md": "2f1c3091058ff6086f91a78fd78115329c146ad27a3c918b2a932a4a3224dc71",
+    "reader-ab-aa-band.md": "5a5d13c04abb239252cf981f5040dd86c3a901f4db0cfb31114e54a22f0422a7",
+    "series.md": "aca76ec47091352ab291613a861e0efaacffcf0e00a562cc19639da400a8a037",
 }
 
 # Signed blocks pinned without a build-interpretations section after them, so the section tests skip them.
@@ -76,18 +80,58 @@ PANEL_RESTORED = {
     "point_5": ["printed for every lens, whether it is counted or not"],
     "point_6": ["Each lens's score lines follow its flag counts"],
 }
-PANEL_REVISION_3 = [
-    "counts blind readers only",
+PANEL_REVISION_4 = [
+    "headroom is not applied inside them",
+    "the headroom and calibration medians",
     "counts every reader's reads",
     "reads blind readers <arm> version",
     "no per-reader score line",
     "whether or not that lens is counted",
     "a lens that is not counted gives its rule 0 counted reads",
+    "headroom is applied after it",
     "A settled INCONCLUSIVE lifts nothing",
-    "the freeze rules of reader-ab.md",
+    "carries the revision 4 fields",
     "the first run's own anchor gates",
     "capped at 1",
-    "anchors included",
+    "so 10.44 counts 14 per reader",
+    "joined by a comma and one space exactly",
+    "An empty piece inside a note is part of its text",
+    "each at most once, in any order",
+    "is never read as a score, whatever it holds",
+    "each distinct criteria list, in lens order, adds the line",
+    "does not hold exactly one line `revision: 4`",
+    "a PASS through a flagged-field clause, and every FAIL and INCONCLUSIVE, are left alone",
+    "`calibration only: no version read` follows the `counted lenses` line",
+    "a calibration-only plan reads no version, so it takes no rules",
+    "A failed calibration is the reason a lens is not counted even when its anchor gate failed too",
+    "must equal the old count times N'/N",
+    "a reader name both plans use must name the same model",
+    "a fake reader's `cost` is never kept",
+    "found by looking beside the extension's own folder",
+    "no other difference is accepted",
+    "A read with no reply, not run or written by a reader that wrote nothing, is not a reply",
+    "so a criteria reply with `SCORE` twice loses its criterion fields",
+    "when at least one completion that reaches PASS does so through",
+    "or on the `calibration-only` line when `rules` has no item",
+    "ends with that plan's file as the plan's own line writes it",
+]
+
+AA_BAND_REVISION_1 = [
+    "prints no `lifted from INCONCLUSIVE` reason line",
+    "built with the same fake-reader lines as its first run",
+    "Its pooled A/A count is 4 of 12 pairs",
+    "checks that no result line is of a kind revision 4 does not write",
+    "A TIE never prints a disagreement flag",
+]
+SERIES_REVISION_1 = [
+    "printed, never written to the result file",
+    "goes to standard error",
+    "A temp file takes the mode of the series file it replaces",
+    "A plan with `series` and no hypotheses is refused at freeze",
+    "skips the parent-date refusal for an already recorded plan",
+    "The clock is a parameter",
+    "The series write is checked against the setup record folder",
+    "A `series-note` without `series` is refused at freeze",
 ]
 
 
@@ -102,6 +146,15 @@ ERRATA = {
         "E5": "`freeze` does not refuse it, as in revision 3.\"",
     },
     "keyword-scan.md": {"E3": "Every cited line can be checked word for word against the saved copy of the posting"},
+}
+
+
+ERRATA_HEADING_1118 = "## Errata (maintainer, 2026-11-18)"
+
+ERRATA_1118 = {
+    "reader-ab-aa-band.md": {
+        "E6": "Correction: T16 is built as follows, and the signed inputs cannot occur",
+    },
 }
 
 
@@ -122,6 +175,12 @@ def errata_of(name):
     """The errata section: from its heading to the end of the file."""
     text = read_spec(name)
     return text[text.index(ERRATA_HEADING):]
+
+
+def errata_of_1118(name):
+    """The 2026-11-18 errata section: from its heading to the end of the file."""
+    text = read_spec(name)
+    return text[text.index(ERRATA_HEADING_1118):]
 
 
 class SpecReadingsCase(unittest.TestCase):
@@ -178,10 +237,20 @@ class SpecReadingsCase(unittest.TestCase):
             with self.subTest(phrase=phrase):
                 self.assertOnce("reader-ab.md", phrase)
 
-    def test_panel_revision_3_readings(self):
-        for phrase in PANEL_REVISION_3:
+    def test_panel_revision_4_readings(self):
+        for phrase in PANEL_REVISION_4:
             with self.subTest(phrase=phrase):
                 self.assertOnce("reader-panel.md", phrase)
+
+    def test_aa_band_revision_1_readings(self):
+        for phrase in AA_BAND_REVISION_1:
+            with self.subTest(phrase=phrase):
+                self.assertOnce("reader-ab-aa-band.md", phrase)
+
+    def test_series_revision_1_readings(self):
+        for phrase in SERIES_REVISION_1:
+            with self.subTest(phrase=phrase):
+                self.assertOnce("series.md", phrase)
 
     def test_errata_sections_follow_the_signed_text_once_each(self):
         for name in ERRATA:
@@ -198,6 +267,24 @@ class SpecReadingsCase(unittest.TestCase):
             for number, phrase in entries.items():
                 with self.subTest(name=name, entry=number):
                     section = errata_of(name)
+                    self.assertEqual(section.count("**%s. " % number), 1)
+                    self.assertEqual(section.count(phrase), 1, phrase)
+
+    def test_errata_1118_sections_follow_the_signed_text_once_each(self):
+        for name in ERRATA_1118:
+            with self.subTest(name=name):
+                text = read_spec(name)
+                self.assertEqual(text.count(ERRATA_HEADING_1118), 1)
+                self.assertGreater(text.index(ERRATA_HEADING_1118), text.index(END))
+                if name in HEADINGS:
+                    self.assertGreater(text.index(ERRATA_HEADING_1118),
+                                       text.index(HEADINGS[name]))
+
+    def test_each_erratum_1118_entry_is_present_once(self):
+        for name, entries in ERRATA_1118.items():
+            for number, phrase in entries.items():
+                with self.subTest(name=name, entry=number):
+                    section = errata_of_1118(name)
                     self.assertEqual(section.count("**%s. " % number), 1)
                     self.assertEqual(section.count(phrase), 1, phrase)
 
