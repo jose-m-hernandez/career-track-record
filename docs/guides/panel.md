@@ -1,6 +1,6 @@
 # `track-record panel`
 
-Read one version of a résumé, or any career document, through several lenses: each a reader in a role you name, such as a recruiter or the hiring manager, given as a plain-text prompt file you write. Readers are the same as in `track-record ab`: a command you name, or the built-in `fake`. The plan is frozen by hash before the first read, lens files included.
+Read one version of a résumé, or any career document, through several lenses: each a reader in a role you name, such as a recruiter or the hiring manager, given as a plain-text prompt file you write. A reader is a command you name, or the built-in `fake`, as in `track-record ab`; but a `panel` read folder holds different files from an `ab` one, and [Write a reader of your own](#write-a-reader-of-your-own) says which. The plan is frozen by hash before the first read, lens files included.
 
 Every lens also reads two anchors you supply: a document you wrote to be plainly strong for the posting, and one you wrote to be plainly weak. If a lens does not score the strong anchor at or above `anchor-strong-at-least` and the weak anchor at or below `anchor-weak-at-most`, on every anchor read, that lens's reads of your version are reported INCONCLUSIVE and not counted. The anchors do for the panel what the control read does for `ab`: a lens that shows nothing also shows whether it could see anything. This plan is invented:
 
@@ -63,3 +63,67 @@ What a command does here: `panel` runs the five lenses, applies the anchor gate 
 - `extends: <freeze file>`: a new run of a first run's plan that may change only the sample size, pools the first run's reads with its own and prints the first run's verdict beside the pooled one. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.2.
 - The headroom check: a rule's PASS through a `score at least` clause is INCONCLUSIVE when the strong anchor's median score is not above the version's, or when the lens has fewer than 3 valid strong-anchor reads to tell. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 6.
 - `anchor-reads-per-reader` now defaults to 2, where it was 1, so that two readers give the 4 reads of each anchor that the headroom check can use. Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md) § 3.1.
+
+## Write a reader of your own
+
+A reader is a program that the plan's reader line names. The tool runs it once per read, with the read folder as its working folder and no argument, and whatever it prints on standard output is the reply. The rules that are the same for `ab` and `panel` are in the [`ab` guide](ab.md#write-a-reader-of-your-own); this section is what differs for `panel`. The question of whether the reader may know who you are is the one in "Is the reader blind?" there, and it applies here too.
+
+**The folder.** When your reader starts, a `panel` read folder holds these four files, all text, and nothing else:
+
+| File | What it holds |
+| --- | --- |
+| `PROMPT.txt` | The tool's instructions. They name the fields the reply must hold, so read them. |
+| `LENS.txt` | Your lens file, as you wrote it: the role to read in. `PROMPT.txt` tells the reader to score on the scale this file gives, so the scale belongs in it. |
+| `POSTING.txt` | The posting. |
+| `DOCUMENT.txt` | The one document to read: a strong anchor, a weak anchor or your version. Nothing in the folder says which. |
+
+An `ab` read folder holds `A.txt`, `B.txt`, `POSTING.txt` and `PROMPT.txt` instead, so a reader written for one cannot read the other as it stands. `examples/readers/model_reader.py` reads both, and tells them apart by the files present.
+
+**The reply.** The reply is a list of fields. Each field starts a line as `FIELD: value`, with the name in capitals as written, and runs to the next line that starts a field. Text before the first field is ignored.
+
+| Field | Value |
+| --- | --- |
+| `READ` | Anything. Required; the value is not checked. |
+| `PRIOR` | `nothing`. Any other value, or no `PRIOR` field, is flagged on that read. |
+| `SCORE` | One whole number, on the scale `LENS.txt` gives. Required, unless the lens names `criteria`. |
+| `CRITERION-<name>` | Only for a lens that names `criteria`: one whole number for each criterion, in place of `SCORE`. The tool adds them. `PROMPT.txt` lists them. |
+| `STRENGTHS`, `DOUBTS`, `UNDERSOLD`, `OVEREXPLAINED`, `OWNED`, `FLAG-FIXES` | Free text. Write exactly `none` when there is nothing material. Any other text there is flagged, and a plan's rules can count flagged fields. |
+
+A reply with no `READ`, with no `SCORE` or a `SCORE` that is not a whole number (for a lens with criteria, a criterion in place of `SCORE`), or with any field twice is a failed read. The result lists it as `failed read <arm>/<k>: <reason>`, for example `failed read l1/2: missing SCORE`, and it counts as no score. A reader that exits with a status other than 0 also gives a failed read, and its output is not scored. Do not write `REPLY.txt` or `STDERR.txt` into the folder: the tool writes both, and a read in which your reader wrote either is a failed read.
+
+**A skeleton.** This placeholder reads the four files, calls no model, opens no network connection and prints a reply in the format above. It follows `PROMPT.txt` as far as telling a lens with criteria from one without. Its score only counts the posting's words that the document repeats; your own judgement goes where the comments say. Save it as `my_panel_reader.py`:
+
+```python
+#!/usr/bin/env python3
+"""A placeholder panel reader: put your own judgement where the marked lines are."""
+import re
+
+
+def read(name):
+    with open(name, encoding="utf-8") as handle:
+        return handle.read()
+
+
+prompt = read("PROMPT.txt")  # the instructions the tool wrote; they name every field to write
+lens = read("LENS.txt")  # the role you read in; it gives the scale (this placeholder ignores it)
+posting, document = read("POSTING.txt"), read("DOCUMENT.txt")
+
+# Placeholder judgement: count the posting's words that the document repeats.
+words = set(re.findall(r"[a-z]+", posting.lower()))
+count = len(words & set(re.findall(r"[a-z]+", document.lower())))
+score = max(0, min(10, count))  # your lens gives the real scale; change 0 and 10 to match it
+
+print("READ: placeholder")
+print("PRIOR: nothing")
+criteria = re.findall(r"^(CRITERION-[A-Za-z0-9-]+):", prompt, re.MULTILINE)
+for field in criteria or ["SCORE"]:  # a lens with criteria is scored on CRITERION-<name> fields
+    print("%s: %d" % (field, score))
+for field in ("STRENGTHS", "DOUBTS", "UNDERSOLD", "OVEREXPLAINED", "OWNED", "FLAG-FIXES"):
+    print(field + ": none")
+```
+
+A `panel` reader line takes `not-blind`, `cost <n>` and `reader-group <name>`, and no `family`:
+
+    reader-1 | python3 /full/path/to/my_panel_reader.py | cost 1
+
+To try a reader before you spend anything, run a plan with only `fake` readers, then run your reader by hand inside one of the folders it made, `reads/l1/1/` in the run folder. It should print a reply that the fields above describe.

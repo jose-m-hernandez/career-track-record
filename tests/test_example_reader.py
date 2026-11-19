@@ -138,7 +138,16 @@ class ModelReaderCase(unittest.TestCase):
             self.assertEqual(out, REPLY)
             call = self.call("codex")
             self.assertEqual(call["args"][:1], ["exec"])
-            self.assertEqual(call["args"][call["args"].index("--sandbox") + 1], "read-only")
+            reply = call["args"][call["args"].index("--output-last-message") + 1]
+            profile = ('permissions.reader.filesystem={":minimal"="read", ":workspace_roots"='
+                       '{"."="read"}, ":slash_tmp"="none", ":tmpdir"="none", "%s"="read"}'
+                       % os.path.realpath(self.fake_dir))
+            self.assertEqual(call["args"], [
+                "exec", "--skip-git-repo-check", "--ephemeral", "--ignore-user-config",
+                "--disable", "apps", "--color", "never", "-c", 'approval_policy="never"', "-c",
+                'default_permissions="reader"', "-c", profile, "-c",
+                "shell_environment_policy.inherit=none", "--output-last-message", reply, "-"])
+            self.assertNotIn("--sandbox", call["args"])
             self.assertEqual(call["args"][call["args"].index("-c") + 1],
                              'approval_policy="never"')
             self.assertEqual(call["args"][call["args"].index("--color") + 1], "never")
