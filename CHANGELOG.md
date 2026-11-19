@@ -6,6 +6,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.10.7] - 2026-11-18
+
+### Added
+
+- Method guides: [grades](docs/guides/grades.md), [scoring](docs/guides/scoring.md), [testing a review](docs/guides/testing-a-review.md), [tailoring](docs/guides/tailoring.md), [recall tests](docs/guides/recall.md) and [a structure read](docs/guides/structure-read.md), a section in the [claims guide](docs/guides/claims.md) on how far a claim stands, and a section in the [panel guide](docs/guides/panel.md) on five lenses with a confirming pass. Each says which parts a command runs and which are a way of working; none adds a command.
+
+### Changed
+
+- The `ab` guide and the README no longer call the `claude` option a fallback: the example reader runs `claude` only when you name it.
+- The `ab` guide now says that each read of the example reader starts `claude` twice, first the preflight and then the real run, and that the check of Claude Code covered only the start of one session, not the run on your text.
+- The `ab`, `panel` and `record` guides and `METHOD.md` now link to the method guides, and the README and `METHOD.md` name the control that reads a draft against itself an A/A control.
+
 ## [0.10.6] - 2026-11-18
 
 ### Changed

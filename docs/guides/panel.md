@@ -36,4 +36,18 @@ The tool has the same three subcommands as `ab`:
     track-record panel run plan.txt [--live]
     track-record panel score plan.txt
 
-The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 3). Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md).
+The `--live` rule, the spend ceiling, the `fake` reader and the exit codes are those of `ab`. The spec is signed (revision 3). How far to trust a score: [scoring](scoring.md). Spec: [docs/specs/reader-panel.md](../specs/reader-panel.md).
+
+## Five lenses and a confirming pass
+
+This part is a way of using the panel. It adds no command and no plan key: the plan above already takes any number of lenses.
+
+**Five viewpoints, one lens file each.** To read one draft as a hiring process would, write five lens files, name them in the plan under `lenses:`, and let each raise its own flags. A lens file is text you write, handed to the reader as it is ([docs/specs/reader-panel.md](../specs/reader-panel.md), § 3.3, lines 75-77). Give each file the same shape: a role, what that role looks for, and what it must quote when it flags something. This guide invents no roles; choose the five that match the posting. Invented example of the shape, for a records-clerk posting: "You are the person who will train the new hire. You look for evidence the candidate can follow a filing procedure without being reminded. When you doubt something, quote the line that made you doubt it." Have each lens report doubts in a field such as `DOUBTS`; the panel marks a field as flagged when the reader wrote anything there but `none` (the field rule above; spec, line 122).
+
+The anchors still apply. Every lens reads your strong and weak anchors, and a lens that fails the anchor gate has its reads of your draft reported INCONCLUSIVE and not counted (spec, lines 32-33). Reads from a reader marked `not-blind` are left out of every verdict (spec, line 126). Five lenses at the default of three reads each make fifteen reads of your draft, plus the anchor reads, so look at the spend estimate before you add `--live`.
+
+**The confirming pass.** A flag raised by one read is a suspicion. Take each flag from the five lenses and have a reader look at the draft again, with the flag and nothing else to go on, and answer one of two ways: confirmed, with a line quoted from the draft, or dropped. A confirmation that quotes no line counts as a dropped flag, the rule [scoring](scoring.md) uses for a rubric. Only confirmed flags go on your fix list.
+
+Keep each dropped flag in your notes, with the reason. If the same flag comes up next round, you can see it was looked at and found unsupported, and you don't spend another pass on it.
+
+What a command does here: `panel` runs the five lenses, applies the anchor gate and reports flagged fields. The confirming pass isn't a `panel` feature. Run it by hand, or as a second `panel` plan, which is frozen by hash like any other. Either way it is a choice you make; no command asks for it.
