@@ -852,8 +852,10 @@ class Variations(ClaimsCase):
         proc = subprocess.run([sys.executable, "-m", "career_track_record", "--help"],
                               cwd=self.dir, env=env, stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        self.assertIn("    claims    fail on sentences your claims list hasn't approved",
-                      proc.stdout.decode("utf-8").splitlines())
+        # The name wrapped-compounds widens argparse's description column
+        # (tests/test_help_lines.py pins the exact spacing): compare by words.
+        self.assertIn(" claims fail on sentences your claims list hasn't approved ",
+                      " ".join(proc.stdout.decode("utf-8").split()))
 
 
 # ---------------------------------------------------------------- the known limits

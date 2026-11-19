@@ -29,6 +29,39 @@ NEW = {
     "claims": "  --list FILE      the claims list (required unless claims-list.txt is in your "
               "record folder)\n",
 }
+_TOP_HEAD = "usage: track-record [-h] command ...\n\npositional arguments:\n  command\n"
+_TOP_ROWS = (
+    ("keywords", "scan saved job postings for terms"),
+    ("barred", "report wording from your own barred list"),
+    ("tone", "flag hype, hedges and filler in your copy"),
+    ("ab", "compare two versions of your copy with test readers"),
+    ("claims", "fail on sentences your claims list hasn't approved"),
+    ("panel", "read one version blind through named lenses"),
+    ("record", "check your record's tables against rules you declare"),
+    ("drafts", "check a file of a document's versions, or extract one"),
+)
+_WRAPPED = "find hyphenated words split across two lines in a PDF"
+
+
+def _top_help(column, wrap, options):
+    rows = "".join(("    " + name).ljust(column) + text + "\n" for name, text in _TOP_ROWS)
+    if wrap:
+        rows += "    wrapped-compounds\n" + " " * column + _WRAPPED + "\n"
+    else:
+        rows += ("    wrapped-compounds").ljust(column) + _WRAPPED + "\n"
+    rows += "    setup".ljust(column) + "choose your record folder\n"
+    return (_TOP_HEAD + rows + "\n" + options + ":\n" + "  -h, --help".ljust(column) +
+            "show this help message and exit\n")
+
+
+# argparse's own layout, captured once on each interpreter the base help was captured on:
+# 3.9 puts the descriptions in column 21 and wraps the long name onto its own line; 3.14
+# puts them in column 23 and keeps it on one line.
+TOP_HELP = {
+    "3.9": _top_help(21, True, "optional arguments"),
+    "3.14": _top_help(23, False, "options"),
+}
+
 UNCHANGED = ("keywords", "keywords demand", "keywords coverage", "keywords report", "record",
              "drafts", "ab", "ab freeze", "ab run", "ab score", "panel", "panel freeze",
              "panel run", "panel score")
@@ -76,14 +109,27 @@ class HelpLines(unittest.TestCase):
                 self.assertEqual(help_of(command),
                                  self.base[command].replace(OLD[command], NEW[command]))
 
-    def test_s39_the_top_level_help_adds_setup_as_a_ninth_line_and_changes_nothing_else(self):
+    def test_s39_the_top_level_help_adds_setup_and_wrapped_compounds_and_nothing_else(self):
+        """Two lines are added to the eight of the base: setup, then (above it)
+        wrapped-compounds. The name is longer than any other, so argparse widens the
+        description column of every line and, on 3.9, wraps its own line: the spaces change,
+        the words do not. The exact text is pinned per interpreter in TOP_HELP, and the
+        words alone (spaces collapsed) must be the base's words with the two new entries."""
         text = help_of("")
         before = self.base["(top)"]
         eight = [line for line in before.splitlines() if line.startswith("    ")]
         self.assertEqual(len(eight), 8)
-        expected = before.replace(eight[-1] + "\n",
-                                  eight[-1] + "\n    setup     choose your record folder\n")
-        self.assertEqual(text, expected)
+        added = ("    wrapped-compounds  find hyphenated words split across two lines in a PDF\n"
+                 "    setup     choose your record folder\n")
+        expected_words = before.replace(eight[-1] + "\n", eight[-1] + "\n" + added)
+        self.assertEqual(text.split(), expected_words.split())
+        self.assertEqual(text, TOP_HELP["%d.%d" % sys.version_info[:2]])
+
+    def test_the_top_level_help_names_wrapped_compounds_once_before_setup(self):
+        words = help_of("").split()
+        self.assertEqual(words.count("wrapped-compounds"), 1)
+        self.assertLess(words.index("drafts"), words.index("wrapped-compounds"))
+        self.assertLess(words.index("wrapped-compounds"), words.index("setup"))
 
     def test_the_new_lines_are_the_ones_the_code_pins(self):
         from career_track_record import cli

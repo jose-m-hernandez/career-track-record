@@ -223,7 +223,10 @@ class HelpTest(RecordCase):
     def test_the_top_level_help_lists_record(self):
         code, out, err = self.sub(["--help"])
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("    record    check your record's tables against rules you declare", out)
+        # The name wrapped-compounds widens argparse's description column
+        # (tests/test_help_lines.py pins the exact spacing): compare by words.
+        self.assertIn(" record check your record's tables against rules you declare ",
+                      " ".join(out.split()))
 
     def test_a_dash_alone_is_a_file_name_not_standard_input(self):
         code, out, err = self.cli(["record", "-"])

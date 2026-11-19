@@ -1237,8 +1237,10 @@ class CliCase(unittest.TestCase):
         self.assertNotEqual(cli._PANEL_HELP, cli._AB_HELP)
         code, out, err = track("--help")
         self.assertEqual((code, err), (0, ""))
-        self.assertIn("    panel     read one version blind through named lenses",
-                      out.splitlines())
+        # The name wrapped-compounds widens argparse's description column
+        # (tests/test_help_lines.py pins the exact spacing): compare by words.
+        self.assertIn(" panel read one version blind through named lenses ",
+                      " ".join(out.split()))
 
     def test_10_20_usage_errors_exit_2_with_one_line_and_no_output(self):
         for args, needle in (

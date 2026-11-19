@@ -342,15 +342,18 @@ class TopLevelHelpListsToolsCli(CliBase):
     def test_top_level_help_lists_barred_tone_ab_and_claims(self):
         code, out, err = track("--help")
         self.assertEqual((code, err), (0, ""))
-        lines = out.splitlines()
+        # The name wrapped-compounds is longer than any other, so argparse widens the column
+        # of descriptions and, on 3.9, wraps that one line: each line is compared by its
+        # words (tests/test_help_lines.py pins the exact spacing per interpreter).
+        words = " ".join(out.split())
         for line in (
-                "    barred    report wording from your own barred list",
-                "    tone      flag hype, hedges and filler in your copy",
-                "    ab        compare two versions of your copy with test readers",
-                "    claims    fail on sentences your claims list hasn't approved",
-                "    setup     choose your record folder"):
+                "barred report wording from your own barred list",
+                "tone flag hype, hedges and filler in your copy",
+                "ab compare two versions of your copy with test readers",
+                "claims fail on sentences your claims list hasn't approved",
+                "setup choose your record folder"):
             with self.subTest(line=line):
-                self.assertIn(line, lines)
+                self.assertEqual(words.count(" " + line + " "), 1)
 
 
 class CommandNameIsExactCli(CliBase):

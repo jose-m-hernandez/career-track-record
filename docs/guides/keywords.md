@@ -8,7 +8,7 @@ Each posting is a `.txt` file whose short header, or `.meta.json` sidecar, recor
     track-record keywords coverage --terms terms.tsv resume.md
     track-record keywords report   --postings postings/ --terms terms.tsv --copy resume.md
 
-It reports gaps and never rewrites your copy or sets a keyword-score target. A `chosen` term is labelled as yours in the report, and the scan never suggests dropping or replacing one your copy uses. Spec: [docs/specs/keyword-scan.md](../specs/keyword-scan.md).
+It reports gaps and never rewrites your copy or sets a keyword-score target. A `chosen` term is labelled as yours in the report, and the scan never suggests dropping or replacing one your copy uses. Spec: [docs/specs/keyword-scan.md](../specs/keyword-scan.md). If your copy comes from a PDF, run [wrapped-compounds](wrapped-compounds.md) first: a word split at its hyphen can read as `crossfunctional` there and show as a gap.
 
 ## A worked example
 
