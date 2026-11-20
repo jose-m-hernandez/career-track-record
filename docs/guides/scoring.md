@@ -4,19 +4,19 @@ A reader gives a draft a score. This guide is about how far to trust a score, an
 
 ## The anchors are the shipped check
 
-Before you trust what a reader says about your draft, find out whether the reader can tell a strong draft from a weak one. The panel does this for you. Every lens also reads two documents you supply: one you wrote to be plainly strong for the posting, and one you wrote to be plainly weak. A lens that doesn't score the strong one at or above your threshold, and the weak one at or below yours, has its reads of your draft reported INCONCLUSIVE and left out of the count ([docs/specs/reader-panel.md](../specs/reader-panel.md), lines 32-33).
+Before you trust what a reader says about your draft, find out whether the reader can tell a strong draft from a weak one. The panel does this for you. Every lens also reads two documents you supply: one you wrote to be plainly strong for the posting, and one you wrote to be plainly weak. A lens that doesn't score the strong one at or above your threshold, and the weak one at or below yours, has its reads of your draft reported INCONCLUSIVE and left out of the count ([docs/specs/reader-panel.md](../specs/reader-panel.md), § 2, "Scope").
 
 Invented example. You write a posting for a records clerk. Your strong anchor is a résumé that matches it line by line, and your weak anchor is a résumé for a pastry chef. A reader scores them 9 and 2, and the thresholds you set are 7 and 4. The reader can see a difference, so its reads of your real draft count. A reader that scores both at 7 can't see one, and what it says about your draft isn't evidence.
 
-The panel reads the anchors through every lens in every run (spec lines 32-33). The rest of this page covers the case where the anchors pass and the scores still don't separate your draft's strengths from its weaknesses.
+The panel reads the anchors through every lens in every run (the same spec, § 2, "Scope"). The rest of this page covers the case where the anchors pass and the scores still don't separate your draft's strengths from its weaknesses.
 
 ## A saturated scale
 
-A scale is saturated when the scores bunch near the top and stop telling drafts apart. A reader that gives 8 to a good draft, 8 to a better one and 8 to a poor one is saturated, and no verdict built on those scores means much. Put a best draft and a worst draft that you invent through the same readers, as you do with anchors. If the scores don't separate them, treat the verdict on your real draft as untrusted. The panel's anchor gate runs this test for its own lenses (spec lines 32-33). For any other score you collect, you run it yourself: no command does.
+A scale is saturated when the scores bunch near the top and stop telling drafts apart. A reader that gives 8 to a good draft, 8 to a better one and 8 to a poor one is saturated, and no verdict built on those scores means much. Put a best draft and a worst draft that you invent through the same readers, as you do with anchors. If the scores don't separate them, treat the verdict on your real draft as untrusted. The panel's anchor gate is narrower than this test: it checks that each lens scores your strong anchor at or above `anchor-strong-at-least` and your weak anchor at or below `anchor-weak-at-most` on every anchor read (the same spec, § 2, "Scope"), and it does not test whether scores bunch on your own drafts. For scores that sit near the strong anchor's level, see the headroom check in [panel](panel.md), section "Plan keys added in revision 4". For any other score you collect, you run this test yourself: no command does.
 
 ## Read three times, take the middle score, and name a score gap
 
-One read of one draft is a single sample, and a reader's score on the same draft can move from read to read. A way to steady it is to read the draft three times and take the middle score, the median. The panel reads a version three times per lens by default ([panel](panel.md), line 31). It then counts reads against the rules you froze in the plan. It doesn't compute a median or a gap, so this part is for you to do by hand.
+One read of one draft is a single sample, and a reader's score on the same draft can move from read to read. A way to steady it is to read the draft three times and take the middle score, the median. The panel reads a version three times per lens by default ([panel](panel.md), the paragraph after the example plan). It then counts reads against the rules you froze in the plan. It doesn't compute a median or a gap, so this part is for you to do by hand.
 
 Two versions whose middle scores sit within a gap you state in advance count as a tie. Call that gap the **score gap**. Invented example: you decide on a score gap of one point. Version A reads 7, 7, 8 (middle 7) and version B reads 6, 8, 8 (middle 8). They are one point apart, so they tie, and you don't call B the winner on one point. Write the gap down before you see the scores, as the plan's rules are written before any read.
 
@@ -36,8 +36,8 @@ When the scores sit close together near the top, they can't separate drafts, but
 
 | Part | Runs in a command? |
 | --- | --- |
-| Strong and weak anchors, and the anchor gate | Yes: the panel (`docs/specs/reader-panel.md:32-33`) |
-| Reads of a reader marked `not-blind` left out of the verdicts | Yes: the panel (`docs/specs/reader-panel.md:126`) |
+| Strong and weak anchors, and the anchor gate | Yes: the panel (`docs/specs/reader-panel.md`, § 2, "Scope") |
+| Reads of a reader marked `not-blind` left out of the verdicts | Yes: the panel (`docs/specs/reader-panel.md`, § 5.5, "Blindness") and `ab` (`docs/specs/reader-ab.md`, § 5.5, "Blindness") |
 | A pick counts when both read orders agree | Yes: `ab` (`docs/specs/reader-ab.md`, section 6) |
 | A/A control and sensitivity control | Yes: `ab` (`docs/specs/reader-ab.md`, section 2) |
 | Median of three reads and the score gap | No |

@@ -16,7 +16,7 @@ Ten checks for the career copy you send, and a setup command. Open the repositor
 | `track-record panel` | How does this one draft read to a recruiter, and to the hiring manager? | [panel](docs/guides/panel.md) |
 | `track-record wrapped-compounds` | Does my PDF split a hyphenated word across two lines, so a text search misses it? | [wrapped-compounds](docs/guides/wrapped-compounds.md) |
 | `track-record parse` | What text comes out of my résumé PDF when a program reads it? | [parse](docs/guides/parse.md) |
-| `track-record setup` | Where do my files live, so `keywords`, `barred`, `tone` and `claims` find them without a path? It asks in a terminal; without one, give `--folder PATH`. | run `track-record setup --help` |
+| `track-record setup` | Where do my files live, so `keywords`, `barred`, `tone` and `claims` find them without a path? It asks in a terminal; without one, give `--folder PATH`. | [setup](docs/guides/setup.md) |
 
 Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking.
 
@@ -42,7 +42,7 @@ To install with no network, first make sure setuptools 70.1 or later is already 
 
     python3 -m pip install --no-build-isolation .
 
-This installs the `track-record` command. If your shell can't find it, or you haven't installed it, run `PYTHONPATH=src python3 -m career_track_record` from the clone's top folder instead. To check it works:
+This installs the `track-record` command. If your shell can't find it, or you haven't installed it, run `PYTHONPATH=src python3 -m career_track_record` from the clone's top folder instead. If you installed into a virtual environment, activate it first (`source <venv>/bin/activate`; on Windows `<venv>\Scripts\activate`), or run `<venv>/bin/track-record` instead (on Windows `<venv>\Scripts\track-record`). To check it works:
 
     track-record --help
 

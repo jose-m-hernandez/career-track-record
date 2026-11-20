@@ -8,6 +8,7 @@ import sys
 from career_track_record import (ab, barred, claims, config, drafts, keywords, panel,
                                  parse, reader_harness, record_check, setup_cmd, tone,
                                  write_guard, wrapped_compounds)
+from career_track_record import __version__
 
 
 class _MissingRequired(Exception):
@@ -46,8 +47,22 @@ class _Parser(argparse.ArgumentParser):
         raise SystemExit(2)
 
 
+class _Version(argparse.Action):
+    """--version goes out through _out, so a version that cannot be written exits 2."""
+
+    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS,
+                 help="show program's version number and exit"):
+        argparse.Action.__init__(self, option_strings=option_strings, dest=dest,
+                                 default=default, nargs=0, help=help)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        _out("%s %s\n" % (parser.prog, __version__))
+        parser.exit()
+
+
 def _build_parser():
     parser = _Parser(prog="track-record")
+    parser.add_argument("--version", action=_Version)
     top = parser.add_subparsers(dest="command", metavar="command")
     top.required = True
     kw = top.add_parser("keywords", help="scan saved job postings for terms")

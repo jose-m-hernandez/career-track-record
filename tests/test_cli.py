@@ -363,8 +363,48 @@ class CommandNameIsExactCli(CliBase):
             with self.subTest(name=name):
                 code, out, err = track(name, "--help")
                 self.assertEqual((code, out), (2, ""))
-                self.assertTrue(err.startswith("usage: track-record [-h] command"), err)
+                self.assertTrue(err.startswith("usage: track-record [-h] [--version] command"), err)
                 self.assertIn("invalid choice: '%s'" % name, err)
+
+
+class VersionCli(CliBase):
+    def test_version_prints_the_package_version_and_exits_0(self):
+        code, out, err = track("--version")
+        self.assertEqual((code, out, err),
+                         (0, "track-record %s\n" % cli.__version__, ""))
+        self.assertRegex(out, r"^track-record \d+\.\d+\.\d+\n$")
+
+    def test_the_changelog_version_example_is_the_current_version(self):
+        with open(os.path.join(ROOT, "CHANGELOG.md"), encoding="utf-8") as handle:
+            text = handle.read()
+        current = "`track-record %s`" % cli.__version__
+        found = []
+        for heading in ("## [Unreleased]", "## [%s]" % cli.__version__):
+            start = text.find(heading)
+            if start == -1:
+                continue
+            end = text.find("\n## [", start + len(heading))
+            section = text[start:] if end == -1 else text[start:end]
+            found.extend(re.findall(r"`track-record [0-9]+\.[0-9]+\.[0-9]+`", section))
+        self.assertTrue(all(match == current for match in found),
+                        "the CHANGELOG shows a track-record version other than the current one")
+
+    def test_version_is_a_top_level_flag_only(self):
+        code, out, err = track("keywords", "--version")
+        self.assertEqual((code, out), (2, ""))
+        self.assertTrue(err.startswith("usage: track-record keywords [-h] mode"), err)
+        self.assertNotIn("track-record 0", err)
+
+    def test_version_is_listed_in_the_top_level_help(self):
+        code, out, err = track("-h")
+        self.assertEqual((code, err), (0, ""))
+        self.assertIn("--version", out)
+
+    def test_version_with_output_that_cannot_be_written_exits_2(self):
+        code, err = track_with_broken_stdout("--version")
+        self.assertEqual(code, 2, "--version with a closed output did not exit 2")
+        self.assertTrue(err == "cannot run: cannot write output\n",
+                        "--version with a closed output did not say the one-line error")
 
 
 def track_with_broken_stdout(*args):

@@ -22,7 +22,7 @@ Keep the argument apart from the answer. The resolution is short and machine-rea
 
 ## 3. Grade every source
 
-A signed offer letter, an old résumé, a colleague's memory and a model's summary aren't equally strong. Each fact carries a grade for its source, and the grade travels with the fact into every output: a résumé builder can refuse to print a claim below a chosen grade, and a review can list the weakest claims first.
+A signed offer letter, an old résumé, a colleague's memory and a model's summary aren't equally strong. Each fact carries a grade for its source, and the grade travels with the fact into every output, so that a later tool, or you, can leave out a claim below a chosen grade and list the weakest claims first.
 
 How to choose a grade: [docs/guides/grades.md](docs/guides/grades.md).
 
