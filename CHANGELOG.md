@@ -6,6 +6,18 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-11-19
+
+### Changed
+
+- The example reader, `examples/readers/model_reader.py`, now reads the folders that `track-record panel` makes as well as those of `ab`. It tells the two apart by which of `A.txt`, `B.txt`, `LENS.txt` and `DOCUMENT.txt` the folder holds, pastes `PROMPT.txt`, `LENS.txt`, `POSTING.txt` and `DOCUMENT.txt` for a `panel` folder, and refuses a folder of neither kind or of both with one line on standard error and exit status 2. Before this, every read of a `panel` run through the example reader failed.
+- **The example reader starts its model commands differently.** `codex` now starts in a fresh folder that the reader makes and removes, not in the read folder, as `claude` already did, and the reader's own working folder is a fresh empty folder while either runs. `codex` starts in a folder that holds copies of the four files, with a read-only permission profile in place of `--sandbox read-only` (the commands the model runs can read that folder, the system's own files and the folder `codex` is installed in) and `codex` itself gets an environment of `PATH`, `HOME` and `TMPDIR` only. The reader refuses to start `codex`, exit status 2, when `codex` is installed in a folder that is too wide to grant (`/`, `/usr`, `/usr/local`, `/opt`, `/opt/homebrew`, your home folder or a folder that holds it, or a folder that holds the read folder or the folder `codex` starts in). A `codex` whose sign-in is in a folder named by `CODEX_HOME`, or that needs a variable such as a proxy setting, now gives a failed read. Whether `codex` applies the profile to the commands its model issues has not yet been measured in a live run.
+- The panel guide has a new last section, "Write a reader of your own": the four files of a `panel` read folder, the reply, and a skeleton reader. The `ab` guide points to it.
+
+### Known issues
+
+- **Example reader: a read that times out leaves its folders behind.** When a read reaches `read-timeout`, the tool stops the reader without letting it clean up, so the fresh folders it made under your system temporary folder stay there: three, with random names, and for `codex` one of them holds copies of that read's four files. Delete them yourself.
+
 ## [0.14.0] - 2026-11-19
 
 ### Added
