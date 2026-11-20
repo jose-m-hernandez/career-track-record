@@ -6,6 +6,10 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- The README's "Why you can trust a result" now has a diagram, with a plain-text copy under it, of how `track-record barred` reaches OK, FAIL or DEAD and the exit code for each. A test, `tests/test_readme_diagram.py`, walks the diagram for each outcome and compares it with what `barred` returns.
+
 ## [0.14.1] - 2026-11-19
 
 ### Changed
