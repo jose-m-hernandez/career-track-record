@@ -9,12 +9,12 @@ This ledger lists every file in the repository once, with the harness and model 
 | .github/workflows/ci.yml | claude-code | claude-sonnet-5-5 | 2026-10-20 |
 | .gitignore | claude-code | claude-sonnet-5-5 | 2026-11-18 |
 | AGENTS.md | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-19 |
-| CHANGELOG.md | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-19 |
+| CHANGELOG.md | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-20 |
 | CONTRIBUTING.md | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | LICENSE | not recorded | not recorded | not recorded |
 | LICENSE-COMMERCIAL.md | not recorded | not recorded | not recorded |
 | METHOD.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-18 |
-| README.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-19 |
+| README.md | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-20 |
 | SECURITY.md | not recorded | not recorded | not recorded |
 | ci/__init__.py | not recorded | not recorded | not recorded |
 | ci/barred_strings.py | not recorded | not recorded | not recorded |
@@ -320,6 +320,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_quote_check.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-05 |
 | tests/test_reader_contract.py | claude-code | claude-sonnet-5-5 | 2026-11-19 |
 | tests/test_reader_profile.py | claude-code | claude-sonnet-5-5 | 2026-11-19 |
+| tests/test_readme_diagram.py | claude-code | claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_readme_truth.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-19 |
 | tests/test_record_check.py | claude-code | claude-sonnet-5-5 | 2026-11-19 |
 | tests/test_record_check_inputs.py | claude-code | claude-sonnet-5-5 | 2026-11-16 |

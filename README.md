@@ -87,6 +87,43 @@ Every tool exits 0, 1 or 2; what each means per tool:
 ## Why you can trust a result
 
 - **A check that finds nothing shows it was looking.** Every barred-wording run names a control phrase that must be in each file. A file too short or lacking it is DEAD, never OK. The reader tools are different: their readers can't be checked the same way. Reader A/B runs an A/A control in every run, which shows how often a reader picks a side when the drafts are the same. It doesn't show that a reader noticed your change.
+
+How `track-record barred` reaches OK, FAIL or DEAD, and the exit code for each. The claim gate follows the same control and DEAD rules but has no minimum length, so this picture is `barred`'s alone.
+
+```mermaid
+flowchart TD
+  start["track-record barred: a list, a control, your files"] --> pre{"A file named, a usable control, a usable list?"}
+  pre -- no --> cannot["cannot run: one line on standard error, exit 2"]
+  pre -- yes --> read{"Can the file be read?"}
+  read -- no --> dead["DEAD: the check does not vouch for the file"]
+  read -- yes --> len{"At least the minimum length? 500 characters unless you set it"}
+  len -- no --> dead
+  len -- yes --> ctl{"Is any control string found in it?"}
+  ctl -- no --> dead
+  ctl -- yes --> hit{"Does any list entry match the text or the file name?"}
+  hit -- yes --> fail["FAIL: findings name an entry by number only"]
+  hit -- no --> ok["OK: control found"]
+  dead --> x2["Any file DEAD: exit 2"]
+  fail --> x1["A FAIL and no DEAD: exit 1"]
+  ok --> x0["Every file OK: exit 0"]
+```
+
+The same picture in plain text, for a viewer that does not draw it:
+
+```text
+track-record barred: a list, a control, your files
+  no file named, no usable control or no usable list --> cannot run: one line on standard error, exit 2
+  each file, in this order:
+    cannot be read                                   --> DEAD: the check does not vouch for the file
+    shorter than the minimum (500 unless you set it) --> DEAD
+    no control string found in it                    --> DEAD
+    a list entry matches its text or its file name   --> FAIL: findings name an entry by number only
+    none of these                                    --> OK: control found
+  any file DEAD        --> exit 2
+  a FAIL and no DEAD   --> exit 1
+  every file OK        --> exit 0
+```
+
 - **No network library in the package.** No tool under `src/` imports a network or mail library, and a [test](tests/test_no_network.py), which scans `src/` only, fails if one does. The example reader under `examples/` is outside the package and outside that test.
 - **The rules are fixed before the answer.** A Reader A/B or reader panel plan is frozen by hash before the first read, and a run refuses anything that has changed since.
 
