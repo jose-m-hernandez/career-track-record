@@ -6,6 +6,8 @@ Every run names a control phrase, such as your own name, that must appear in eac
 
     track-record barred --list barred.txt --control "Your Name" resume.pdf letter.md
 
+You can leave out `--list` once `track-record setup` has named a record folder that holds `barred-list.txt`; a `$BARRED_STRINGS_PATH` in your environment is used before the record folder. The run then says on standard error which list it used, for example, with invented paths, `using /home/you/my-record/barred-list.txt (from config /home/you/.config/track-record/config.json)`. See [the setup guide](setup.md).
+
 From a clone, in the repository's own test fixtures (`tests/fixtures/barred/`), the check gives:
 
     cd tests/fixtures/barred

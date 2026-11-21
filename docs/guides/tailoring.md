@@ -9,7 +9,7 @@ Take the posting and list its requirements, each as one line. For each, do one o
 1. Point to the approved claim that answers it. An approved claim is a sentence your claims list marks `approved`. How far it stands depends on the facts behind it ([claims](claims.md), "Beyond the gate"; [METHOD.md](../../METHOD.md), rule 5).
 2. Mark the requirement open.
 
-An open requirement is a finding. It tells you the posting asks for something your record doesn't show. It is not a prompt to write a line that sounds right. The keyword scan treats gaps the same way: it reports a term the postings ask for and your copy lacks, and leaves the copy as it is ([docs/specs/keyword-scan.md](../specs/keyword-scan.md), lines 165-169; [keywords](keywords.md)). A gap can stay open when no true line exists.
+An open requirement is a finding. It tells you the posting asks for something your record doesn't show. It is not a prompt to write a line that sounds right. The keyword scan treats gaps the same way: it reports a term the postings ask for and your copy lacks, and leaves the copy as it is ([docs/specs/keyword-scan.md](../specs/keyword-scan.md), § 6.3, "`report`"; [keywords](keywords.md)). A gap can stay open when no true line exists.
 
 Invented example. A posting for a records clerk asks for three things.
 
@@ -31,4 +31,4 @@ Before you write a new sentence, write two short lists: what it may say, and wha
 
 A tailored draft selects and reorders. It makes no new fact. Choosing which approved claim comes first, which wording suits the posting among the approved wordings, and which claims to leave out are all tailoring. Adding a figure, a tool or a scope that no claim holds is not.
 
-You can check this with a shipped command. Run the claim gate on the finished draft: it fails any sentence that your list hasn't approved, and a changed sentence is a new sentence ([claims](claims.md); [docs/specs/claims.md](../specs/claims.md), lines 122-126 and 180). That check is on the words of the draft. Whether a sentence answers a posting's requirement is yours to judge.
+You can check this with a shipped command. Run the claim gate on the finished draft: it fails any sentence that your list hasn't approved, and a changed sentence is a new sentence ([claims](claims.md); [docs/specs/claims.md](../specs/claims.md), § 4, "Sentences, folding and matching", under "Matching", "Covering" and "Results", and § 8, decision 3). That check is on the words of the draft. Whether a sentence answers a posting's requirement is yours to judge.

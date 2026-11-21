@@ -6,9 +6,29 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-11-20
+
 ### Added
 
+- A guide to `track-record setup`: [setup](docs/guides/setup.md). It says what `setup` asks and writes, which folders and files it names, what it changes for `barred`, `claims`, `tone` and `keywords`, and its exit codes. The README's tools table links to it.
+- `examples/ab-fake-plan.txt`, a plan whose only reader is the built-in `fake` reader, so it needs no account and no model. The `ab` guide has two new passages that use it: "Try the tool with no model", which copies the plan, freezes, runs and scores it, and "Try the skeleton with no model", which runs the skeleton reader of your own with `--live` at no cost.
+- `track-record --version` prints the installed version, for example `track-record 0.14.2`.
+- Issue templates for a bug report and a feature request, a `SUPPORT.md` that says how to ask and promises no reply time, and a `CODE_OF_CONDUCT.md`.
 - The README's "Why you can trust a result" now has a diagram, with a plain-text copy under it, of how `track-record barred` reaches OK, FAIL or DEAD and the exit code for each. A test, `tests/test_readme_diagram.py`, walks the diagram for each outcome and compares it with what `barred` returns.
+
+### Changed
+
+- The `ab` guide states the default read count one way, 6 reads per reader and 12 per arm for two readers, and says that "Revision 4" is revision 4 of the tool's spec.
+- The `ab` guide's long "files" paragraph is split into shorter paragraphs with no word changed, and the warning about a connected mail app or other connector now comes straight after the first paragraph.
+- The `ab` guide names the Codex home folder (the folder `CODEX_HOME` names, else `~/.codex`) and says what a plan whose readers are all `not-blind` returns: the run completes, every read is reported, and each verdict is INCONCLUSIVE.
+- The `ab` guide's sentence on why the skeleton reader is a script now says that the tool runs a reader line without a shell.
+- The grades, scoring, claims, panel, recall, tailoring and testing-a-review guides cite sections of the files they point to, in place of line numbers, and five cites that no longer pointed at the rule they named (four at a blank line, one at the heading of another section) now point at the section that holds it. The grades guide names `track-record record`. Three statements are narrowed: the panel's anchor gate checks the anchors and does not test whether scores bunch on your own drafts; `ab` also leaves out reads of a `not-blind` reader, as the panel does; and the order of your grades is yours to keep, and no command reads it.
+- METHOD rule 3 no longer speaks of a résumé builder as shipped: the grade is kept so that a later tool, or you, can leave out a claim below a chosen grade.
+- The README's install section says to activate a virtual environment first, or to run `<venv>/bin/track-record`.
+- The barred guide says that `--list` may be left out once `track-record setup` has named a record folder that holds `barred-list.txt`, and that the run says on standard error which list it used.
+- The recall guide says that a lens that names criteria is read by its `CRITERION-<name>` fields in place of `SCORE`.
+- A test of the example reader's profile prints less: each sub-test is labelled by a short key, not a command, and the version of `codex` is printed as a number only. The tests of the setup guide, the barred guide, the fake plan and the first plan build their environment from nothing and print no captured output when they fail.
+- The tests run on macOS as well as Ubuntu, on both Python versions, in CI. The macOS runs install `poppler` with Homebrew.
 
 ## [0.14.1] - 2026-11-19
 

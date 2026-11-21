@@ -5,6 +5,7 @@ folder that is the only folder on PATH; it records how it was called and prints 
 reply."""
 
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -539,11 +540,16 @@ class FirstPlanCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.work = os.path.join(self._tmp.name, "work")
+        self.home = os.path.join(self._tmp.name, "home")
+        self.cfg_dir = os.path.join(self._tmp.name, "cfg")
+        os.mkdir(self.home)
+        os.mkdir(self.cfg_dir)
         shutil.copytree(EXAMPLES, self.work)
 
     def track(self, *args):
-        env = dict(os.environ, PYTHONPATH=os.path.join(ROOT, "src"),
-                   PYTHONDONTWRITEBYTECODE="1")
+        env = {"PATH": "/usr/bin:/bin", "HOME": self.home,
+               "PYTHONPATH": os.path.join(ROOT, "src"), "PYTHONDONTWRITEBYTECODE": "1",
+               "CTR_CONFIG_DIR": self.cfg_dir}
         proc = subprocess.run([sys.executable, "-m", "career_track_record"] + list(args),
                               cwd=self.work, env=env, stdin=subprocess.DEVNULL,
                               stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -552,24 +558,157 @@ class FirstPlanCase(unittest.TestCase):
     def test_the_plan_freezes_and_run_prints_the_reader_command(self):
         code, out, err = self.track("ab", "freeze", "ab-first-plan.txt")
         # The shipped plan still holds the placeholder path, so freeze warns about it, once.
-        self.assertEqual(code, 0, out)
-        self.assertEqual(err.count("\n"), 1, err)
+        self.assertEqual(code, 0, "freeze of the first plan did not exit 0")
+        self.assertTrue(err.count("\n") == 1,
+                        "freeze of the first plan did not print exactly one line on standard error")
         self.assertTrue(err.startswith("warning: reader reader-1: the script does not exist: "
-                                       "/path/to/career-track-record/examples/readers/"), err)
-        self.assertTrue(os.path.exists(os.path.join(self.work, "ab-first-plan.txt.freeze")))
+                                       "/path/to/career-track-record/examples/readers/"),
+                        "the freeze warning is not the placeholder-path warning")
+        self.assertTrue(os.path.exists(os.path.join(self.work, "ab-first-plan.txt.freeze")),
+                        "freeze wrote no ab-first-plan.txt.freeze")
         code, out, err = self.track("ab", "run", "ab-first-plan.txt")
-        self.assertEqual((code, err), (0, ""))
-        self.assertIn("model_reader.py (cost 1 per read)", out)
-        self.assertIn("planned reads: 12", out)
-        self.assertIn("estimated spend: 12", out)
-        self.assertFalse(os.path.exists(os.path.join(self.work, "result-1.txt")))
+        self.assertEqual(code, 0, "run of the first plan did not exit 0")
+        self.assertTrue(err == "", "run of the first plan printed on standard error")
+        self.assertTrue("model_reader.py (cost 1 per read)" in out,
+                        "the run output does not name the reader and its cost")
+        self.assertTrue("planned reads: 12" in out, "the run output lacks planned reads: 12")
+        self.assertTrue("estimated spend: 12" in out, "the run output lacks estimated spend: 12")
+        self.assertFalse(os.path.exists(os.path.join(self.work, "result-1.txt")),
+                         "a run without --live wrote result-1.txt")
 
     def test_the_reader_line_names_the_example_reader_and_its_placeholder_path(self):
         with open(os.path.join(EXAMPLES, "ab-first-plan.txt"), encoding="utf-8") as handle:
             plan = handle.read()
-        self.assertIn("python3 /path/to/career-track-record/examples/readers/model_reader.py",
-                      plan)
-        self.assertTrue(os.path.isfile(READER))
+        self.assertTrue("python3 /path/to/career-track-record/examples/readers/model_reader.py"
+                        in plan, "the plan's reader line is not the example reader's placeholder")
+        self.assertTrue(os.path.isfile(READER), "the example reader script is missing")
+
+
+GUIDE = os.path.join(ROOT, "docs", "guides", "ab.md")
+FAKE_VERDICT = ("hypothesis h1 verdict: SUPPORTED; the verdict holds only when slightly "
+                "counts as a pick [not blind: 0 reads left out]")
+NOT_BLIND_VERDICT = "hypothesis h1 verdict: INCONCLUSIVE [not blind: 6 reads left out]"
+
+
+def guide_text():
+    with open(GUIDE, encoding="utf-8") as handle:
+        return handle.read()
+
+
+class FakePlanCase(unittest.TestCase):
+    """The plan that uses only the fake reader runs and scores with no model."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.work = os.path.join(self._tmp.name, "work")
+        self.home = os.path.join(self._tmp.name, "home")
+        self.cfg_dir = os.path.join(self._tmp.name, "cfg")
+        os.mkdir(self.work)
+        os.mkdir(self.home)
+        os.mkdir(self.cfg_dir)
+        shutil.copytree(os.path.join(EXAMPLES, "ab-first"), os.path.join(self.work, "ab-first"))
+
+    def track(self, *args):
+        env = {"PATH": "/usr/bin:/bin", "HOME": self.home,
+               "PYTHONPATH": os.path.join(ROOT, "src"), "PYTHONDONTWRITEBYTECODE": "1",
+               "CTR_CONFIG_DIR": self.cfg_dir}
+        proc = subprocess.run([sys.executable, "-m", "career_track_record"] + list(args),
+                              cwd=self.work, env=env, stdin=subprocess.DEVNULL,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return proc.returncode, proc.stdout.decode("utf-8"), proc.stderr.decode("utf-8")
+
+    def put_plan(self, text):
+        with open(os.path.join(self.work, "plan.txt"), "w", encoding="utf-8") as handle:
+            handle.write(text)
+
+    def example_plan(self):
+        with open(os.path.join(EXAMPLES, "ab-fake-plan.txt"), encoding="utf-8") as handle:
+            return handle.read()
+
+    def test_the_fake_plan_freezes_runs_and_scores(self):
+        shutil.copy(os.path.join(EXAMPLES, "ab-fake-plan.txt"), self.work)
+        code, out, err = self.track("ab", "freeze", "ab-fake-plan.txt")
+        self.assertEqual(code, 0, "freeze of the fake plan did not exit 0")
+        self.assertTrue(err == "", "freeze of the fake plan printed on standard error")
+        code, out, err = self.track("ab", "run", "ab-fake-plan.txt")
+        self.assertEqual(code, 0, "run of the fake plan did not exit 0")
+        self.assertTrue(os.path.exists(os.path.join(self.work, "result-1.txt")),
+                        "run wrote no result-1.txt")
+        self.assertTrue(any(line.startswith("hypothesis h1 verdict: ")
+                            for line in out.splitlines()), "no verdict line in the output")
+        self.assertTrue(FAKE_VERDICT + "\n" in out, "the verdict line the guide quotes changed")
+        for name in ("key.txt", "run-log.txt", "reads"):
+            self.assertTrue(os.path.exists(os.path.join(self.work, name)),
+                            "run left none of key.txt, run-log.txt and reads in place")
+        code, out, err = self.track("ab", "score", "ab-fake-plan.txt")
+        self.assertEqual(code, 0, "score of the fake plan did not exit 0")
+        self.assertTrue(os.path.exists(os.path.join(self.work, "result-2.txt")),
+                        "score wrote no result-2.txt")
+
+    def test_the_guide_quotes_the_fake_plan_lines_it_shows(self):
+        text = guide_text()
+        self.assertTrue("`" + FAKE_VERDICT + "`" in text,
+                        "the guide does not quote the fake verdict line")
+        self.assertTrue("`" + NOT_BLIND_VERDICT + "`" in text,
+                        "the guide does not quote the not-blind verdict line")
+        self.assertTrue("`cannot run: the run folder holds no key.txt`" in text,
+                        "the guide does not quote the no-key line")
+        self.assertTrue("examples/ab-fake-plan.txt" in text,
+                        "the guide does not name the fake plan file")
+
+    def test_score_before_any_run_has_no_key_file(self):
+        shutil.copy(os.path.join(EXAMPLES, "ab-fake-plan.txt"), self.work)
+        code, out, err = self.track("ab", "freeze", "ab-fake-plan.txt")
+        self.assertEqual(code, 0, "freeze of the fake plan did not exit 0")
+        code, out, err = self.track("ab", "score", "ab-fake-plan.txt")
+        self.assertEqual(code, 2, "score before a run did not exit 2")
+        self.assertTrue("cannot run: the run folder holds no key.txt" in out + err,
+                        "the no-key message the guide quotes changed")
+        self.assertFalse(os.path.exists(os.path.join(self.work, "result-1.txt")),
+                         "score wrote a result with no run")
+
+    def test_a_plan_whose_only_reader_is_not_blind_is_inconclusive(self):
+        plan = self.example_plan()
+        old = "reader-1 | fake | family m1"
+        self.assertTrue(old in plan, "the fake plan's reader line changed")
+        self.put_plan(plan.replace(old, "reader-1 | fake | not-blind | family m1"))
+        code, out, err = self.track("ab", "freeze", "plan.txt")
+        self.assertEqual(code, 0, "freeze of the not-blind plan did not exit 0")
+        code, out, err = self.track("ab", "run", "plan.txt")
+        self.assertEqual(code, 0, "run of the not-blind plan did not exit 0")
+        self.assertTrue(NOT_BLIND_VERDICT + "\n" in out, "the not-blind verdict line changed")
+        self.assertTrue("A/A gate: not evaluated (0 valid reads of 0 planned)" in out,
+                        "the A/A gate line changed")
+        reads = [line for line in out.splitlines() if line.startswith("read ")]
+        self.assertTrue(len(reads) == 12, "not every read was reported")
+        self.assertTrue(all(line.endswith("flags=not-blind reader") for line in reads),
+                        "a read was not flagged not-blind")
+
+    def skeleton(self):
+        text = guide_text()
+        section = text.split("## Write a reader of your own", 1)[1].split("\n## ", 1)[0]
+        blocks = re.findall(r"```python\n(.*?)```", section, re.S)
+        self.assertTrue(len(blocks) == 1, "the guide's reader section has not one python block")
+        return blocks[0]
+
+    def test_the_guides_skeleton_reader_runs_with_live(self):
+        script = os.path.join(self.work, "my_reader.py")
+        with open(script, "w", encoding="utf-8") as handle:
+            handle.write(self.skeleton())
+        plan = self.example_plan().split("# How the fake reader", 1)[0]
+        old = "reader-1 | fake | family m1"
+        self.assertTrue(old in plan, "the fake plan's reader line changed")
+        line = "reader-1 | %s %s | cost 1 | family mine" % (sys.executable, script)
+        self.put_plan(plan.replace(old, line))
+        code, out, err = self.track("ab", "freeze", "plan.txt")
+        self.assertEqual(code, 0, "freeze of the skeleton plan did not exit 0")
+        code, out, err = self.track("ab", "run", "plan.txt", "--live")
+        self.assertEqual(code, 0, "live run of the skeleton plan did not exit 0")
+        self.assertTrue(any(line.startswith("hypothesis h1 verdict: ")
+                            for line in out.splitlines()), "no verdict line in the output")
+        self.assertTrue(os.path.exists(os.path.join(self.work, "reads", "c1", "1", "PROMPT.txt")),
+                        "the read folder kept no PROMPT.txt")
 
 
 if __name__ == "__main__":

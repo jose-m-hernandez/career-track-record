@@ -96,8 +96,9 @@ def setUpModule():
     if not CODEX:
         return
     done = subprocess.run([CODEX, "--version"], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, timeout=TIMEOUT)
-    sys.stderr.write("R18 codex version: %s\n" % done.stdout.decode("utf-8", "replace").strip())
+                          stderr=subprocess.DEVNULL, timeout=TIMEOUT)
+    found = re.search(r"[0-9]+(?:\.[0-9]+)+", done.stdout.decode("utf-8", "replace"))
+    sys.stderr.write("R18 codex version: %s\n" % (found.group(0) if found else "not parsed"))
 
 
 @unittest.skipUnless(CODEX, "not run: codex is not installed")
@@ -162,12 +163,13 @@ class ProfileRows(object):
         self.assertTrue(MISSING in output, "the missing-file message was not printed")
 
     def test_every_read_outside_the_folder_is_refused_and_no_token_is_printed(self):
-        commands = (["/bin/cat", self.paths["S"]], ["/bin/cat", "../key.txt"],
-                    ["/bin/cat", self.paths["K"]], ["/bin/cat", self.paths["H"]],
-                    ["/bin/cat", self.paths["T"]], ["/bin/ls", ".."],
-                    ["/bin/sh", "-c", "cd .. && cat key.txt"])
-        for command in commands:
-            with self.subTest(command=" ".join(command)):
+        commands = (("S", ["/bin/cat", self.paths["S"]]),
+                    ("relative-key", ["/bin/cat", "../key.txt"]),
+                    ("K", ["/bin/cat", self.paths["K"]]), ("H", ["/bin/cat", self.paths["H"]]),
+                    ("T", ["/bin/cat", self.paths["T"]]), ("ls-parent", ["/bin/ls", ".."]),
+                    ("sh-cd-parent", ["/bin/sh", "-c", "cd .. && cat key.txt"]))
+        for key, command in commands:
+            with self.subTest(key=key):
                 status, output = self.run_in_f(command)
                 self.assertEqual(status, 1, "the read outside the folder did not exit 1")
                 self.assertTrue(REFUSED in output, "the refusal message was not printed")

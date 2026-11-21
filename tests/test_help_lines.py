@@ -29,7 +29,7 @@ NEW = {
     "claims": "  --list FILE      the claims list (required unless claims-list.txt is in your "
               "record folder)\n",
 }
-_TOP_HEAD = "usage: track-record [-h] command ...\n\npositional arguments:\n  command\n"
+_TOP_HEAD = "usage: track-record [-h] [--version] command ...\n\npositional arguments:\n  command\n"
 _TOP_ROWS = (
     ("keywords", "scan saved job postings for terms"),
     ("barred", "report wording from your own barred list"),
@@ -53,7 +53,8 @@ def _top_help(column, wrap, options):
     rows += "    parse".ljust(column) + _PARSE + "\n"
     rows += "    setup".ljust(column) + "choose your record folder\n"
     return (_TOP_HEAD + rows + "\n" + options + ":\n" + "  -h, --help".ljust(column) +
-            "show this help message and exit\n")
+            "show this help message and exit\n" + "  --version".ljust(column) +
+            "show program's version number and exit\n")
 
 
 # argparse's own layout, captured once on each interpreter the base help was captured on:
@@ -125,6 +126,9 @@ class HelpLines(unittest.TestCase):
                  "    parse     " + _PARSE + "\n"
                  "    setup     choose your record folder\n")
         expected_words = before.replace(eight[-1] + "\n", eight[-1] + "\n" + added)
+        # The top-level --version flag adds one usage word and one option line.
+        expected_words = (expected_words.replace("[-h] command", "[-h] [--version] command")
+                          + "  --version  show program's version number and exit\n")
         self.assertEqual(text.split(), expected_words.split())
         self.assertEqual(text, TOP_HELP["%d.%d" % sys.version_info[:2]])
 
