@@ -32,16 +32,16 @@ Grade the reviewer on a table. A pass on a row needs a cited line, as in [scorin
 
 ## The judge is not the author
 
-If a model scores or reviews drafts, don't let the model that wrote a draft be the one that judges it. A model can prefer wording of its own family. The shipped tools address part of this. `ab` records which model family drafted each version and which family each reader is. When a verdict would favour a version that a model of a reader's own family drafted or edited, readers of another family have to agree before the verdict stands ([docs/specs/reader-ab.md](../specs/reader-ab.md), lines 14 and 59). The rule asks for agreement from another family. It doesn't bar a reader from reading its own family's work.
+If a model scores or reviews drafts, don't let the model that wrote a draft be the one that judges it. A model can prefer wording of its own family. The shipped tools address part of this. `ab` records which model family drafted each version and which family each reader is. When a verdict would favour a version that a model of a reader's own family drafted or edited, readers of another family have to agree before the verdict stands ([docs/specs/reader-ab.md](../specs/reader-ab.md), the `Revision: 4` line at the top of the spec, and § 3.1, "The plan file"). The rule asks for agreement from another family. It doesn't bar a reader from reading its own family's work.
 
-Before a judge scores anything that counts, run it on outputs whose answers you know. Include a case where the right answer is "cannot tell": two drafts that are the same, or a draft that you can't judge without a document the reader wasn't given. A judge that picks a winner there is overconfident, and you want to learn that before it scores your real draft. The control that must be found ([METHOD.md](../../METHOD.md), rule 6) is the shipped form of the same idea: `ab` puts one version in both slots, and a plan may add a copy weakened on purpose ([docs/specs/reader-ab.md](../specs/reader-ab.md), lines 33-34). Running a judge on cases with known answers, and the "cannot tell" case, are for you to do by hand.
+Before a judge scores anything that counts, run it on outputs whose answers you know. Include a case where the right answer is "cannot tell": two drafts that are the same, or a draft that you can't judge without a document the reader wasn't given. A judge that picks a winner there is overconfident, and you want to learn that before it scores your real draft. The control that must be found ([METHOD.md](../../METHOD.md), rule 6) is the shipped form of the same idea: `ab` puts one version in both slots, and a plan may add a copy weakened on purpose ([docs/specs/reader-ab.md](../specs/reader-ab.md), § 2, "Scope"). Running a judge on cases with known answers, and the "cannot tell" case, are for you to do by hand.
 
 ## What is shipped and what isn't
 
 | Part | Runs in a command? |
 | --- | --- |
 | A plan and its files hashed before the first read | Yes: `ab`, `panel` |
-| A planted strong and weak document read through each lens | Yes: `panel` (`docs/specs/reader-panel.md:32-33`) |
+| A planted strong and weak document read through each lens | Yes: `panel` (`docs/specs/reader-panel.md`, § 2, "Scope") |
 | A reader's model family declared; another family to agree | Yes: `ab` (`docs/specs/reader-ab.md`, sections 3.1 and 6) |
 | A control that must be found | Yes: `ab` and `panel` (`METHOD.md`, rule 6) |
 | Planted flaws in your own draft, found/invented/complete scoring | No |

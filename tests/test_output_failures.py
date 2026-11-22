@@ -98,7 +98,7 @@ ARGPARSE_ERRORS = [
      "usage: track-record keywords [-h] mode ...\n"
      "track-record keywords: error: the following arguments are required: mode\n"),
     ("UNKNOWN_COMMAND", ["nonsense"],
-     "usage: track-record [-h] command ...\n"
+     "usage: track-record [-h] [--version] command ...\n"
      "track-record: error: argument command: invalid choice: 'nonsense' (choose from "
      "'keywords', 'barred', 'tone', 'ab', 'claims', 'panel', 'record', 'drafts', 'wrapped-compounds', 'parse', 'setup')\n"),
     ("MISSING_OPTION_AND_FILE", ["keywords", "coverage"],

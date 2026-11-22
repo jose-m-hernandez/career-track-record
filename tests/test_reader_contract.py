@@ -834,7 +834,7 @@ class SignedGuideLines(unittest.TestCase):
 
     def test_the_released_changelog_section_lists_the_known_issue_once(self):
         text = self.read("CHANGELOG.md")
-        start = text.index("## [%s]" % test_packaging.read_version())
+        start = text.index("## [0.14.1]")
         end = text.index("\n## [", start)
         section = text[start:end]
         self.assertIn("\n### Known issues\n", section)

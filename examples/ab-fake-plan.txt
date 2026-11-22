@@ -1,0 +1,41 @@
+# A plan that needs no AI model. Lines starting with # are notes; the tool ignores them.
+# It uses only the built-in "fake" reader, so you can freeze, run and score it with no
+# account and no cost (see docs/guides/ab.md, "Try the tool with no model").
+# The fake reader answers by the "fake-reader" rule below, not by reading the two
+# versions. So the result tests this plan and says nothing about the two résumés.
+
+# The job posting both versions are read against.
+posting: ab-first/posting.txt
+
+# The two versions, the same invented files as examples/ab-first-plan.txt.
+# "drafted-by user" means no AI wrote or edited a word of it.
+versions:
+  base | ab-first/resume-base.txt | drafted-by user
+  skills-top | ab-first/resume-skills-top.txt | drafted-by user
+
+# One test: does moving the skills to the top win?
+comparisons:
+  base vs skills-top
+
+# The reader: "fake" is built in, so there is no program to name. "family" names the
+# model behind a reader; the fake one is a stand-in, and "m1" is only a label.
+readers:
+  reader-1 | fake | family m1
+
+# 6 reads per arm = 3 pairs (each pair reads both orders).
+reads-per-reader: 6
+
+# The rule, fixed before you see any answer. A pick counts only when both orders agree.
+hypotheses:
+  SUPPORTED if skills-top preferred in 3 of 3; REFUTED if base preferred in 2 or more; otherwise INCONCLUSIVE
+
+# The only lines that may differ between the two versions.
+change-scope:
+  ^At a glance$
+  ^Skills$
+  ^(Tools|Practices):
+
+# How the fake reader answers: it prefers whichever version contains this text. That is
+# the whole of its judgement, so the verdict comes from this line and not from the résumés.
+fake-reader:
+  prefer containing "At a glance"
