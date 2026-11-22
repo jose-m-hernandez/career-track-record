@@ -12,6 +12,7 @@ import unittest
 from unittest import mock
 
 from ci import barred_strings
+from tests.test_record_folder import git_init
 
 CANARY = "barred-strings-canary-ab12cd34ef"
 ENTRY_A = "zebra quartz"
@@ -152,7 +153,7 @@ class Case(unittest.TestCase):
         self.counter += 1
         repo = os.path.join(self.tmp, "repo%d" % self.counter)
         os.mkdir(repo)
-        self.git(repo, "init", "-q", "-b", branch)
+        git_init(repo, "-b", branch)
         for path, data in (files or {"notes.txt": "plain text\n"}).items():
             full = os.path.join(repo, path)
             os.makedirs(os.path.dirname(full), exist_ok=True)
@@ -170,7 +171,7 @@ class Case(unittest.TestCase):
         self.counter += 1
         repo = os.path.join(self.tmp, "repo%d" % self.counter)
         os.mkdir(repo)
-        self.git(repo, "init", "-q", "-b", branch)
+        git_init(repo, "-b", branch)
         tree = self.git(repo, "mktree")
         body = (
             b"tree " + tree.encode("ascii") + b"\n"

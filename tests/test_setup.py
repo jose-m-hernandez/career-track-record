@@ -976,6 +976,14 @@ class StaleCheckCases(SetupCase):
         self.assertTrue(all(p == folder or p.startswith(folder + os.sep) for p in changed),
                         changed)
 
+    def test_s37_a_repository_made_by_the_tests_holds_no_lock_file_after_a_commit(self):
+        repo = self.repo()
+        for key, value in (("gc.auto", "0"), ("maintenance.auto", "false")):
+            self.assertEqual(git(repo, "config", "--get", key).strip(), value)
+        self.assertEqual([p for p in snapshot(repo) if p.endswith(".lock")], [])
+        planted = write(os.path.join(repo, ".git", "objects", "maintenance.lock"), "")
+        self.assertEqual([p for p in snapshot(repo) if p.endswith(".lock")], [planted])
+
 
 class ModeCases(SetupCase):
     def mode(self, path):
@@ -1133,10 +1141,14 @@ class HelpCases(SetupCase):
                               stdin=subprocess.DEVNULL)
         text = done.stdout.decode("utf-8")
         self.assertEqual((done.returncode, done.stderr), (0, b""))
-        # wrapped-compounds and parse sit between the eight and setup (tests/test_help_lines.py
-        # pins the exact spacing); the long name widens every column, so compare by words.
+        # absence sits between record and drafts; wrapped-compounds and parse sit between the
+        # eight and setup (tests/test_help_lines.py pins the exact spacing); the long name
+        # widens every column, so compare by words.
         words = " ".join(text.split())
-        self.assertIn(" ".join(EIGHT.split()) + " wrapped-compounds find hyphenated words "
+        base = EIGHT.splitlines()
+        eight = " ".join(" ".join(base[:-1]).split() + ["absence show that your listed terms "
+                         "appear nowhere in the files you declare"] + " ".join(base[-1:]).split())
+        self.assertIn(eight + " wrapped-compounds find hyphenated words "
                       "split across two lines in a PDF parse check what a text extractor gets from your résumé PDF "
                       "setup choose your record folder ", words)
         self.assertEqual(text.count("\n    setup "), 1)

@@ -5,8 +5,8 @@ import os
 import re
 import sys
 
-from career_track_record import (ab, barred, claims, config, drafts, keywords, panel,
-                                 parse, reader_harness, record_check, setup_cmd, tone,
+from career_track_record import (ab, absence, barred, claims, config, drafts, keywords,
+                                 panel, parse, reader_harness, record_check, setup_cmd, tone,
                                  write_guard, wrapped_compounds)
 from career_track_record import __version__
 
@@ -104,6 +104,10 @@ def _build_parser():
                    add_help=False)
     # Listed for --help only: main() hands "record" to its own parser (_parse_record).
     top.add_parser("record", help="check your record's tables against rules you declare",
+                   add_help=False)
+    # Listed for --help only: main() hands "absence" to its own parser (_parse_absence).
+    top.add_parser("absence",
+                   help="show that your listed terms appear nowhere in the files you declare",
                    add_help=False)
     # Listed for --help only: main() hands "drafts" to its own parser (_parse_drafts).
     top.add_parser("drafts", help="check a file of a document's versions, or extract one",
@@ -210,7 +214,8 @@ def _write_refused(targets, environ):
 _BARRED_VALUE_OPTIONS = ("--list", "--control", "--min-chars")
 _BARRED_OPTIONS = _BARRED_VALUE_OPTIONS + ("--strip-comments",)
 _CLAIMS_VALUE_OPTIONS = ("--list", "--control")
-_CLAIMS_OPTIONS = _CLAIMS_VALUE_OPTIONS + ("--stale-check", "--check-sources")
+_CLAIMS_OPTIONS = _CLAIMS_VALUE_OPTIONS + ("--stale-check", "--check-sources",
+                                                  "--require-local-sources")
 _TONE_OPTIONS = ("--rules", "--warn-only", "--stale-check", "--print-defaults")
 _TONE_RULES = "tone-rules.json"
 
@@ -295,7 +300,7 @@ exit: 0 no errors, 1 errors found, 2 it cannot run
 
 _CLAIMS_HELP = """\
 usage: track-record claims --list FILE --control TEXT [--control TEXT]...
-    [--stale-check] [--check-sources] FILE...
+    [--stale-check] [--check-sources] [--require-local-sources] FILE...
 
 Fail on any sentence your claims list has not approved.
 
@@ -303,10 +308,15 @@ Fail on any sentence your claims list has not approved.
   --control TEXT   a string each file must hold (repeatable, any one counts)
   --stale-check    also report approved entries no file uses
   --check-sources  also check each quote against the source file it cites
+  --require-local-sources
+                   like --check-sources, and fail an approved quote it could not check
+                   or an approved entry with no source
   -h, --help       show this summary and exit
 
 exit: 0 every sentence approved, 1 a sentence not approved, 2 a DEAD file or cannot run;
-    with --check-sources, also 1 a quote not found, 2 a source that cannot be read
+    with --check-sources, also 1 a quote not found, 2 a source that cannot be read;
+    with --require-local-sources, also 1 an approved quote unverified
+        or an approved entry with no source
 """
 
 
@@ -319,6 +329,17 @@ Check the tables of your record against the rules you declare.
   -h, --help     show this summary and exit
 
 exit: 0 all checks OK, 1 a check found a problem, 2 a DEAD check or cannot run
+"""
+
+
+_ABSENCE_HELP = """\
+usage: track-record absence DECLARATION
+
+Show that your listed terms appear nowhere in the files you declare.
+
+  -h, --help  show this summary and exit
+
+exit: 0 clean, 1 a term found, 2 DEAD or cannot run
 """
 
 
@@ -739,7 +760,7 @@ def _parse_claims(args):
     if _asks_for_help(args, _CLAIMS_VALUE_OPTIONS, _CLAIMS_OPTIONS):
         return {"help": True}
     found = {"list": None, "controls": [], "stale_check": False, "check_sources": False,
-             "files": []}
+             "require_local_sources": False, "files": []}
     list_given = False
     i = 0
     while i < len(args):
@@ -757,6 +778,9 @@ def _parse_claims(args):
             continue
         if name == "--check-sources" and not equals:
             found["check_sources"] = True
+            continue
+        if name == "--require-local-sources" and not equals:
+            found["require_local_sources"] = True
             continue
         if name not in _CLAIMS_VALUE_OPTIONS:
             raise _OptionError("unknown option %s" % barred.printed_path(arg))
@@ -792,7 +816,8 @@ def _main_claims(args, environ):
         list_path = found.get("claims-list.txt")
     result = claims.run(list_path=list_path, files=opts["files"],
                         controls=opts["controls"], stale_check=opts["stale_check"],
-                        check_sources=opts["check_sources"])
+                        check_sources=opts["check_sources"],
+                        require_local_sources=opts["require_local_sources"])
     if not result.ran:
         _err(result.error + "\n")
         return result.exit_code
@@ -839,6 +864,46 @@ def _main_record(args):
         _out(_RECORD_HELP)
         return 0
     result = record_check.run(opts["declaration"], report_only=opts["report_only"])
+    if not result.ran:
+        _err(result.error + "\n")
+        return result.exit_code
+    _out(result.text)
+    return result.exit_code
+
+
+def _parse_absence(args):
+    """Parse the command line of ``absence``. Raises _OptionError on any problem."""
+    if _asks_for_help(args):
+        return {"help": True}
+    declarations = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            declarations.extend(args[i:])
+            break
+        if not arg.startswith("-") or arg == "-":
+            declarations.append(arg)
+            continue
+        raise _OptionError("unknown option %s" % barred.printed_path(arg.partition("=")[0]))
+    if not declarations:
+        raise _OptionError("absence needs a DECLARATION file")
+    if len(declarations) > 1:
+        raise _OptionError("absence takes one DECLARATION file, not several")
+    return {"declaration": declarations[0]}
+
+
+def _main_absence(args, environ):
+    try:
+        opts = _parse_absence(args)
+    except _OptionError as exc:
+        _err("cannot run: %s\n" % exc)
+        return 2
+    if opts.get("help"):
+        _out(_ABSENCE_HELP)
+        return 0
+    result = absence.run(opts["declaration"], environ)
     if not result.ran:
         _err(result.error + "\n")
         return result.exit_code
@@ -1132,6 +1197,8 @@ def _main(argv, environ):
         return _main_claims(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "record":
         return _main_record(argv[1:])
+    if argv and argv[0] == "absence":
+        return _main_absence(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "drafts":
         return _main_drafts(argv[1:], os.environ if environ is None else environ)
     if argv and argv[0] == "wrapped-compounds":

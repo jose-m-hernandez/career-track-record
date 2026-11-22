@@ -7,7 +7,7 @@ labels: ""
 
 Do not paste your own records, evidence, résumé text or other people's names here.
 Describe the problem with invented data. For a security problem, do not open an
-issue: see [SECURITY.md](../../SECURITY.md).
+issue: see [SECURITY.md](https://github.com/jose-m-hernandez/career-track-record/blob/main/SECURITY.md).
 
 ## What happened
 

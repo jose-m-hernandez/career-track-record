@@ -66,9 +66,21 @@ def line(status, number, what):
     return "%s, entry #%d: %s\n" % (status, number, what)
 
 
-def counts(approved=(0, 0, 0, 0), proposed=(0, 0, 0, 0)):
+def sources(approved=0, proposed=0):
+    """The two `sources` lines that end every run under --check-sources (revision 3)."""
+    return ("sources, approved: %d no source\n" % approved
+            + "sources, proposed: %d no source\n" % proposed)
+
+
+def no_source(status, number, list_line):
+    return "%s, entry #%d (list line %d): no source\n" % (status, number, list_line)
+
+
+def counts(approved=(0, 0, 0, 0), proposed=(0, 0, 0, 0), unsourced=(0, 0)):
+    """The two `quotes` lines, then the two `sources` lines (`unsourced` is approved, proposed)."""
     shape = "quotes, %s: %d found, %d not found, %d unreadable, %d unverified\n"
-    return shape % (("approved",) + tuple(approved)) + shape % (("proposed",) + tuple(proposed))
+    return (shape % (("approved",) + tuple(approved)) + shape % (("proposed",) + tuple(proposed))
+            + sources(*unsourced))
 
 
 ENTRY_3 = line("proposed", 3, "quote not found")
@@ -115,7 +127,8 @@ KNOWN = {
     30: (L2.replace("quote\twill lead a group of six engineers\n", QUOTED_NOTE + "\n"), SIX,
          "example", [], ok("f.txt", 1) + ENTRY_3 + counts((1, 0, 0, 0), (0, 1, 0, 0)), 0),
     31: (L1, SIX + " Shipped the Example importer in 2021.", "example", [],
-         ok("f.txt", 2) + counts(), 0),
+         ok("f.txt", 2) + no_source("approved", 2, 3) + no_source("approved", 4, 5)
+         + counts(unsourced=(2, 0)), 0),
 }
 
 # The list errors of spec 9.28: (list text, stderr). Each is the same with and without the flag.
@@ -182,11 +195,12 @@ VARIANTS = {
     "proposed not found only": (
         "approved\t%s\nproposed\tCut build times by forty percent.\tevidence/review.txt\n"
         "quote\tcut the build time in half\n" % SIX, None, False,
-        ok("f.txt", 1) + line("proposed", 2, "quote not found")
-        + counts((0, 0, 0, 0), (0, 1, 0, 0)), 0),
+        ok("f.txt", 1) + line("proposed", 2, "quote not found") + no_source("approved", 1, 1)
+        + counts((0, 0, 0, 0), (0, 1, 0, 0), (1, 0)), 0),
     "refused unreadable only": (
         "approved\t%s\nrefused\tIncreased revenue tenfold.\tevidence\n"
-        "quote\trevenue grew tenfold\n" % SIX, None, False, ok("f.txt", 1) + counts(), 0),
+        "quote\trevenue grew tenfold\n" % SIX, None, False,
+        ok("f.txt", 1) + no_source("approved", 1, 1) + counts(unsourced=(1, 0)), 0),
     "source and no quote": (
         "approved\t%s\tevidence/offer.txt\nproposed\tCut build times by forty percent.\t"
         "evidence/review.txt\n" % SIX, None, False, ok("f.txt", 1) + counts(), 0),

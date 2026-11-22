@@ -6,6 +6,22 @@ follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-22
+
+### Added
+
+- `track-record claims --require-local-sources` runs every check of `--check-sources`, which it implies, and also fails the run (exit 1) on an approved quote it could not check (its source is unverified, such as a URL or a record id) and on an approved entry that has no source. A proposed entry never changes the exit status. Spec: `docs/specs/claims.md` revision 3.
+- `track-record absence DECLARATION` shows that terms from your list appear nowhere in a set of files. One declaration file names the list, the files and folders to search, the place where the fact would live with a control phrase that must be found there, and any exclusions with their reasons. It searches file names as well as text, reads hidden files, counts symbolic links without following them, and prints the declaration's sha256 so a claim of absence can cite it. Every file found is counted as read, excluded, unreadable or a link not followed, and the counts must reconcile. A search that could not see (no file, the place outside the set or inside an exclusion, an unreadable file, the control not found) is DEAD, never CLEAN; exit 2 is not a pass. Output names a term by its entry number only. Guide: [absence](docs/guides/absence.md). Spec: [docs/specs/absence.md](docs/specs/absence.md).
+- [docs/review.md](docs/review.md) sets the sequence of checks for a single draft that answers a saved posting: the gates, when a draft counts as ready, and a review sheet that ends with the draft ready or with the gate still open. README.md and AGENTS.md each point to it; the pointer in AGENTS.md sits below the five standing orders, and none of them changes. It adds no command: it names the commands that already ship, and says where no command does the work. The person sends.
+- `tests/test_review_method.py` fails when `docs/review.md` names a command the command line does not have, or a subcommand it does not have, or leaves out the six `ab` and `panel` steps. It also checks the review sheet in the file against the rules the file gives for it. It reads the command tables from the command line itself and starts no reader.
+
+### Changed
+
+- **Output under `--check-sources` changes.** Each approved or proposed entry with no source now gets a line, `<status>, entry #<N> (list line <L>): no source`, after the quote lines, and every run under the option ends with two more lines, `sources, approved: <e> no source` and `sources, proposed: <e> no source`. No exit status changes under `--check-sources` alone, and a run with neither option prints what it printed before. Refused entries are never reported. `track-record claims --help` lists the new option.
+- The claims guide, "Beyond the gate", has two short how-to lists under its existing paragraphs: how to search before calling something absent (name the expected location, state the exclusions, vary the pattern, depth and path), and how to read who did the work from a repository's author records and where that reading stops. Both are described as ways of working; no command does either. The paragraph on absence also gains two sentences on what `--check-sources` lists and when `--require-local-sources` fails a run; the other paragraph's words are unchanged.
+- The claims spec's build readings now give the `--list` help line the command has printed since 0.11.0.
+- The macOS tests in CI run on the `macos-26` image, in place of `macos-latest`. `poppler` is still installed with Homebrew and is not pinned, so its version is whatever Homebrew has that day.
+
 ## [0.14.2] - 2026-11-20
 
 ### Added
