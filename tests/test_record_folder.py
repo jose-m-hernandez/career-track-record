@@ -36,10 +36,21 @@ def git(folder, *args):
     return done.stdout.decode("utf-8")
 
 
+def git_init(path, *args):
+    """``git init`` at ``path`` with git's background upkeep turned off in the new repository.
+
+    After a commit git may start ``gc`` or ``maintenance`` in the background, and that leaves
+    a lock file such as ``.git/objects/maintenance.lock`` for a while; a test that snapshots
+    the folder would see it as a write."""
+    git(path, "init", "-q", *args)
+    git(path, "config", "gc.auto", "0")
+    git(path, "config", "maintenance.auto", "false")
+
+
 def make_repo(path, ignore=None):
     """A throwaway work tree at ``path`` with one commit; ``ignore`` is the .gitignore text."""
     os.makedirs(path, exist_ok=True)
-    git(path, "init", "-q")
+    git_init(path)
     with open(os.path.join(path, "README"), "w") as handle:
         handle.write("invented\n")
     paths = ["README"]

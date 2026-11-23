@@ -1,6 +1,6 @@
 # career-track-record
 
-Ten checks for the career copy you send, and a setup command. Open the repository in your own AI agent and ask in plain words. To try one now, go to [First run](#first-run).
+Eleven checks for the career copy you send, and a setup command. Open the repository in your own AI agent and ask in plain words. To try one now, go to [First run](#first-run).
 
 ## The tools
 
@@ -16,6 +16,7 @@ Ten checks for the career copy you send, and a setup command. Open the repositor
 | `track-record panel` | How does this one draft read to a recruiter, and to the hiring manager? | [panel](docs/guides/panel.md) |
 | `track-record wrapped-compounds` | Does my PDF split a hyphenated word across two lines, so a text search misses it? | [wrapped-compounds](docs/guides/wrapped-compounds.md) |
 | `track-record parse` | What text comes out of my résumé PDF when a program reads it? | [parse](docs/guides/parse.md) |
+| `track-record absence` | Does a term I ruled out appear nowhere in these files, and did the search look at all of them? | [absence](docs/guides/absence.md) |
 | `track-record setup` | Where do my files live, so `keywords`, `barred`, `tone` and `claims` find them without a path? It asks in a terminal; without one, give `--folder PATH`. | [setup](docs/guides/setup.md) |
 
 Your agent runs the tools and tells you what they returned. Before you trust a clean result, each check shows it was looking.
@@ -28,7 +29,7 @@ The two reader tools measure their readers rather than prove them, and each resu
 
 Tested in a desktop AI agent app: none yet.
 
-The method behind the tools, and which parts are built so far, is in [METHOD.md](METHOD.md).
+The method behind the tools, and which parts are built so far, is in [METHOD.md](METHOD.md). To review one draft before you send it, follow [the review method](docs/review.md).
 
 ## Install
 
@@ -63,7 +64,7 @@ You should see this:
 
 `clean.txt` passes. `two.txt` uses two of the five entries on the list, so it fails. `nocontrol.txt` lacks the control phrase, so the check says DEAD and does not vouch for it: a file read as blank or garbled cannot pass as clean. The run exits 2 because of that one DEAD file. If `track-record` is not found, see Install.
 
-Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other nine tools are under [The tools](#the-tools).
+Then point it at your own files: `track-record barred --list your-list.txt --control "Your Name" your-file.md`. The other ten tools are under [The tools](#the-tools).
 
 New to the reader tests or the keyword scan? Try [Your first A/B test](docs/guides/ab.md#your-first-ab-test) and the [keywords worked example](docs/guides/keywords.md#a-worked-example), which come with invented files under `examples/`.
 
@@ -77,12 +78,13 @@ Every tool exits 0, 1 or 2; what each means per tool:
 - `track-record keywords`: Exit status for every mode: 0 means the run worked, whether or not it found gaps; 2 means it cannot run. In this version no mode exits 1. Spec: [docs/specs/keyword-scan.md](docs/specs/keyword-scan.md).
 - `track-record tone`: Exit 0 means no errors (warnings allowed), 1 means at least one error, and 2 means the check couldn't run.
 - `track-record ab`: Exit 0 means `freeze` wrote the freeze file, or `run` or `score` completed and scored its replies, whatever the verdicts, or `run` only printed the commands because `--live` was absent. Exit 1 means it finished but a read failed, or the spend ceiling cut it short. Exit 2 means it couldn't run.
-- `track-record claims`: Exit 0 means every file is OK. Exit 1 means a sentence is not approved, with `--stale-check` an approved entry no file uses, or with `--check-sources` an approved quote not found. Exit 2 means a file is DEAD, with `--check-sources` an approved entry's source cannot be read, or the gate couldn't run.
+- `track-record claims`: Exit 0 means every file is OK. Exit 1 means a sentence is not approved, with `--stale-check` an approved entry no file uses, with `--check-sources` an approved quote not found, or with `--require-local-sources` an approved quote it could not check or an approved entry with no source. Exit 2 means a file is DEAD, with `--check-sources` an approved entry's source cannot be read, or the gate couldn't run.
 - `track-record record`: Exit 0 means every check is OK (or, with `--report-only`, none is DEAD), 1 means a check found a problem, and 2 means a check is DEAD or the check couldn't run.
 - `track-record drafts`: Exit 0 means every rule holds, 1 means a fault that `check` reports or `extract` refuses, and 2 means a DEAD check or that the command could not run.
 - `track-record panel`: The exit codes are those of `ab`.
 - `track-record wrapped-compounds`: Exit 0 means no split hyphenated word needs a fix, 1 means at least one finding, and 2 means a file is DEAD or the command could not run. 2 is not a pass.
 - `track-record parse`: Exit 0 means every file is OK, 1 means at least one finding and no file is DEAD, and 2 means a file is DEAD or the command could not run. 2 is not a pass.
+- `track-record absence`: Exit 0 means CLEAN, 1 means a term was found, and 2 means the search is DEAD or the command could not run. 2 is not a pass.
 
 ## Why you can trust a result
 

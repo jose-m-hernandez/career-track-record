@@ -38,14 +38,20 @@ _TOP_ROWS = (
     ("claims", "fail on sentences your claims list hasn't approved"),
     ("panel", "read one version blind through named lenses"),
     ("record", "check your record's tables against rules you declare"),
-    ("drafts", "check a file of a document's versions, or extract one"),
 )
+_DRAFTS = ("drafts", "check a file of a document's versions, or extract one")
+_ABSENCE = "show that your listed terms appear nowhere in the files you declare"
+# argparse wraps the description of absence onto a second line on both interpreters.
+_ABSENCE_LINES = ("show that your listed terms appear nowhere in the files", "you declare")
 _WRAPPED = "find hyphenated words split across two lines in a PDF"
 _PARSE = "check what a text extractor gets from your résumé PDF"
 
 
 def _top_help(column, wrap, options):
     rows = "".join(("    " + name).ljust(column) + text + "\n" for name, text in _TOP_ROWS)
+    rows += ("    absence").ljust(column) + _ABSENCE_LINES[0] + "\n"
+    rows += " " * column + _ABSENCE_LINES[1] + "\n"
+    rows += ("    " + _DRAFTS[0]).ljust(column) + _DRAFTS[1] + "\n"
     if wrap:
         rows += "    wrapped-compounds\n" + " " * column + _WRAPPED + "\n"
     else:
@@ -125,7 +131,10 @@ class HelpLines(unittest.TestCase):
         added = ("    wrapped-compounds  find hyphenated words split across two lines in a PDF\n"
                  "    parse     " + _PARSE + "\n"
                  "    setup     choose your record folder\n")
-        expected_words = before.replace(eight[-1] + "\n", eight[-1] + "\n" + added)
+        # absence stands between record and drafts, the seventh and eighth lines of the base.
+        absence = "    absence   " + _ABSENCE + "\n"
+        expected_words = before.replace(eight[-2] + "\n", eight[-2] + "\n" + absence)
+        expected_words = expected_words.replace(eight[-1] + "\n", eight[-1] + "\n" + added)
         # The top-level --version flag adds one usage word and one option line.
         expected_words = (expected_words.replace("[-h] command", "[-h] [--version] command")
                           + "  --version  show program's version number and exit\n")
@@ -143,6 +152,12 @@ class HelpLines(unittest.TestCase):
         self.assertEqual(words.count("parse"), 1)
         self.assertLess(words.index("wrapped-compounds"), words.index("parse"))
         self.assertLess(words.index("parse"), words.index("setup"))
+
+    def test_the_top_level_help_names_absence_once_between_record_and_drafts(self):
+        words = help_of("").split()
+        self.assertEqual(words.count("absence"), 1)
+        self.assertLess(words.index("record"), words.index("absence"))
+        self.assertLess(words.index("absence"), words.index("drafts"))
 
     def test_the_new_lines_are_the_ones_the_code_pins(self):
         from career_track_record import cli

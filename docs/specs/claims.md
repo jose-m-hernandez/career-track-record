@@ -1,17 +1,17 @@
 # Claim gate: behaviour spec
 
 Status: accepted.
-Date: 2026-11-14.
-Revision: 2.1. The signed spec (sha256 ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41) is reproduced below verbatim. The maintainer signed it on 2026-11-14. It is revision 2's signed text (sha256 9a9a11f17553d56a457ec0ca1341e8cc822b7db4f8fee7b8a66a096ff6d5844a) with one sentence of its status line replaced; it changes no behaviour and no section. Its Status, Date and Revision lines are the only lines that differ. The whole of this file before this revision has sha256 7ea19816ca2f0e79efac011ae69c930782613b6c4e66e1048b9e6ee1054ab261. The build readings of revision 1 follow the signed spec and still apply.
+Date: 2026-11-20.
+Revision: 3. The signed spec (sha256 501ba425adf6270ac0578ab7ff625a87ff2dce6115cf7cd96f1842aa13b54837) is reproduced below verbatim. The maintainer signed it on 2026-11-15. It is revision 2.1's signed text (sha256 ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41) with the changes its own Revision line lists. The whole of this file before this revision has sha256 d47047a140418bf0a27cec674d260165e80bec4e31d642ca9785ccc92926b991. The build readings of revision 1 follow the signed spec and still apply.
 
 ## Signed spec
 
-<!-- signed spec begins: sha256 ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41 -->
+<!-- signed spec begins: sha256 501ba425adf6270ac0578ab7ff625a87ff2dce6115cf7cd96f1842aa13b54837 -->
 # Claim gate: behaviour spec
 
-Status: revision 2.1, drafted on 2026-11-14 for the owner's signature. Revision 2's quote check is a port of a method in the author's private tooling. It was specified from a written description of what that method does, made from a reading of that tool's in-code documentation, and from this repository's METHOD.md and claims code. The implementation was written from that specification and this repository, under instructions not to read the tool or any private record, and to write no person's records, file paths, names or example entries from outside this repository into it.
+Status: revision 3, drafted on 2026-11-14 for the owner's signature, after revision 2.1. Revision 3 follows the method owner's written answers of 2026-11-14 about requiring local sources and reporting entries that have no source. Revision 2's quote check is a port of a method in the author's private tooling. It was specified from a written description of what that method does, made from a reading of that tool's in-code documentation, and from this repository's METHOD.md and claims code. The implementation was written from that specification and this repository, under instructions not to read the tool or any private record, and to write no person's records, file paths, names or example entries from outside this repository into it.
 Date: 2026-11-14.
-Revision: 2.1. Adds the quote line, --check-sources and the number boundary (sections 2, 3.0, 3.1, 3.4, 3.5, 6, 7, 8, 9 and 10). Revision 2.1 changes no behaviour and no section: it replaces the sentence in revision 2's status line about where the quote check came from.
+Revision: 3. Adds `--require-local-sources`, which implies `--check-sources` and also fails an approved quote it could not check; and, under either option, reports and counts every approved or proposed entry that has no source, naming the entry's line in the list. An approved entry with no source fails the run only under `--require-local-sources`; a proposed one never changes the exit status (sections 3.0, 3.4, 3.5, 6, 8, 9 and 10). A run with neither option prints what revision 2 printed. **Revision 3 changes output under `--check-sources`**: each approved or proposed entry with no source gets a line, and every run under the option ends with two more count lines, so 9.31's expected output changes and every known answer under the option gains text. It changes no exit status under `--check-sources` alone. Revision 2 added the quote line, --check-sources and the number boundary (sections 2, 3.0, 3.1, 3.4, 3.5, 6, 7, 8, 9 and 10).
 
 The command is `<cli> claims` (working name; the release names it).
 
@@ -48,6 +48,7 @@ Out:
 | `--control TEXT` | A control string. Required; may be given more than once. A file passes its control when it contains any one of them (section 3.3). |
 | `--stale-check` | Also report approved entries that no input file uses (section 6). Repeating it changes nothing. |
 | `--check-sources` | Also check each quote against its entry's source (section 3.5). Repeating it changes nothing. |
+| `--require-local-sources` | Run every check of `--check-sources`, which it implies, and also fail an approved quote it could not check (unverified) and an approved entry with no source (section 3.5). Repeating it changes nothing, and giving `--check-sources` as well changes nothing. |
 | `-h`, `--help` | Write the fixed summary of section 3.4 to standard output and exit `0`, under the same rules as barred.md section 3.0: it reads no list, control or input file, and wins over every other argument; after `--`, every argument is a file name. |
 
 Every other argument is an input file.
@@ -81,7 +82,7 @@ The summary is the text below, byte for byte, ending in one line feed.
 
 ```text
 usage: track-record claims --list FILE --control TEXT [--control TEXT]...
-    [--stale-check] [--check-sources] FILE...
+    [--stale-check] [--check-sources] [--require-local-sources] FILE...
 
 Fail on any sentence your claims list has not approved.
 
@@ -89,23 +90,28 @@ Fail on any sentence your claims list has not approved.
   --control TEXT   a string each file must hold (repeatable, any one counts)
   --stale-check    also report approved entries no file uses
   --check-sources  also check each quote against the source file it cites
+  --require-local-sources
+                   like --check-sources, and fail an approved quote it could not check
+                   or an approved entry with no source
   -h, --help       show this summary and exit
 
 exit: 0 every sentence approved, 1 a sentence not approved, 2 a DEAD file or cannot run;
-    with --check-sources, also 1 a quote not found, 2 a source that cannot be read
+    with --check-sources, also 1 a quote not found, 2 a source that cannot be read;
+    with --require-local-sources, also 1 an approved quote unverified
+        or an approved entry with no source
 ```
 
 ### 3.5 Quotes and sources
 
-The quote check is a port of an evidence-check method in which a quote must appear in the source it cites. It runs only with `--check-sources`, and only when the run goes ahead (section 7).
+The quote check is a port of an evidence-check method in which a quote must appear in the source it cites. It runs only with `--check-sources` or `--require-local-sources`, and only when the run goes ahead (section 7). Below, "under `--check-sources`" includes `--require-local-sources`.
 
-- **Which entries.** Every `approved` and `proposed` entry that has a quote line is checked, whether or not any input file used it. A `refused` entry is never checked, never printed and never counted. An entry without a quote line is never checked or counted. The check does not depend on the input files: it runs even when an input file is DEAD.
+- **Which entries.** Every `approved` and `proposed` entry that has a quote line is checked, whether or not any input file used it. A `refused` entry is never checked, never printed and never counted. An entry without a quote line is never checked or counted, with one exception from revision 3: an `approved` or `proposed` entry with no source is reported and counted as having no source (section 6). The check does not depend on the input files: it runs even when an input file is DEAD.
 - **Resolving the source.** The source is joined to the folder that holds the list file; an absolute source stays absolute. The resulting path is looked up without following a final symbolic link. When the lookup reports that nothing is at the path (no such file, or a part of the path that is not a folder) or that no file can have that name (a name too long, a character the system refuses, including a NUL character), the quote is **unverified**: the source is not a local file (a URL, a record id, a path that does not exist) and nothing is read. Any other failure of the lookup (for example no permission to look, or a loop of symbolic links) makes the source **unreadable**, `cannot read`: a lookup that was refused never looked, so it is not evidence that the source is absent. A dangling symbolic link is something at the path, so the lookup succeeds, following it fails, and it is unreadable, `cannot read`.
 - **Formats.** A source whose name ends in `.pdf`, in any case, is read as the text `pdftotext` writes for it, as section 3.2 says. Any other source must be UTF-8 text; one leading byte-order mark is dropped. No other format is read: an Office file is bytes that are not UTF-8 text.
 - **Unreadable.** A source that is there but cannot be checked is **unreadable**, with a reason: `not a regular file` (a directory, a FIFO, a device or a socket, or a symbolic link to one; the path is checked before anything opens it), `cannot read` (a path the lookup was refused, for example one inside a folder without permission; a dangling symbolic link; a file that cannot be opened), `not UTF-8`, `pdftotext not found`, `pdftotext failed`, or `cannot check` for any other error.
 - **Finding the quote.** The quote is prepared as a run is (section 4), one final `.`, `!` or `?` removed; the source's text is prepared the same way, without that removal. The quote is **found** when its prepared form occurs in the source's prepared text with a word boundary at each end of the quote that is a word character: the source character just outside that end is not a word character, or there is none. A word character is a letter, a number or an underscore, or a combining mark that folding leaves uncomposed. An end that is not a word character needs no boundary, so `.NET` is found in `ASP.NET`. Otherwise the quote is **not found**.
 - **The number boundary.** When the prepared quote ends in a digit (Unicode category Nd), a match also needs the number to stop there: the next source character is not a digit, and is not a `.` that is followed by a digit. So `Version 2.`, prepared to `Version 2`, is not found in `Version 2.5`, and is found in `Version 2. Then we rested.` Known limits: only a `.` is tested, so `Version 2` is found in `Version 2,5`; and only the end after the quote is tested, so `2 engineers` is found in `1.2 engineers`.
-- **Exit status.** An approved quote that is not found makes the exit status at least `1`. An approved source that is unreadable makes it `2`. **An unverified quote is printed and counted, and does not change the exit status.** A proposed entry never changes the exit status, whatever its result. Section 6 gives the lines.
+- **Exit status.** An approved quote that is not found makes the exit status at least `1`. An approved source that is unreadable makes it `2`. **An unverified quote is printed and counted, and does not change the exit status, unless `--require-local-sources` is given, when an unverified approved quote makes the exit status at least `1`.** An approved entry with no source is printed and counted, and makes the exit status at least `1` only under `--require-local-sources`. A proposed entry never changes the exit status, whatever its result or option. Section 6 gives the lines.
 
 ## 4. Sentences, folding and matching
 
@@ -156,18 +162,26 @@ With `--check-sources`, after the file lines and after any stale lines, one line
 <S>, entry #<N>: source unverified
 ```
 
-Then always these two lines, last:
+From revision 3, after all the quote lines, one line for each approved or proposed entry that has no source, as a group, in entry order within the group. `<L>` is the number of the list file's line that holds the entry, counting every line of the list from 1, comment and blank lines included:
+
+```text
+<S>, entry #<N> (list line <L>): no source
+```
+
+Then always these four lines, last:
 
 ```text
 quotes, approved: <a> found, <b> not found, <c> unreadable, <d> unverified
 quotes, proposed: <a> found, <b> not found, <c> unreadable, <d> unverified
+sources, approved: <e> no source
+sources, proposed: <e> no source
 ```
 
 Counts are printed as numbers, `0` included. Without the flag none of these lines appear.
 
-**Privacy.** Output never contains a source field, a resolved source path, any text read from a source, a quote, a note, the list file's path, or the sentence of an entry that covered nothing. A source line names the entry only by its number. A finding prints only text that is in the input file. A test greps the captured output of the known-answer runs for every source and note in the fixtures and finds none. Another greps the captured output of the runs under `--check-sources` for every quote, source field and resolved source path, a string written only inside the source files, every note and the list's path, and finds none.
+**Privacy.** Output never contains a source field, a resolved source path, any text read from a source, a quote, a note, the list file's path, or the sentence of an entry that covered nothing. A source line names the entry only by its number and, for an entry with no source, the number of its line in the list. A finding prints only text that is in the input file. A test greps the captured output of the known-answer runs for every source and note in the fixtures and finds none. Another greps the captured output of the runs under `--check-sources` for every quote, source field and resolved source path, a string written only inside the source files, every note and the list's path, and finds none.
 
-**Exit status:** `0` when every file is OK and no stale entry is reported; `1` when any file FAILs or any stale entry is reported, and none is DEAD; `2` when any file is DEAD or the run cannot go ahead. With `--check-sources`, an approved quote not found makes it at least `1`, and an approved source unreadable makes it `2`; an unverified quote, and any result of a proposed entry, change nothing (section 3.5). The highest applies.
+**Exit status:** `0` when every file is OK and no stale entry is reported; `1` when any file FAILs or any stale entry is reported, and none is DEAD; `2` when any file is DEAD or the run cannot go ahead. With `--check-sources`, an approved quote not found makes it at least `1`, and an approved source unreadable makes it `2`; an unverified quote, an approved entry with no source, and any result of a proposed entry, change nothing (section 3.5). With `--require-local-sources`, an unverified approved quote and an approved entry with no source each make it at least `1` as well. The highest applies.
 
 ## 7. When it cannot run
 
@@ -179,12 +193,13 @@ The run exits `2`, writes nothing to standard output and one `cannot run: <reaso
 2. **Three statuses.** `proposed` lets a drafter list a sentence for the owner to approve without it passing first. `refused` records a claim the owner turned down, so the same sentence fails with that reason if it comes back.
 3. **Exact equality after folding.** Any edit to an approved sentence makes it a new sentence. Folding removes only differences a reader cannot see or that do not change the words (case, invisible characters, ligatures, curly quotes, the U+2010 and U+2011 hyphens, a final full stop).
 4. **Hyphens.** U+2010 and U+2011 fold to a hyphen-minus here. Register item K22 notes that barred does not fold them. The owner's recommendation is that barred's next revision adopts the same fold, so both tools agree; that change is barred's, not this spec's.
-5. **Sources checked only for a quote, and only on request.** METHOD.md section 5 asks every claim to link back to its source. With `--check-sources`, the gate checks that an entry's quote appears word for word in the local file its source names. It never checks the claim's sentence against the source: the sentence is how the copy puts the claim, and the quote is the evidence for it. Without the flag the source is stored and never read, so a run without it gives what revision 1 gave. Flagging an approved entry without a source comes in a later release.
+5. **Sources checked only for a quote, and only on request.** METHOD.md section 5 asks every claim to link back to its source. With `--check-sources`, the gate checks that an entry's quote appears word for word in the local file its source names. It never checks the claim's sentence against the source: the sentence is how the copy puts the claim, and the quote is the evidence for it. Without the flag the source is stored and never read, so a run without it gives what revision 1 gave. From revision 3, an approved or proposed entry without a source is printed and counted under `--check-sources`; an approved one fails the run under `--require-local-sources`, and a proposed one never changes the exit status. The count has its own lines, not a place among the quote counts, because an entry with no source has no quote.
 6. **The control and DEAD rules follow barred.** METHOD.md section 6: a run that finds nothing must show it was looking.
 7. **A quote line, not a fourth field.** In revision 1 anything after an entry's third tab is a note. A quote in a fourth field would change the meaning of lists that already carry notes, and would make `approved<TAB>sentence<TAB><TAB>note` a list error. A first field of `quote` is an unknown status under revision 1, so no list that revision 1 accepts changes meaning.
-8. **An unverified quote does not change the exit status.** A URL or a record id is a source this tool does not read, since it fetches nothing over the network (section 2). Such a quote was not checked, so it is neither DEAD nor a pass: it is printed and counted, so the user sees how many quotes went unchecked.
+8. **An unverified quote does not change the exit status, unless `--require-local-sources` is given, when an unverified approved quote makes the exit status at least 1.** A URL or a record id is a source this tool does not read, since it fetches nothing over the network (section 2). Such a quote was not checked, so it is neither DEAD nor a pass: it is printed and counted, so the user sees how many quotes went unchecked.
 9. **Proposed entries are reported but never change the exit status.** A proposed entry already fails wherever the copy uses it (section 4, Results). Its quote result is information for the owner deciding whether to approve it.
 10. **The number boundary.** A full stop is not a word character, so without it `Version 2.` would be found in `Version 2.5`, and a quote would be verified by a figure the source does not state.
+11. **`--require-local-sources` implies `--check-sources`** (revision 3, by the owner's ruling). The name says what it requires. It implies the check because a strict option that ran no check would be a dead instrument. Proposed entries are untouched: section 3.5 stands, and a proposed entry never changes the exit status. A run with neither option prints nothing new, so no documented default output changes.
 
 ## 9. Known answers
 
@@ -254,12 +269,22 @@ Every run below uses `--list L2 --control "example" --check-sources` and the inp
 | 9.28 | L2 with a first line `quote	will lead a group`; L2 with a last line `quote	a second quote`; L2 with `approved	Joined Example Corp. in 2019.` and `quote	joined the team`; L2 with `approved	Joined Example Corp. in 2019.	evidence/offer.txt` and a line `quote` alone | cannot run, in turn: `a quote line comes before the first entry`; `entry #4 has two quote lines`; `entry #5 has a quote but no source`; `entry #5 has an empty quote`. Nothing on standard output; exit 2; the same without `--check-sources` |
 | 9.29 | L2 with the input file `Led a team of six engineers at Example Corp. Cut build times by forty percent.` | FAIL, 1 of 2: line 1, `proposed, entry #3` (a quote line takes no number); entry #3's line; the counts; exit 1 |
 | 9.30 | L2 with its first quote line's first field written ` QUOTE ` (in capitals, with spaces) and, after the quote, a tab and `invented quote note` | the output of 9.20, exit 0; the note is never printed |
-| 9.31 | L1 with 9.1's file | OK, 2 sentences; `quotes, approved: 0 found, 0 not found, 0 unreadable, 0 unverified`; `quotes, proposed: 0 found, 0 not found, 0 unreadable, 0 unverified`; exit 0 |
+| 9.31 | L1 with 9.1's file | OK, 2 sentences; `approved, entry #2 (list line 3): no source`; `approved, entry #4 (list line 5): no source`; `quotes, approved: 0 found, 0 not found, 0 unreadable, 0 unverified`; `quotes, proposed: 0 found, 0 not found, 0 unreadable, 0 unverified`; `sources, approved: 2 no source`; `sources, proposed: 0 no source`; exit 0. Changed in revision 3: entries #2 and #4 are approved and have no source, and the list's comment line counts as its line 1; proposed entry #5 has one; refused entry #6 is never reported |
 | 9.32 | 9.20 with `--check-sources` given twice; `--check-sources=1`; `--control --check-sources`; `--help` alongside `--check-sources` | the output of 9.20; `cannot run: unknown option --check-sources=1`; `cannot run: --control needs a value`; the summary of 3.4, exit 0 |
 | 9.33 | the output of 9.20 to 9.32, and of runs with sources that are not UTF-8, a dangling symbolic link and PDFs | contains no quote, no source field, no resolved source path, no text written only inside a source, no note and not the list's path |
 | 9.34 | 9.1 to 9.13 without `--check-sources`, with L1 and with L1 plus a quote line under each entry that has a source | the same standard output, standard error and exit status |
 | 9.35 | L2 with `approved	Joined Example Corp. in 2019.	locked/in.txt` and `quote	joined the team`, where `locked` is a folder beside the list at mode 000 and `locked/in.txt` is a file holding the quote; then the same entry as `proposed` | OK; entry #3's line; `approved, entry #5: source unreadable (cannot read)`; counts approved 1, 0, 1, 0; exit 2. As proposed: OK; entry #3's line; `proposed, entry #5: source unreadable (cannot read)`; counts approved 1, 0, 0, 0 and proposed 0, 1, 1, 0; exit 0. The case does not apply when the run has the privileges to read through mode 000 |
 | 9.36 | L2 with `approved	Joined Example Corp. in 2019.	<source>` and `quote	joined the team`, where `<source>` is a URL-like string longer than 4096 characters: `https://example.com/records/` followed by `part/` 900 times | OK; entry #3's line; `approved, entry #5: source unverified`; counts approved 1, 0, 0, 1; exit 0. The source is longer than any path the system allows, so no file can have that name |
+| 9.37 | 9.23 with `--require-local-sources` in place of `--check-sources` | the output of 9.23; exit 1: an approved quote was not checked |
+| 9.38 | 9.37 with `--check-sources` given as well; 9.37 with `--require-local-sources` given twice | the output of 9.37, exit 1, each |
+| 9.39 | 9.24 with `--require-local-sources` | the output of 9.24; exit 0: proposed entries never change the exit status |
+| 9.40 | 9.31 with `--require-local-sources` | the output of 9.31; exit 1: two approved entries have no source |
+| 9.41 | 9.20 with `--require-local-sources` | the output of 9.20; exit 0: every approved quote was found, and every approved entry has a source |
+| 9.42 | `--require-local-sources=1`; `--help` alongside `--require-local-sources` | `cannot run: unknown option --require-local-sources=1`, exit 2; the summary of 3.4, exit 0 |
+| 9.43 | 9.1 to 9.19 with neither option | the same standard output, standard error and exit status as revision 2 gave |
+| 9.44 | 9.41 with `proposed	Mentored two interns.` appended to L2, as entry #5 on list line 9; then the same with `--check-sources` in place of `--require-local-sources` | the output of 9.41, with `proposed, entry #5 (list line 9): no source` after entry #3's line and `sources, proposed: 1 no source` as the last line; exit 0, each: a proposed entry with no source is reported and counted, and never changes the exit status |
+
+9.33's privacy check covers the runs of 9.37 to 9.42 and 9.44 as well. From revision 3, every run above under `--check-sources` or `--require-local-sources` also ends with the lines `sources, approved: <e> no source` and `sources, proposed: <e> no source`; with L2, whose approved and proposed entries all have a source, they are `sources, approved: 0 no source` and `sources, proposed: 0 no source`, except in 9.44.
 
 ## 10. Command line (cli.md, Revision 5)
 
@@ -270,6 +295,8 @@ cli.md revision 3 added `<cli> claims`: section 2 adds `<cli> claims`, run under
 and section 4's list of levels where `-h` and `--help` are accepted adds `<cli> claims`. Section 5 adds claims to the commands that promise fixed help text (this spec, section 3.4).
 
 cli.md revision 5 notes the quote check: section 2 ends with a sentence saying `claims` takes `--check-sources`, which also checks each quote in the claims list against the source its entry cites, and section 5 says that claims' summary lists `--check-sources` from this spec's revision 2. Section 4's help line for claims does not change. Nothing else in cli.md changes.
+
+From this spec's revision 3, cli.md revision 7 notes `--require-local-sources`. Section 2's sentence on claims becomes: `claims` takes `--check-sources`, which also checks each quote in the claims list against the source its entry cites, and `--require-local-sources`, which runs that check and also fails an approved quote it could not check and an approved entry with no source (claims.md). Section 5 says that claims' summary lists `--require-local-sources` from this spec's revision 3. Nothing else in cli.md changes. README.md's claims section (the exit paragraph) follows in the same change.
 <!-- signed spec ends -->
 
 ## Build readings (maintainer, 2026-11-01)
@@ -285,3 +312,5 @@ Revision 1 edits no sentence of the signed spec. It reads points of sections 4 t
 7. **The line-end join comes first.** A line ending in `end-` followed by a line starting `1. ` joins into one sentence. Digits in a line marker are tested after folding.
 8. **The list given as an input.** § 6's privacy promise makes the list, given as an input, a DEAD file. Section 6 says "Output never contains a source field, a note, the list file's path, or the sentence of an entry that covered nothing" and "A finding prints only text that is in the input file"; when an input is the list, both hold only if the gate refuses it. So an input that is the same file as the list (`os.path.samefile`, which counts `./L` and a symlink) is not read, and pdftotext is not run on it. It prints one line, `DEAD  file #<i>: is the list`, where `<i>` is its 1-based position among the input files, never its path (barred.md § 6, File labels). It counts as DEAD for the exit status and for reading 3. Other files are checked as usual. Known limit: a copy of the list under another name is not the same file, so it is checked like any input, and its findings can print the sources and notes it holds. The check tells files apart by identity, not by content.
 9. **The PDF wrap limit is the claim gate's own (2026-11-05).** Section 3.2 reads a PDF in `pdftotext`'s default mode "as barred.md section 3.2 says, with the same known limit for wraps inside a page". Since barred.md revision 7 the barred check reads each PDF a second time with `-layout` and finds a hyphenated entry wrapped inside a page; the claim gate keeps the default read, and so keeps that limit, though the barred check no longer has it.
+10. **Section 10's cli.md revision number (2026-11-19).** The signed section 10 says "cli.md revision 7 notes `--require-local-sources`". cli.md's revision 7 added `<cli> drafts`; the revision that carries this note is the next one after the one in the tree when this spec is built, which is revision 11. The signed text is not edited. cli.md's Revision line names revision 11, and its section 2 and section 5 sentences are the ones section 10 gives.
+11. **The `--list` help line (2026-11-20).** Section 3.4 gives the line `  --list FILE      the claims list (required)`. Since 0.11.0, when `track-record setup` added record-folder defaults, the command has printed `  --list FILE      the claims list (required unless claims-list.txt is in your record folder)`, and that is the line it prints. The signed text is not edited: the summary is section 3.4's text with that one line changed, byte for byte.

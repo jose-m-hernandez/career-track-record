@@ -27,10 +27,11 @@ BLOCK_SHA = {
 BLOCK_ONLY_SHA = {
     "record-check.md": "faba1585b0407cf770b282276101c5f381bea78a419bb5c8ddd1706e95174a0a",
     "barred.md": "fa6f8d817514531bedb877e3d9913a31ef43e540120be7eecd4d850b0cc2a685",
-    "claims.md": "ac84d164527c93bd3f8d47b1284bb8bcdb3ae39c3ff7bb73a19580e351273f41",
+    "claims.md": "501ba425adf6270ac0578ab7ff625a87ff2dce6115cf7cd96f1842aa13b54837",
     "drafts.md": "e75158e6844427dfc19ffcbb5f6616fafb4b79454f186ef3592c13f01c374426",
     "wrapped-compounds.md": "67900aa355e20e974e7ab7856d08fe1b45a048d8d1c4f521eba73db96fcb5692",
     "parse.md": "90800e13a23122829da577aec6f3559f8d5a96f2b7e97688896e1b36138dd7ae",
+    "absence.md": "9cd89599f133ac4a9c0449638cfed7c2ddb51ec6f49b2e1e6337e5b4206b159c",
 }
 
 # The key phrases that the restored 2.1 methods pin, and those pinned by the revision 4 section's points.

@@ -5,10 +5,11 @@ repository. This file is your instructions. It applies to every task here.
 
 ## Status
 
-Ten tools ship: `track-record barred`, `track-record keywords`,
+Eleven tools ship: `track-record barred`, `track-record keywords`,
 `track-record tone`, `track-record ab`, `track-record claims`,
-`track-record panel`, `track-record record`, `track-record drafts`,
-`track-record wrapped-compounds` and `track-record parse`, and a setup command
+`track-record panel`, `track-record record`, `track-record absence`,
+`track-record drafts`, `track-record wrapped-compounds` and `track-record parse`,
+and a setup command
 (see README.md). If the person asks for something these tools don't do, say so plainly instead of
 improvising it.
 
@@ -25,6 +26,10 @@ improvising it.
    Never report it as passed.
 5. **What the person shares stays theirs.** Do not copy their records,
    evidence or other people's names into issues, commits or anything public.
+
+Before the person sends a draft that answers a saved posting, follow
+`docs/review.md`: it sets the sequence of the checks and defines "ready".
+The person sends the draft.
 
 ## Working on this repository itself
 

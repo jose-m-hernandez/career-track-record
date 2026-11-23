@@ -351,6 +351,7 @@ class TopLevelHelpListsToolsCli(CliBase):
                 "tone flag hype, hedges and filler in your copy",
                 "ab compare two versions of your copy with test readers",
                 "claims fail on sentences your claims list hasn't approved",
+                "absence show that your listed terms appear nowhere in the files you declare",
                 "parse check what a text extractor gets from your résumé PDF",
                 "setup choose your record folder"):
             with self.subTest(line=line):
