@@ -11,7 +11,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | .github/workflows/ci.yml | claude-code | claude-sonnet-5-5 | 2026-11-21 |
 | .gitignore | claude-code | claude-sonnet-5-5 | 2026-11-18 |
 | AGENTS.md | claude-code | claude-fable-5-1, claude-sonnet-5-5 | 2026-11-20 |
-| CHANGELOG.md | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-22 |
+| CHANGELOG.md | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-27 |
 | CODE_OF_CONDUCT.md | claude-code | claude-sonnet-5-5 | 2026-11-20 |
 | CONTRIBUTING.md | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | LICENSE | not recorded | not recorded | not recorded |
@@ -22,6 +22,8 @@ This ledger lists every file in the repository once, with the harness and model 
 | SUPPORT.md | claude-code | claude-sonnet-5-5 | 2026-11-20 |
 | ci/__init__.py | not recorded | not recorded | not recorded |
 | ci/barred_strings.py | not recorded | not recorded | not recorded |
+| ci/forced_failures.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-23 |
+| ci/hygiene.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-23 |
 | ci/requirements-build.txt | claude-code | claude-sonnet-5-5 | 2026-11-16 |
 | docs/decisions/2026-10-19-claude-md-is-a-one-line-bridge-to-agents-md.md | not recorded | not recorded | not recorded |
 | docs/decisions/2026-10-19-the-changelog-follows-keep-a-changelog-and-semver.md | not recorded | not recorded | not recorded |
@@ -85,7 +87,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | examples/readers/model_reader.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-19 |
 | pyproject.toml | not recorded | not recorded | not recorded |
 | setup.cfg | claude-code | claude-sonnet-5-5 | 2026-11-19 |
-| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-22 |
+| src/career_track_record/__init__.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-23 |
 | src/career_track_record/__main__.py | not recorded | not recorded | not recorded |
 | src/career_track_record/ab.py | claude-code | claude-fable-5-1, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-19 |
 | src/career_track_record/ab_reader_command.py | claude-code | claude-sonnet-5-5 | 2026-11-16 |
@@ -307,12 +309,14 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_claims_sources.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_cli.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_config.py | claude-code | claude-sonnet-5-5 | 2026-11-18 |
+| tests/test_doc_cites.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-23 |
 | tests/test_docs_0_14_2.py | claude-code | claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_drafts.py | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | tests/test_drafts_docs.py | claude-code | claude-sonnet-5-5 | 2026-11-16 |
 | tests/test_drafts_inputs.py | claude-code | claude-sonnet-5-5 | 2026-11-14 |
 | tests/test_example_keywords.py | claude-code | claude-sonnet-5-5 | 2026-11-17 |
 | tests/test_example_reader.py | claude-code | claude-sonnet-5-5 | 2026-11-20 |
+| tests/test_forced_failures.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-23 |
 | tests/test_freeze_reader_warning.py | claude-code | claude-sonnet-5-5 | 2026-11-17 |
 | tests/test_help_lines.py | claude-code | claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_keywords.py | claude-code | claude-sonnet-5-5 | 2026-11-18 |
@@ -347,6 +351,7 @@ This ledger lists every file in the repository once, with the harness and model 
 | tests/test_spec_readings.py | claude-code | claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_spec_revisions.py | claude-code | claude-fable-5-1, claude-fable-5-2, claude-opus-5-5, claude-sonnet-5-5 | 2026-11-20 |
 | tests/test_stats.py | claude-code | claude-sonnet-5-5 | 2026-11-10 |
+| tests/test_test_hygiene.py | claude-code | claude-opus-5-5, claude-sonnet-5-5 | 2026-11-23 |
 | tests/test_tone.py | claude-code | claude-sonnet-5-5 | 2026-11-18 |
 | tests/test_tone_pdf.py | not recorded | not recorded | not recorded |
 | tests/test_wrapped_compounds.py | claude-code | claude-sonnet-5-5 | 2026-11-19 |
